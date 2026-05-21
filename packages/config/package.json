@@ -1,0 +1,18 @@
+{
+	"name": "@design-embed/config",
+	"version": "0.1.0",
+	"type": "module",
+	"private": true,
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"README.md"
+	]
+}

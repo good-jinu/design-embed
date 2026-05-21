@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+  - website
+
+allowBuilds:
+  '@swc/core': true
+  core-js: true
+
+catalog:
+  typescript: ^5.9.3

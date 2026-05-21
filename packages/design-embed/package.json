@@ -1,0 +1,41 @@
+{
+	"name": "design-embed",
+	"version": "0.1.0",
+	"type": "module",
+	"private": false,
+	"publishConfig": {
+		"access": "public"
+	},
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"README.md"
+	],
+	"bin": {
+		"design-embed": "./dist/cli.js"
+	},
+	"scripts": {
+		"dev": "node src/cli.ts",
+		"compile:react": "node src/cli.ts react",
+		"compile:html": "node src/cli.ts html",
+		"compile:vanjs": "node src/cli.ts vanjs",
+		"get-raw": "node src/cli.ts raw"
+	},
+	"dependencies": {
+		"@design-embed/config": "workspace:*",
+		"@design-embed/core": "workspace:*",
+		"@design-embed/target-html": "workspace:*",
+		"@design-embed/target-react": "workspace:*"
+	},
+	"bundledDependencies": [
+		"@design-embed/config",
+		"@design-embed/core"
+	]
+}

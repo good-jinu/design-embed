@@ -1,0 +1,34 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build and generated output
+dist
+coverage
+.nyc_output
+*.tsbuildinfo
+docs/api
+website/api
+website/build
+website/.docusaurus
+npm-packages
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Logs and local caches
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+.cache
+.eslintcache
+.stylelintcache
+
+# OS/editor noise
+.DS_Store
+
+# Runtime compiler output — not test oracles
+tests/fixtures/*/generated/

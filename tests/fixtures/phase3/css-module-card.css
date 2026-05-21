@@ -1,0 +1,9 @@
+.card {
+  padding: 15.5px;
+  background-color: #3c81f7;
+  border-radius: 8px;
+}
+
+.panel .card {
+  margin: 4px;
+}

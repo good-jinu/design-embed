@@ -1,0 +1,12 @@
+[env]
+_.file = ".env"
+
+[tools]
+node = "24"
+pnpm = "11"
+
+[tasks.test]
+description = "Run all repository tests and type checks"
+run = [
+	"pnpm test",
+]
