@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { emitHtmlDebug, htmlEmitter } from "../../target-html/src/index.ts";
 import {
 	applyComponentMappings,
 	checkGeneratedFiles,
@@ -8,8 +7,33 @@ import {
 	matchesSelector,
 	parseHtml,
 	parseSelector,
+	type TargetEmitter,
 	toJsonDiagnostics,
 } from "./index.ts";
+
+const htmlEmitter: TargetEmitter = {
+	emit({ nodes }) {
+		return {
+			files: [
+				{
+					path: "debug.html",
+					contents: nodes
+						.map((node) => {
+							const attributes = Object.entries(node.attributes ?? {})
+								.sort(([left], [right]) => left.localeCompare(right))
+								.map(([name, value]) => `${name}="${value}"`)
+								.join(" ");
+							const openTag = attributes
+								? `<${node.tagName} ${attributes}>`
+								: `<${node.tagName}>`;
+							return `${openTag}\n\t${node.children?.[0]?.text ?? ""}\n</${node.tagName}>\n`;
+						})
+						.join(""),
+				},
+			],
+		};
+	},
+};
 
 describe("core", () => {
 	test("parses HTML into a stable AST shape", () => {
@@ -51,10 +75,16 @@ describe("core", () => {
 
 	test("debug emitter is deterministic across repeated runs", () => {
 		const html = `<section><p>One</p><p>Two</p></section>`;
-		const first = emitHtmlDebug(parseHtml(html));
-		const second = emitHtmlDebug(parseHtml(html));
+		const first = htmlEmitter.emit({
+			nodes: parseHtml(html),
+			diagnostics: [],
+		});
+		const second = htmlEmitter.emit({
+			nodes: parseHtml(html),
+			diagnostics: [],
+		});
 
-		assert.equal(first, second);
+		assert.deepEqual(first, second);
 	});
 
 	test("matches the phase 2 selector subset", () => {

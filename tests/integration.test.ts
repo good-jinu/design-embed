@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { loadConfig } from "../packages/config/src/index.ts";
-import { htmlEmitter } from "../packages/target-html/src/index.ts";
+import { htmlEmitter } from "../packages/design-embed/src/targets/html.ts";
 import {
 	reactEmitter,
+	reactTarget,
 	reactTestGenerator,
 } from "../packages/target-react/src/index.ts";
 import { type Diagnostic, embed } from "../packages/core/src/index.ts";
@@ -186,7 +187,7 @@ describe("test generation", () => {
 			html: '<section style="width: 120px">Hello</section>',
 			config: {
 				output: {
-					target: "react",
+					target: reactTarget,
 					viewName: "GeneratedCard",
 					viewsDir: "src/generated/views",
 				},

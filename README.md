@@ -116,10 +116,11 @@ Compilation runs locally and deterministically. Optional source plugins, such as
 ```typescript
 // design-embed.config.ts
 import { defineConfig } from "design-embed";
+import { reactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
   output: {
-    target: "react",
+    target: reactTarget,
     viewName: "Hero",
     viewsDir: "src/generated/views",
     styleMode: "tailwind"
@@ -243,17 +244,17 @@ npm install design-embed @design-embed/target-react
 
 ```typescript
 import { embed } from "design-embed";
-import { reactEmitter } from "@design-embed/target-react";
+import { reactTarget } from "@design-embed/target-react";
 
 const result = await embed({
   html: "<div>...</div>",
   config: {
     output: {
-      target: "react",
+      target: reactTarget,
       viewName: "DesignView"
     }
   },
-  targetEmitter: reactEmitter
+  targetEmitter: reactTarget
 });
 ```
 

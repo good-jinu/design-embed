@@ -3,17 +3,22 @@ import { dirname, isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 /**
- * Supported output targets for the compiler.
- */
-export type OutputTarget = "html" | "react";
-
-/**
  * Minimal interface every source plugin instance must satisfy.
  * Keep this interface in the config package so plugin packages can implement
  * it without pulling in the heavier core package.
  */
 export interface PluginDefinition {
 	readonly name: string;
+}
+
+/**
+ * External target adapter instance supplied by packages like
+ * `@design-embed/target-react`.
+ */
+export interface TargetAdapterDefinition {
+	readonly name?: string;
+	emit(input: unknown): unknown;
+	generateTests?(input: unknown): unknown;
 }
 
 /**
@@ -38,8 +43,8 @@ export interface DesignEmbedConfig {
 		viewsDir?: string;
 		/** Directory for page-level assemblies. */
 		assembliesDir?: string;
-		/** The target framework or format. */
-		target?: OutputTarget;
+		/** Target adapter instance. Omit to use built-in HTML output. */
+		target?: "html" | TargetAdapterDefinition;
 		/** Name of the generated component/view. */
 		viewName?: string;
 		/** How to handle styles: inline, Tailwind, or CSS Modules. */
@@ -197,7 +202,7 @@ export interface LoadConfigResult {
  *
  * @example
  * export default defineConfig({
- *   output: { target: 'react' }
+ *   output: { target: reactTarget }
  * });
  */
 export function defineConfig(config: DesignEmbedConfig): DesignEmbedConfig {
@@ -285,10 +290,14 @@ export function validateConfig(config: DesignEmbedConfig): ConfigDiagnostic[] {
 	const target = config.output?.target;
 	const styleMode = config.output?.styleMode;
 
-	if (target && target !== "html" && target !== "react") {
+	if (
+		target &&
+		target !== "html" &&
+		(typeof target !== "object" || typeof target.emit !== "function")
+	) {
 		diagnostics.push({
-			code: "UNSUPPORTED_TARGET",
-			message: `Unsupported output target: ${target}`,
+			code: "TARGET_ADAPTER_INVALID",
+			message: "output.target must be a target adapter with emit().",
 			severity: "error",
 		});
 	}

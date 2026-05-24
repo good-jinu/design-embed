@@ -23,10 +23,6 @@ export async function runInitCommand(
 			path: "design.html",
 			contents: designHtmlTemplate(),
 		},
-		{
-			path: "playwright-ct.config.ts",
-			contents: playwrightConfigTemplate(),
-		},
 	];
 
 	let written = 0;
@@ -64,28 +60,8 @@ function configTemplate(viewName: string): string {
 
 export default defineConfig({
 \toutput: {
-\t\ttarget: "react",
 \t\tviewName: "${viewName}",
 \t\tviewsDir: "src/generated/views",
-\t\tstyleMode: "inline",
-\t},
-\ttests: {
-\t\toutputDir: "tests/generated/design-embed",
-\t\trunner: "playwright",
-\t\tsource: {
-\t\t\thtml: "./design.html",
-\t\t},
-\t\tviewports: [
-\t\t\t{ name: "mobile", width: 390, height: 844 },
-\t\t\t{ name: "desktop", width: 1440, height: 900 },
-\t\t],
-\t\tstates: [{ name: "default" }],
-\t\tassertions: {
-\t\t\tscreenshot: true,
-\t\t\tlayout: true,
-\t\t\tlayoutTolerance: 1,
-\t\t\tselectors: [":scope", ":scope *"],
-\t\t},
 \t},
 });
 `;
@@ -98,17 +74,5 @@ function designHtmlTemplate(): string {
 \t<p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5;">Replace this file with HTML exported from your design source.</p>
 \t<button data-role="primary" style="border: 0; border-radius: 999px; padding: 12px 18px; background: #2563eb; color: white; font-size: 14px; font-weight: 700;">Get started</button>
 </section>
-`;
-}
-
-function playwrightConfigTemplate(): string {
-	return `import { defineConfig } from "@playwright/experimental-ct-react";
-
-export default defineConfig({
-\ttestDir: ".",
-\tuse: {
-\t\tctPort: 3100,
-\t},
-});
 `;
 }

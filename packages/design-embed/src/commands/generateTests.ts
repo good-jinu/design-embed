@@ -1,8 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { type DesignEmbedConfig, loadConfig } from "@design-embed/config";
-import type { Diagnostic } from "@design-embed/core";
-import { reactTestGenerator } from "@design-embed/target-react";
+import type { Diagnostic, TargetTestGenerator } from "@design-embed/core";
 import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
 import { printDiagnostics } from "./compile.ts";
 
@@ -39,18 +38,19 @@ export async function runGenerateTestsCommand(
 		return 2;
 	}
 
-	const target = config.output?.target ?? "html";
-	if (target !== "react") {
+	const testGenerator = getTestGenerator(config);
+	if (!testGenerator) {
 		diagnostics.push({
 			code: "TEST_TARGET_UNSUPPORTED",
-			message: `generate-tests currently supports target "react"; received "${target}".`,
+			message:
+				"generate-tests requires output.target to be a target adapter with generateTests().",
 			severity: "error",
 		});
 		printDiagnostics(diagnostics, format, quiet);
 		return 2;
 	}
 
-	const result = reactTestGenerator.generateTests({
+	const result = testGenerator.generateTests({
 		html: source.html,
 		css: source.css,
 		config,
@@ -133,6 +133,15 @@ function readConfiguredSource(
 
 function resolveConfigPath(path: string, configDir: string): string {
 	return isAbsolute(path) ? path : resolve(configDir, path);
+}
+
+function getTestGenerator(
+	config: DesignEmbedConfig,
+): TargetTestGenerator | undefined {
+	const target = config.output?.target;
+	return target && target !== "html" && "generateTests" in target
+		? (target as TargetTestGenerator)
+		: undefined;
 }
 
 function hasErrors(diagnostics: Diagnostic[]): boolean {

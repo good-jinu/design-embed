@@ -58,6 +58,7 @@ export interface TargetEmitResult {
 }
 
 export interface TargetEmitter {
+	name?: string;
 	emit(input: TargetEmitInput): TargetEmitResult;
 }
 

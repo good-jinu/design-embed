@@ -22,10 +22,9 @@ Workspace packages:
 
 - `packages/core`: compiler engine. Owns HTML parsing, normalized design AST types, diagnostics, component mapping, transformer execution, check-mode comparison, and plugin interfaces. Core must stay target-agnostic and source-tool agnostic.
 - `packages/config`: config loading and validation for `.ts`, `.js`, and `.mjs` config files. Keep schema and diagnostic behavior here rather than spreading config checks through emitters.
-- `packages/design-embed`: public `design-embed` package. It exposes the programmatic API and owns command-line orchestration: loading config, reading input, invoking explicit source plugins, selecting target emitters, writing generated files, formatting diagnostics, and handling check-mode exit codes.
+- `packages/design-embed`: public `design-embed` package. It exposes the programmatic API and owns command-line orchestration: loading config, reading input, invoking explicit source plugins, selecting target adapters, writing generated files, formatting diagnostics, handling check-mode exit codes, and providing the built-in HTML output.
 - `packages/plugin-figma-html`: explicit Figma source plugin. Network access belongs here and should remain opt-in through plugin commands or injected fetchers in tests.
-- `packages/target-html`: debug HTML target emitter. It serializes the normalized design AST for inspection.
-- `packages/target-react`: React target emitter. It owns JSX emission, component substitution output, prop extraction output, style conversion, Tailwind class mapping, and CSS Modules output.
+- `packages/target-react`: React target adapter. It owns JSX emission, component substitution output, prop extraction output, style conversion, Tailwind class mapping, CSS Modules output, and React-specific test generation.
 - `website`: Docusaurus documentation site.
 
 Architectural conventions:

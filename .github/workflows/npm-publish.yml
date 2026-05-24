@@ -72,7 +72,6 @@ jobs:
           pnpm --config.node-linker=hoisted --dir packages/design-embed pack --pack-destination ../../npm-packages
           pnpm --config.node-linker=hoisted --dir packages/plugin-figma-html pack --pack-destination ../../npm-packages
           pnpm --config.node-linker=hoisted --dir packages/target-react pack --pack-destination ../../npm-packages
-          pnpm --config.node-linker=hoisted --dir packages/target-html pack --pack-destination ../../npm-packages
 
       - name: List package tarballs
         run: ls -la npm-packages
@@ -81,7 +80,6 @@ jobs:
         if: ${{ !inputs.dry_run }}
         run: |
           NPM_TAG="${{ inputs.tag || 'latest' }}"
-          pnpm --config.node-linker=hoisted --dir packages/target-html publish --access public --provenance --tag "$NPM_TAG" --no-git-checks
           pnpm --config.node-linker=hoisted --dir packages/target-react publish --access public --provenance --tag "$NPM_TAG" --no-git-checks
           pnpm --config.node-linker=hoisted --dir packages/plugin-figma-html publish --access public --provenance --tag "$NPM_TAG" --no-git-checks
           pnpm --config.node-linker=hoisted --dir packages/design-embed publish --access public --provenance --tag "$NPM_TAG" --no-git-checks
