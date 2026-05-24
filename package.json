@@ -7,9 +7,10 @@
 		"website"
 	],
 	"scripts": {
-		"test": "node --test packages/**/*.test.ts tests/**/*.test.ts && tsc --noEmit",
+		"test": "node --conditions=development --test packages/**/*.test.ts tests/**/*.test.ts && tsc --noEmit",
 		"build:packages": "node scripts/build-packages.mjs",
 		"design-embed": "node packages/design-embed/src/cli.ts",
+		"check": "biome check",
 		"check:fix": "biome check --write --unsafe",
 		"typecheck": "tsc --noEmit",
 		"docs:links": "find docs -name '*.md' -exec markdown-link-check -c .markdown-link-check.json {} \\;",

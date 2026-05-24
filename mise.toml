@@ -10,3 +10,15 @@ description = "Run all repository tests and type checks"
 run = [
 	"pnpm test",
 ]
+
+[tasks."pre-commit"]
+description = "Execute before commit"
+run = """
+pnpm run check
+pnpm typecheck
+pnpm test
+pnpm docs:check
+"""
+
+[hooks]
+postinstall = "pnpm install && mise generate git-pre-commit --write --task=pre-commit"
