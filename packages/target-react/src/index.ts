@@ -20,6 +20,7 @@ import {
 export const reactEmitter: TargetEmitter = {
 	emit({ nodes, css, config, diagnostics }: TargetEmitInput): TargetEmitResult {
 		const viewsDir = config?.output?.viewsDir ?? "src/generated/views";
+		const assembliesDir = config?.output?.assembliesDir;
 		const viewName = config?.output?.viewName ?? "DesignView";
 
 		const styleResult = transformStyles(nodes, css, config, diagnostics);
@@ -41,8 +42,30 @@ export const reactEmitter: TargetEmitter = {
 				contents: styleResult.cssModule,
 			});
 		}
+		if (assembliesDir) {
+			const pageName = `${viewName}Page`;
+			files.push({
+				path: `${assembliesDir}/${pageName}.tsx`,
+				contents: emitReactPage({
+					pageName,
+					viewName,
+					viewImportPath: toRelativeImport(
+						`${assembliesDir}/${pageName}.tsx`,
+						`${viewsDir}/${viewName}.view`,
+					),
+				}),
+			});
+		}
 
 		return { files };
+	},
+};
+
+export const reactTarget: TargetEmitter & TargetTestGenerator = {
+	name: "react",
+	emit: reactEmitter.emit,
+	generateTests(input: TargetTestGenerateInput): TargetTestGenerateResult {
+		return reactTestGenerator.generateTests(input);
 	},
 };
 
@@ -240,6 +263,19 @@ function toRelativeImport(fromFile: string, toFile: string): string {
 	const prefix = fromParts.map(() => "..");
 	const relative = [...prefix, ...toParts].join("/");
 	return relative.startsWith(".") ? relative : `./${relative}`;
+}
+
+function emitReactPage(input: {
+	pageName: string;
+	viewName: string;
+	viewImportPath: string;
+}): string {
+	return `import { ${input.viewName} } from "${input.viewImportPath}";
+
+export default function ${input.pageName}() {
+\treturn <${input.viewName} />;
+}
+`;
 }
 
 export function emitReactView(

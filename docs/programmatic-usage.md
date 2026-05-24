@@ -18,18 +18,18 @@ The most common programmatic use case is calling the `embed` function. You provi
 
 ```typescript
 import { embed } from "design-embed";
-import { reactEmitter } from "@design-embed/target-react";
+import { reactTarget } from "@design-embed/target-react";
 
 async function runCompiler() {
   const result = await embed({
     html: '<div class="card">Hello World</div>',
     config: {
       output: {
-        target: "react",
+        target: reactTarget,
         viewName: "MyComponent"
       }
     },
-    targetEmitter: reactEmitter
+    targetEmitter: reactTarget
   });
 
   if (result.diagnostics.length > 0) {

@@ -48,24 +48,12 @@ importers:
       '@design-embed/core':
         specifier: workspace:*
         version: link:../core
-      '@design-embed/target-html':
-        specifier: workspace:*
-        version: link:../target-html
-      '@design-embed/target-react':
-        specifier: workspace:*
-        version: link:../target-react
 
   packages/plugin-figma-html:
     dependencies:
       '@design-embed/config':
         specifier: workspace:*
         version: link:../config
-      '@design-embed/core':
-        specifier: workspace:*
-        version: link:../core
-
-  packages/target-html:
-    dependencies:
       '@design-embed/core':
         specifier: workspace:*
         version: link:../core

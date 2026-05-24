@@ -26,7 +26,11 @@ async function main(): Promise<number> {
 		return runInitCommand(parsed.flags);
 	}
 
-	return runCompileCommand(parsed.flags);
+	const flags =
+		args[0] && !args[0].startsWith("--")
+			? { ...parsed.flags, "--": args[0] }
+			: parsed.flags;
+	return runCompileCommand(flags);
 }
 
 main()

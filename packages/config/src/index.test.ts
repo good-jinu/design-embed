@@ -3,11 +3,8 @@ import { describe, test } from "node:test";
 import { type DesignEmbedConfig, loadConfig, validateConfig } from "./index.ts";
 
 describe("config", () => {
-	test("reports unsupported targets and invalid tokens", () => {
+	test("reports invalid tokens", () => {
 		const config = {
-			output: {
-				target: "vue" as unknown as string,
-			},
 			tokens: {
 				colors: {
 					broken: "blue",
@@ -17,14 +14,26 @@ describe("config", () => {
 
 		assert.deepEqual(
 			validateConfig(config).map((diagnostic) => diagnostic.code),
-			["UNSUPPORTED_TARGET", "TOKEN_COLOR_INVALID"],
+			["TOKEN_COLOR_INVALID"],
+		);
+	});
+
+	test("reports invalid target adapters", () => {
+		const config = {
+			output: {
+				target: "react" as unknown,
+			},
+		} as DesignEmbedConfig;
+
+		assert.deepEqual(
+			validateConfig(config).map((diagnostic) => diagnostic.code),
+			["TARGET_ADAPTER_INVALID"],
 		);
 	});
 
 	test("validates a valid configuration object", () => {
 		const config = {
 			output: {
-				target: "react" as const,
 				styleMode: "tailwind" as const,
 			},
 			tokens: {

@@ -6,12 +6,13 @@ import {
 	type Diagnostic,
 	embed,
 	formatDiagnosticText,
+	type TargetEmitter,
+	type TargetTestGenerator,
 	type TransformerPlugin,
 	toJsonDiagnostics,
 } from "@design-embed/core";
-import { htmlEmitter } from "@design-embed/target-html";
-import { reactEmitter } from "@design-embed/target-react";
 import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
+import { htmlEmitter } from "../targets/html.ts";
 
 export interface CompileCommandOptions {
 	check?: boolean;
@@ -22,10 +23,12 @@ export async function runCompileCommand(
 	options: CompileCommandOptions = {},
 ): Promise<number> {
 	const cwd = resolve(process.cwd(), getStringFlag(flags, "--cwd") ?? ".");
-	const inputPath = getStringFlag(flags, "--input");
+	const inputPath =
+		getStringFlag(flags, "--input") ?? getStringFlag(flags, "--");
 	const configPath = getStringFlag(flags, "--config");
 	const quiet = getBooleanFlag(flags, "--quiet");
 	const format = getFormat(flags);
+	const generateTests = !getBooleanFlag(flags, "--no-test");
 	const diagnostics: Diagnostic[] = [];
 
 	if (!inputPath) {
@@ -69,20 +72,34 @@ export async function runCompileCommand(
 		}
 	}
 
-	const target = config?.output?.target ?? "html";
-	const targetEmitter = target === "react" ? reactEmitter : htmlEmitter;
+	const targetAdapter = getTargetAdapter(config);
 
 	const cssPath = getStringFlag(flags, "--css");
+	const html = readFileSync(resolvedInputPath, "utf-8");
+	const css = cssPath
+		? readFileSync(resolve(cwd, cssPath), "utf-8")
+		: undefined;
 	const result = await embed({
-		html: readFileSync(resolvedInputPath, "utf-8"),
-		css: cssPath ? readFileSync(resolve(cwd, cssPath), "utf-8") : undefined,
+		html,
+		css,
 		configPath,
 		config,
 		cwd,
 		transformers,
-		targetEmitter,
+		targetEmitter: targetAdapter.emitter,
 	});
 	diagnostics.push(...result.diagnostics);
+
+	if (generateTests && targetAdapter.testGenerator) {
+		const testResult = targetAdapter.testGenerator.generateTests({
+			html,
+			css,
+			config: config ?? {},
+			diagnostics,
+			generatedFiles: result.files,
+		});
+		result.files.push(...testResult.files);
+	}
 
 	if (hasErrors(diagnostics)) {
 		printDiagnostics(diagnostics, format, quiet);
@@ -145,6 +162,27 @@ export function printDiagnostics(
 
 function isPackageName(path: string): boolean {
 	return !path.startsWith(".") && !isAbsolute(path);
+}
+
+interface ResolvedTargetAdapter {
+	emitter: TargetEmitter;
+	testGenerator?: TargetTestGenerator;
+}
+
+function getTargetAdapter(
+	config: DesignEmbedConfig | undefined,
+): ResolvedTargetAdapter {
+	const target = config?.output?.target;
+	if (!target || target === "html") {
+		return { emitter: htmlEmitter };
+	}
+	return {
+		emitter: target as TargetEmitter,
+		testGenerator:
+			"generateTests" in target
+				? (target as TargetEmitter & TargetTestGenerator)
+				: undefined,
+	};
 }
 
 async function loadTransformers(

@@ -1,8 +1,9 @@
 import { defineConfig } from "../../../packages/config/src/index.ts";
+import { reactTarget } from "../../../packages/target-react/src/index.ts";
 
 export default defineConfig({
 	output: {
-		target: "react",
+		target: reactTarget,
 		viewName: "CssModulesExample",
 		viewsDir: "tests/examples/react-css-modules/expected/src/generated/views",
 		styleMode: "css-modules",

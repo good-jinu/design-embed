@@ -56,14 +56,15 @@ npm exec design-embed -- init --force
 
 ### 2. Basic Configuration
 
-The generated `design-embed.config.ts` starts with a React target and visual test settings:
+The generated `design-embed.config.ts` starts with built-in HTML output. Add a target adapter such as React when you want framework output:
 
 ```typescript
 import { defineConfig } from "design-embed";
+import { reactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
   output: {
-    target: "react",
+    target: reactTarget,
     viewName: "WelcomeHero",
     viewsDir: "src/generated/views",
     styleMode: "inline"
@@ -105,6 +106,7 @@ npm install --save-dev @design-embed/plugin-figma-html
 ```typescript
 import { defineConfig } from "design-embed";
 import { FigmaHtmlPlugin } from "@design-embed/plugin-figma-html";
+import { reactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
   plugins: [
@@ -113,7 +115,7 @@ export default defineConfig({
     })
   ],
   output: {
-    target: "react",
+    target: reactTarget,
     viewName: "WelcomeHero",
     viewsDir: "src/generated/views",
     styleMode: "inline"
@@ -155,10 +157,11 @@ Update `design-embed.config.ts`:
 
 ```typescript
 import { defineConfig } from "design-embed";
+import { reactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
   output: {
-    target: "react",
+    target: reactTarget,
     viewName: "WelcomeHero",
     viewsDir: "src/generated/views",
     styleMode: "inline"

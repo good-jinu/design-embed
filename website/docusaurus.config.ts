@@ -73,7 +73,6 @@ const config: Config = {
           '../packages/config',
           '../packages/core',
           '../packages/plugin-figma-html',
-          '../packages/target-html',
           '../packages/target-react',
         ],
         entryPointStrategy: 'packages',

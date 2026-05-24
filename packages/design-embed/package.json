@@ -31,9 +31,7 @@
 	},
 	"dependencies": {
 		"@design-embed/config": "workspace:*",
-		"@design-embed/core": "workspace:*",
-		"@design-embed/target-html": "workspace:*",
-		"@design-embed/target-react": "workspace:*"
+		"@design-embed/core": "workspace:*"
 	},
 	"bundledDependencies": [
 		"@design-embed/config",

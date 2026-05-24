@@ -1,8 +1,9 @@
 import { defineConfig } from "../../../packages/config/src/index.ts";
+import { reactTarget } from "../../../packages/target-react/src/index.ts";
 
 export default defineConfig({
 	output: {
-		target: "react",
+		target: reactTarget,
 		viewName: "TailwindExample",
 		viewsDir: "tests/examples/react-tailwind/expected/src/generated/views",
 		styleMode: "tailwind",

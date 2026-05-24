@@ -25,8 +25,10 @@ export default defineConfig({
 The `output` section controls how and where files are generated.
 
 ```typescript
+import { reactTarget } from "@design-embed/target-react";
+
 output: {
-  target: "react",             // "react" or "html" (debug)
+  target: reactTarget,         // Omit for built-in HTML output
   viewName: "LandingPage",     // Name of the generated component
   viewsDir: "src/generated",   // Directory for output files
   styleMode: "tailwind"        // "inline", "tailwind", or "css-modules"
