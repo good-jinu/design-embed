@@ -30,7 +30,20 @@ async function main(): Promise<number> {
 		args[0] && !args[0].startsWith("--")
 			? { ...parsed.flags, "--": args[0] }
 			: parsed.flags;
+	if (getOutPath(flags) && !hasInput(flags)) {
+		return runPluginCommand(undefined, flags);
+	}
 	return runCompileCommand(flags);
+}
+
+function getOutPath(flags: Record<string, string | boolean>): boolean {
+	return typeof flags["--out"] === "string";
+}
+
+function hasInput(flags: Record<string, string | boolean>): boolean {
+	return (
+		typeof flags["--input"] === "string" || typeof flags["--"] === "string"
+	);
 }
 
 main()

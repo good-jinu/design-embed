@@ -25,7 +25,11 @@ export async function runCompileCommand(
 	const cwd = resolve(process.cwd(), getStringFlag(flags, "--cwd") ?? ".");
 	const inputPath =
 		getStringFlag(flags, "--input") ?? getStringFlag(flags, "--");
-	const configPath = getStringFlag(flags, "--config");
+	const explicitConfigPath = getStringFlag(flags, "--config");
+	const defaultConfigPath = resolve(cwd, "design-embed.config.ts");
+	const configPath =
+		explicitConfigPath ??
+		(existsSync(defaultConfigPath) ? "design-embed.config.ts" : undefined);
 	const quiet = getBooleanFlag(flags, "--quiet");
 	const format = getFormat(flags);
 	const generateTests = !getBooleanFlag(flags, "--no-test");

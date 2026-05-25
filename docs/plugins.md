@@ -10,6 +10,87 @@ sidebar_position: 7
 
 Source plugins fetch or generate the raw HTML/CSS that the compiler uses as input.
 
+### Custom HTML Source Plugin
+
+A source plugin can be local project code. For example, this plugin fetches HTML
+from an external URL and returns it to the fetch command.
+
+```typescript
+// external-html-plugin.ts
+import type {
+  Diagnostic,
+  PluginDefinition,
+  SourcePlugin,
+  SourcePluginInput,
+  SourcePluginResult
+} from "design-embed";
+
+export class ExternalHtmlPlugin implements PluginDefinition, SourcePlugin {
+  readonly name = "external-html";
+  private readonly options: { url: string };
+
+  constructor(options: { url: string }) {
+    this.options = options;
+  }
+
+  async run(_input: SourcePluginInput): Promise<SourcePluginResult> {
+    try {
+      const response = await fetch(this.options.url);
+      if (!response.ok) {
+        return {
+          diagnostics: [
+            {
+              code: "EXTERNAL_HTML_FETCH_FAILED",
+              message: `Failed to fetch HTML: ${response.status} ${response.statusText}`,
+              severity: "error"
+            }
+          ]
+        };
+      }
+
+      return {
+        html: await response.text(),
+        diagnostics: []
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const diagnostic: Diagnostic = {
+        code: "EXTERNAL_HTML_FETCH_FAILED",
+        message,
+        severity: "error"
+      };
+      return { diagnostics: [diagnostic] };
+    }
+  }
+}
+```
+
+Use the local plugin from `design-embed.config.ts`:
+
+```typescript
+import { defineConfig } from "design-embed";
+import { ExternalHtmlPlugin } from "./external-html-plugin";
+
+export default defineConfig({
+  plugins: [
+    new ExternalHtmlPlugin({
+      url: "https://www.scrapethissite.com/pages/"
+    })
+  ],
+  output: {
+    viewName: "ScrapeThisSitePages",
+    viewsDir: "src/generated/views"
+  }
+});
+```
+
+Then write the fetched HTML to a local source artifact before compiling:
+
+```bash npm2yarn
+npm exec design-embed -- --out ./design.html
+npm exec design-embed -- --input ./design.html
+```
+
 ### Figma Plugin (`figma-html`)
 
 The official Figma plugin fetches a configured node from Figma and converts it
@@ -31,7 +112,7 @@ export default defineConfig({
 
 **Usage**
 ```bash npm2yarn
-npm exec design-embed -- plugin --config ./design-embed.config.ts --out ./design.html
+npm exec design-embed -- --out ./design.html
 ```
 
 **Credentials:**

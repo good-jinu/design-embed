@@ -9,7 +9,8 @@ The `design-embed` CLI is used to compile designs, check for regressions, and ru
 ## Main Commands
 
 ### `design-embed init`
-Creates starter files for a React design embedding workflow.
+Creates starter files for a design embedding workflow, including a local custom
+HTML fetcher plugin example in `design-embed.config.ts`.
 
 ```bash npm2yarn
 npm exec design-embed init
@@ -19,11 +20,11 @@ This writes:
 
 ```text
 design-embed.config.ts
-design.html
-playwright-ct.config.ts
 ```
 
 Existing files are skipped by default.
+Run `design-embed --out ./design.html` to create `design.html` from the
+generated fetcher plugin.
 
 **Flags**
 
@@ -39,13 +40,13 @@ Existing files are skipped by default.
 Compiles design HTML/CSS into your target format.
 
 ```bash npm2yarn
-npm exec design-embed -- --input <file> --config <file> [flags]
+npm exec design-embed -- --input <file> [flags]
 ```
 
 **Flags**
 
 - `--input`: Path to the input HTML file. Required.
-- `--config`: Path to your `design-embed.config.ts`, `.js`, or `.mjs` file.
+- `--config`: Path to your config file when it is not `design-embed.config.ts`.
 - `--css`: Optional path to a separate CSS file.
 - `--quiet`: Suppress text diagnostics and success output.
 - `--format`: Diagnostic output format, either `text` or `json`.
@@ -57,7 +58,7 @@ npm exec design-embed -- --input <file> --config <file> [flags]
 Checks if generated files are up-to-date without writing anything. Ideal for CI/CD.
 
 ```bash npm2yarn
-npm exec design-embed -- check --input <file> --config <file>
+npm exec design-embed -- check --input <file>
 ```
 
 `check` uses the same flags as the default compile command. By default it compares generated output with files on disk and exits without writing. Pass `--write` to write the generated files instead.
@@ -73,32 +74,32 @@ npm exec design-embed -- check --input <file> --config <file>
 Generates configured visual regression test code and source fixtures.
 
 ```bash npm2yarn
-npm exec design-embed -- generate-tests --config <file>
+npm exec design-embed -- generate-tests
 ```
 
 The command reads the `tests` section from the config file. For React targets, it emits Playwright component-test code that compares the source HTML/CSS fixture with the generated React view using screenshots and element bounding boxes.
 
 **Flags**
 
-- `--config`: Path to your `design-embed.config.ts`, `.js`, or `.mjs` file. Required.
+- `--config`: Path to your config file when it is not `design-embed.config.ts`.
 - `--quiet`: Suppress text diagnostics and success output.
 - `--format`: Diagnostic output format, either `text` or `json`.
 - `--cwd`: Set the working directory.
 
 ---
 
-### `design-embed plugin`
-Invokes an explicit source plugin to fetch or prepare design data before local compilation.
+### `design-embed --out`
+Runs the configured source plugin to fetch or prepare design data before local compilation.
 
 ```bash npm2yarn
-npm exec design-embed -- plugin --config <file> --out <path>
+npm exec design-embed -- --out <path>
 ```
 
-The command loads the first source plugin instance from the config file's
-`plugins` array. For example, configure `new FigmaHtmlPlugin({ url })`, then run
-the command to write the plugin-produced HTML.
+The command loads the first source plugin instance from `design-embed.config.ts`
+and writes the plugin-produced HTML. Pass `--config` only when your config file
+has a different path.
 
 **Flags**
 
-- `--config`: Path to a config file containing a source plugin instance. Required.
 - `--out`: Path where the generated HTML should be written. Required.
+- `--config`: Path to a config file containing a source plugin instance when it is not `design-embed.config.ts`.

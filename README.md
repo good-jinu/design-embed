@@ -233,7 +233,7 @@ That's what we automate.
 
 ```bash npm2yarn
 npm install --save-dev design-embed
-npm exec design-embed -- --input ./design.html --config ./design-embed.config.ts
+npm exec design-embed -- --input ./design.html
 ```
 
 Or use it programmatically:
