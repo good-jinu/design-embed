@@ -44,8 +44,6 @@ This creates:
 
 ```text
 design-embed.config.ts
-design.html
-playwright-ct.config.ts
 ```
 
 Pass `--force` to overwrite existing files:
@@ -56,7 +54,22 @@ npm exec design-embed -- init --force
 
 ### 2. Basic Configuration
 
-The generated `design-embed.config.ts` starts with built-in HTML output. Add a target adapter such as React when you want framework output:
+The generated `design-embed.config.ts` includes a local `HtmlFetcherPlugin`
+example. It fetches HTML from `https://www.scrapethissite.com/pages/` and writes
+the first `design.html` source artifact when you run the fetch command:
+
+```bash npm2yarn
+npm exec design-embed -- --out ./design.html
+```
+
+The plugin is project code inside the generated config, so you can replace the
+URL, headers, authentication, parsing, or error handling with the needs of your
+own design source.
+
+`design-embed.config.ts` is the default config filename. Pass `--config` only
+when your config has a different name or lives in a different location.
+
+Add a target adapter such as React when you want framework output:
 
 ```typescript
 import { defineConfig } from "design-embed";
@@ -123,16 +136,14 @@ export default defineConfig({
 });
 ```
 
-Then run the plugin command to write the fetched design HTML to disk:
+Then run the fetch command to write the fetched design HTML to disk:
 
 ```bash npm2yarn
 # Set your Figma personal access token
 export FIGMA_TOKEN=your_token_here
 
 # Fetch a design node
-npm exec design-embed -- plugin \
-  --config ./design-embed.config.ts \
-  --out ./design.html
+npm exec design-embed -- --out ./design.html
 ```
 
 ### 4. Run the Compiler
@@ -140,7 +151,7 @@ npm exec design-embed -- plugin \
 Now, run the compiler to turn that HTML into a React component:
 
 ```bash npm2yarn
-npm exec design-embed -- --input ./design.html --config ./design-embed.config.ts
+npm exec design-embed -- --input ./design.html
 ```
 
 This will create `src/generated/views/WelcomeHero.view.tsx`.
@@ -202,13 +213,13 @@ source: {
 ### 2. Compile the React view
 
 ```bash npm2yarn
-npm exec design-embed -- --input ./design.html --config ./design-embed.config.ts
+npm exec design-embed -- --input ./design.html
 ```
 
 ### 3. Generate the test files
 
 ```bash npm2yarn
-npm exec design-embed -- generate-tests --config ./design-embed.config.ts
+npm exec design-embed -- generate-tests
 ```
 
 This writes files like:

@@ -154,7 +154,7 @@ tests: {
 Run the generator with:
 
 ```bash npm2yarn
-npm exec design-embed -- generate-tests --config ./design-embed.config.ts
+npm exec design-embed -- generate-tests
 ```
 
 Generated tests perform full-page screenshot equality and compare each collected element's `x`, `y`, `width`, and `height`. The React generator uses `@playwright/experimental-ct-react`, so the consuming project should provide the matching Playwright component-test setup.

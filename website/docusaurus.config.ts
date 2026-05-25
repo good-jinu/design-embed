@@ -70,11 +70,11 @@ const config: Config = {
       'docusaurus-plugin-typedoc',
       {
         entryPoints: [
-          '../packages/config',
-          '../packages/core',
+          '../packages/design-embed',
           '../packages/plugin-figma-html',
           '../packages/target-react',
         ],
+        sortEntryPoints: false,
         entryPointStrategy: 'packages',
         packageOptions: {
           entryPoints: ['src/index.ts'],

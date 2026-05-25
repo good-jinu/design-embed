@@ -9,20 +9,11 @@ export async function runGenerateTestsCommand(
 	flags: Record<string, string | boolean>,
 ): Promise<number> {
 	const cwd = resolve(process.cwd(), getStringFlag(flags, "--cwd") ?? ".");
-	const configPath = getStringFlag(flags, "--config");
+	const configPath =
+		getStringFlag(flags, "--config") ?? "design-embed.config.ts";
 	const quiet = getBooleanFlag(flags, "--quiet");
 	const format = getFormat(flags);
 	const diagnostics: Diagnostic[] = [];
-
-	if (!configPath) {
-		diagnostics.push({
-			code: "CONFIG_REQUIRED",
-			message: "--config is required for generate-tests.",
-			severity: "error",
-		});
-		printDiagnostics(diagnostics, format, quiet);
-		return 2;
-	}
 
 	const configResult = await loadConfig(configPath, cwd);
 	diagnostics.push(...configResult.diagnostics);

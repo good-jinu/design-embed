@@ -70,4 +70,35 @@ describe("compile command", () => {
 		);
 		assert.equal(existsSync(join(cwd, "tests")), false);
 	});
+
+	test("uses design-embed.config.ts by default when it exists", async () => {
+		const cwd = mkdtempSync(join(tmpdir(), "design-embed-compile-"));
+		writeFileSync(
+			join(cwd, "target.html"),
+			"<main>Default config</main>",
+			"utf-8",
+		);
+		writeFileSync(
+			join(cwd, "design-embed.config.ts"),
+			`export default {
+\toutput: {
+\t\tviewsDir: "custom/generated",
+\t},
+};
+`,
+			"utf-8",
+		);
+
+		const code = await runCompileCommand({
+			"--cwd": cwd,
+			"--input": "target.html",
+			"--quiet": true,
+		});
+
+		assert.equal(code, 0);
+		assert.equal(
+			readFileSync(join(cwd, "custom/generated/debug.html"), "utf-8"),
+			"<main>\n\tDefault config\n</main>\n",
+		);
+	});
 });

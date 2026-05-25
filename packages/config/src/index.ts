@@ -56,7 +56,7 @@ export interface DesignEmbedConfig {
 	tokens?: TokenConfig;
 	/** Mappings for Tailwind utility classes. */
 	styleMappings?: StyleMappings;
-	/** Source plugin instances to run via `design-embed plugin`. */
+	/** Source plugin instances to run when fetching HTML with `design-embed --out`. */
 	plugins?: PluginDefinition[];
 	/** Pipeline transformers to modify the AST. */
 	transformers?: TransformerConfig[];

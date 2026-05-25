@@ -8,13 +8,9 @@ export async function runPluginCommand(
 	_name: string | undefined,
 	flags: Record<string, string | boolean>,
 ): Promise<number> {
-	const configPath = getStringFlag(flags, "--config");
-	if (!configPath) {
-		console.error("Error: --config is required.");
-		return 2;
-	}
-
-	const cwd = process.cwd();
+	const cwd = resolve(process.cwd(), getStringFlag(flags, "--cwd") ?? ".");
+	const configPath =
+		getStringFlag(flags, "--config") ?? "design-embed.config.ts";
 	const configResult = await loadConfig(configPath, cwd);
 	for (const diagnostic of configResult.diagnostics) {
 		if (diagnostic.severity === "error") {

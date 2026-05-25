@@ -19,10 +19,6 @@ export async function runInitCommand(
 			path: "design-embed.config.ts",
 			contents: configTemplate(viewName),
 		},
-		{
-			path: "design.html",
-			contents: designHtmlTemplate(),
-		},
 	];
 
 	let written = 0;
@@ -48,31 +44,71 @@ export async function runInitCommand(
 	printDiagnostics(diagnostics, format, quiet);
 	if (!quiet && format === "text") {
 		console.log(`Success. Initialized design-embed with ${written} file(s).`);
-		console.log(
-			"Next: pnpm exec design-embed --input ./design.html --config ./design-embed.config.ts",
-		);
+		console.log("Next: pnpm exec design-embed --out ./design.html");
 	}
 	return 0;
 }
 
 function configTemplate(viewName: string): string {
-	return `import { defineConfig } from "design-embed";
+	return `import {
+\tdefineConfig,
+\ttype PluginDefinition,
+\ttype SourcePlugin,
+\ttype SourcePluginInput,
+\ttype SourcePluginResult,
+} from "design-embed";
+
+class HtmlFetcherPlugin implements PluginDefinition, SourcePlugin {
+\treadonly name = "html-fetcher";
+\tprivate readonly options: { url: string };
+
+\tconstructor(options: { url: string }) {
+\t\tthis.options = options;
+\t}
+
+\tasync run(_input: SourcePluginInput): Promise<SourcePluginResult> {
+\t\ttry {
+\t\t\tconst response = await fetch(this.options.url);
+\t\t\tif (!response.ok) {
+\t\t\t\treturn {
+\t\t\t\t\tdiagnostics: [
+\t\t\t\t\t\t{
+\t\t\t\t\t\t\tcode: "HTML_FETCH_FAILED",
+\t\t\t\t\t\t\tmessage: \`Failed to fetch HTML: \${response.status} \${response.statusText}\`,
+\t\t\t\t\t\t\tseverity: "error",
+\t\t\t\t\t\t},
+\t\t\t\t\t],
+\t\t\t\t};
+\t\t\t}
+
+\t\t\treturn {
+\t\t\t\thtml: await response.text(),
+\t\t\t\tdiagnostics: [],
+\t\t\t};
+\t\t} catch (error) {
+\t\t\treturn {
+\t\t\t\tdiagnostics: [
+\t\t\t\t\t{
+\t\t\t\t\t\tcode: "HTML_FETCH_FAILED",
+\t\t\t\t\t\tmessage: error instanceof Error ? error.message : String(error),
+\t\t\t\t\t\tseverity: "error",
+\t\t\t\t\t},
+\t\t\t\t],
+\t\t\t};
+\t\t}
+\t}
+}
 
 export default defineConfig({
+\tplugins: [
+\t\tnew HtmlFetcherPlugin({
+\t\t\turl: "https://www.scrapethissite.com/pages/",
+\t\t}),
+\t],
 \toutput: {
 \t\tviewName: "${viewName}",
 \t\tviewsDir: "src/generated/views",
 \t},
 });
-`;
-}
-
-function designHtmlTemplate(): string {
-	return `<section style="box-sizing: border-box; width: 320px; padding: 24px; border-radius: 16px; background: #f8fafc; color: #0f172a; font-family: Arial, sans-serif;">
-\t<p style="margin: 0 0 8px; color: #2563eb; font-size: 14px; font-weight: 700;">Design Embed</p>
-\t<h1 style="margin: 0 0 12px; font-size: 32px; line-height: 1.1;">Welcome hero</h1>
-\t<p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5;">Replace this file with HTML exported from your design source.</p>
-\t<button data-role="primary" style="border: 0; border-radius: 999px; padding: 12px 18px; background: #2563eb; color: white; font-size: 14px; font-weight: 700;">Get started</button>
-</section>
 `;
 }

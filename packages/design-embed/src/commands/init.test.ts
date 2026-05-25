@@ -6,7 +6,7 @@ import { describe, test } from "node:test";
 import { runInitCommand } from "./init.ts";
 
 describe("init command", () => {
-	test("scaffolds starter config and design source", async () => {
+	test("scaffolds starter config with an HTML fetcher plugin example", async () => {
 		const cwd = mkdtempSync(join(tmpdir(), "design-embed-init-"));
 
 		const code = await runInitCommand({ "--cwd": cwd, "--quiet": true });
@@ -17,9 +17,14 @@ describe("init command", () => {
 			/viewName: "WelcomeHero"/,
 		);
 		assert.match(
-			readFileSync(join(cwd, "design.html"), "utf-8"),
-			/Replace this file with HTML exported from your design source/,
+			readFileSync(join(cwd, "design-embed.config.ts"), "utf-8"),
+			/class HtmlFetcherPlugin/,
 		);
+		assert.match(
+			readFileSync(join(cwd, "design-embed.config.ts"), "utf-8"),
+			/url: "https:\/\/www\.scrapethissite\.com\/pages\/"/,
+		);
+		assert.equal(existsSync(join(cwd, "design.html")), false);
 		assert.equal(existsSync(join(cwd, "playwright-ct.config.ts")), false);
 	});
 
