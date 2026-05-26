@@ -7,5 +7,6 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@design-embed/config", "@design-embed/core"]
+  "ignore": []
 }
+
