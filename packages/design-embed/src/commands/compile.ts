@@ -8,7 +8,6 @@ import {
 	formatDiagnosticText,
 	type TargetEmitter,
 	type TargetTestGenerator,
-	type TransformerPlugin,
 	toJsonDiagnostics,
 } from "@design-embed/core";
 import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
@@ -58,18 +57,11 @@ export async function runCompileCommand(
 	}
 
 	let config: DesignEmbedConfig | undefined;
-	let transformers: TransformerPlugin[] = [];
 	if (configPath) {
 		const configResult = await loadConfig(configPath, cwd);
 		diagnostics.push(...configResult.diagnostics);
 		config = configResult.config;
 
-		if (hasErrors(diagnostics)) {
-			printDiagnostics(diagnostics, format, quiet);
-			return 2;
-		}
-
-		transformers = await loadTransformers(config, configPath, cwd, diagnostics);
 		if (hasErrors(diagnostics)) {
 			printDiagnostics(diagnostics, format, quiet);
 			return 2;
@@ -89,7 +81,6 @@ export async function runCompileCommand(
 		configPath,
 		config,
 		cwd,
-		transformers,
 		targetEmitter: targetAdapter.emitter,
 	});
 	diagnostics.push(...result.diagnostics);
@@ -164,10 +155,6 @@ export function printDiagnostics(
 	}
 }
 
-function isPackageName(path: string): boolean {
-	return !path.startsWith(".") && !isAbsolute(path);
-}
-
 interface ResolvedTargetAdapter {
 	emitter: TargetEmitter;
 	testGenerator?: TargetTestGenerator;
@@ -187,52 +174,6 @@ function getTargetAdapter(
 				? (target as TargetEmitter & TargetTestGenerator)
 				: undefined,
 	};
-}
-
-async function loadTransformers(
-	config: DesignEmbedConfig | undefined,
-	configPath: string,
-	cwd: string,
-	diagnostics: Diagnostic[],
-): Promise<TransformerPlugin[]> {
-	const configDir = dirname(resolve(cwd, configPath));
-	const loaded: TransformerPlugin[] = [];
-
-	for (const transformer of config?.transformers ?? []) {
-		const specifier = isPackageName(transformer.path)
-			? transformer.path
-			: isAbsolute(transformer.path)
-				? transformer.path
-				: resolve(configDir, transformer.path);
-		try {
-			const module = await import(specifier);
-			const plugin = module.default ?? module.transformer;
-			if (!plugin?.transform) {
-				diagnostics.push({
-					code: "TRANSFORMER_INVALID",
-					message: `Transformer ${transformer.path} must export a plugin object with transform().`,
-					severity: "error",
-					file: transformer.path,
-				});
-				continue;
-			}
-			loaded.push({
-				name: plugin.name ?? transformer.path,
-				order: transformer.order ?? plugin.order,
-				transform: plugin.transform,
-			});
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			diagnostics.push({
-				code: "TRANSFORMER_LOAD_FAILED",
-				message: `Failed to load transformer ${transformer.path}: ${message}`,
-				severity: "error",
-				file: transformer.path,
-			});
-		}
-	}
-
-	return loaded;
 }
 
 function hasErrors(diagnostics: Diagnostic[]): boolean {

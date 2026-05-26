@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
@@ -9,23 +9,9 @@ import { runPluginCommand } from "../packages/design-embed/src/commands/plugin.t
 describe("CLI workflow", () => {
 	test("fetches source HTML with the default config and compiles it", async () => {
 		const cwd = mkdtempSync(join(tmpdir(), "design-embed-cli-"));
-		writeFileSync(
+		copyFileSync(
+			join(import.meta.dirname, "fixtures/cli/default.config.ts"),
 			join(cwd, "design-embed.config.ts"),
-			`export default {
-\tplugins: [
-\t\t{
-\t\t\tname: "test-source",
-\t\t\tasync run() {
-\t\t\t\treturn { html: "<main>Fetched</main>", diagnostics: [] };
-\t\t\t},
-\t\t},
-\t],
-\toutput: {
-\t\tviewsDir: "generated/views",
-\t},
-};
-`,
-			"utf-8",
 		);
 
 		const fetchCode = await runPluginCommand(undefined, {
@@ -49,20 +35,9 @@ describe("CLI workflow", () => {
 
 	test("supports a non-default config path for source fetching", async () => {
 		const cwd = mkdtempSync(join(tmpdir(), "design-embed-cli-"));
-		writeFileSync(
+		copyFileSync(
+			join(import.meta.dirname, "fixtures/cli/custom.config.ts"),
 			join(cwd, "custom.config.ts"),
-			`export default {
-\tplugins: [
-\t\t{
-\t\t\tname: "test-source",
-\t\t\tasync run() {
-\t\t\t\treturn { html: "<section>Custom</section>", diagnostics: [] };
-\t\t\t},
-\t\t},
-\t],
-};
-`,
-			"utf-8",
 		);
 
 		const code = await runPluginCommand(undefined, {
