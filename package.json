@@ -16,10 +16,12 @@
 		"docs:links": "find docs -name '*.md' -exec markdown-link-check -c .markdown-link-check.json {} \\;",
 		"docs:build": "pnpm --filter website build",
 		"docs:serve": "pnpm --filter website serve",
-		"docs:check": "pnpm docs:links"
+		"docs:check": "pnpm docs:links",
+		"ci:publish": "pnpm publish -r --access public"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.15",
+		"@changesets/cli": "^2.31.0",
 		"@types/node": "^24.12.4",
 		"docusaurus-plugin-typedoc": "^1.4.2",
 		"markdown-link-check": "^3.14.2",
