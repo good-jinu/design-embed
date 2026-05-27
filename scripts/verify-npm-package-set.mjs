@@ -5,7 +5,6 @@ const packages = [
 	["packages/design-embed", "design-embed", false],
 	["packages/plugin-figma-html", "@design-embed/plugin-figma-html", false],
 	["packages/target-react", "@design-embed/target-react", false],
-	["packages/target-html", "@design-embed/target-html", false],
 	["packages/core", "@design-embed/core", true],
 	["packages/config", "@design-embed/config", true],
 ];

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 /**
@@ -58,8 +58,6 @@ export interface DesignEmbedConfig {
 	styleMappings?: StyleMappings;
 	/** Source plugin instances to run when fetching HTML with `design-embed --out`. */
 	plugins?: PluginDefinition[];
-	/** Pipeline transformers to modify the AST. */
-	transformers?: TransformerConfig[];
 	/** Visual and layout test generation settings. */
 	tests?: TestGenerationConfig;
 }
@@ -175,16 +173,6 @@ export interface NumericTokenGroup {
 export type StyleMappings = Record<string, Record<string, string>>;
 
 /**
- * Configuration for a transformer plugin.
- */
-export interface TransformerConfig {
-	/** Local file path or npm package name. */
-	path: string;
-	/** Execution order (lower numbers run first). */
-	order?: number;
-}
-
-/**
  * Result of loading a configuration file.
  */
 export interface LoadConfigResult {
@@ -267,9 +255,6 @@ export async function loadConfig(
 		}
 
 		diagnostics.push(...validateConfig(config));
-		diagnostics.push(
-			...validateTransformerPaths(config, dirname(resolvedPath)),
-		);
 		return { config, diagnostics };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
@@ -413,26 +398,6 @@ export function validateConfig(config: DesignEmbedConfig): ConfigDiagnostic[] {
 		}
 	}
 
-	for (const [index, transformer] of (config.transformers ?? []).entries()) {
-		if (!transformer.path || typeof transformer.path !== "string") {
-			diagnostics.push({
-				code: "TRANSFORMER_PATH_INVALID",
-				message: `Transformer ${index} must include a path.`,
-				severity: "error",
-			});
-		}
-		if (
-			transformer.order !== undefined &&
-			!Number.isFinite(transformer.order)
-		) {
-			diagnostics.push({
-				code: "TRANSFORMER_ORDER_INVALID",
-				message: `Transformer ${index} order must be a finite number.`,
-				severity: "error",
-			});
-		}
-	}
-
 	validateTestGeneration(config.tests, diagnostics);
 
 	return diagnostics;
@@ -493,35 +458,4 @@ function validateTestGeneration(
 			severity: "error",
 		});
 	}
-}
-
-function isPackageName(path: string): boolean {
-	return !path.startsWith(".") && !isAbsolute(path);
-}
-
-function validateTransformerPaths(
-	config: DesignEmbedConfig,
-	configDir: string,
-): ConfigDiagnostic[] {
-	const diagnostics: ConfigDiagnostic[] = [];
-	for (const transformer of config.transformers ?? []) {
-		if (!transformer.path || typeof transformer.path !== "string") {
-			continue;
-		}
-		if (isPackageName(transformer.path)) {
-			continue;
-		}
-		const resolvedPath = isAbsolute(transformer.path)
-			? transformer.path
-			: resolve(configDir, transformer.path);
-		if (!existsSync(resolvedPath)) {
-			diagnostics.push({
-				code: "TRANSFORMER_NOT_FOUND",
-				message: `Transformer file not found: ${resolvedPath}`,
-				severity: "error",
-			});
-		}
-	}
-
-	return diagnostics;
 }

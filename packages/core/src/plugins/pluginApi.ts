@@ -27,25 +27,6 @@ export interface SourcePluginResult {
 	diagnostics: Diagnostic[];
 }
 
-export interface TransformerPlugin {
-	name: string;
-	order?: number;
-	transform(
-		context: TransformContext,
-	): Promise<TransformResult> | TransformResult;
-}
-
-export interface TransformContext {
-	ast: DesignNode[];
-	config: DesignEmbedConfig;
-	diagnostics: Diagnostic[];
-}
-
-export interface TransformResult {
-	ast?: DesignNode[];
-	diagnostics?: Diagnostic[];
-}
-
 export interface TargetEmitInput {
 	nodes: DesignNode[];
 	css?: string;

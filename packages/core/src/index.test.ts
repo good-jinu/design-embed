@@ -3,7 +3,6 @@ import { describe, test } from "node:test";
 import {
 	applyComponentMappings,
 	checkGeneratedFiles,
-	embed,
 	matchesSelector,
 	parseHtml,
 	parseSelector,
@@ -136,45 +135,6 @@ describe("core", () => {
 					children: { kind: "text", value: "Continue" },
 				},
 			},
-		);
-	});
-
-	test("runs transformer plugins in stable order before emission", async () => {
-		const result = await embed({
-			html: `<div>Original</div>`,
-			config: { output: { target: "html" } },
-			targetEmitter: htmlEmitter,
-			transformers: [
-				{
-					name: "b",
-					order: 20,
-					transform(context) {
-						return {
-							ast: context.ast.map((node) => ({
-								...node,
-								attributes: { ...(node.attributes ?? {}), "data-b": "true" },
-							})),
-						};
-					},
-				},
-				{
-					name: "a",
-					order: 10,
-					transform(context) {
-						return {
-							ast: context.ast.map((node) => ({
-								...node,
-								attributes: { ...(node.attributes ?? {}), "data-a": "true" },
-							})),
-						};
-					},
-				},
-			],
-		});
-
-		assert.equal(
-			result.files[0]?.contents,
-			`<div data-a="true" data-b="true">\n\tOriginal\n</div>\n`,
 		);
 	});
 

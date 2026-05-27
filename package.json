@@ -8,7 +8,7 @@
 	],
 	"scripts": {
 		"test": "node --conditions=development --test packages/**/*.test.ts tests/**/*.test.ts && tsc --noEmit",
-		"build:packages": "node scripts/build-packages.mjs",
+		"build:packages": "tsdown",
 		"design-embed": "node packages/design-embed/src/cli.ts",
 		"check": "biome check",
 		"check:fix": "biome check --write --unsafe",
@@ -16,13 +16,16 @@
 		"docs:links": "find docs -name '*.md' -exec markdown-link-check -c .markdown-link-check.json {} \\;",
 		"docs:build": "pnpm --filter website build",
 		"docs:serve": "pnpm --filter website serve",
-		"docs:check": "pnpm docs:links"
+		"docs:check": "pnpm docs:links",
+		"ci:publish": "pnpm changeset publish"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.15",
+		"@changesets/cli": "^2.31.0",
 		"@types/node": "^24.12.4",
 		"docusaurus-plugin-typedoc": "^1.4.2",
 		"markdown-link-check": "^3.14.2",
+		"tsdown": "^0.22.0",
 		"typedoc": "^0.28.19",
 		"typedoc-plugin-markdown": "^4.11.0",
 		"typescript": "catalog:"
