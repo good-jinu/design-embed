@@ -71,31 +71,11 @@ export const myVueEmitter: TargetEmitter = {
 };
 ```
 
-## Using Transformers
-
-You can also pass custom transformer functions directly to the engine without using the configuration file.
-
-```typescript
-const result = await embed({
-  html: sourceHtml,
-  targetEmitter: reactEmitter,
-  transformers: [
-    {
-      name: "custom-logger",
-      transform: async (context) => {
-        console.log("Processing AST nodes:", context.ast.length);
-        return { ast: context.ast };
-      }
-    }
-  ]
-});
-```
-
 ## Architecture Summary
 
 When using the core package, keep these roles in mind:
 
-- **`embed()`**: The main entry point. It handles local HTML parsing, transformer execution, component substitution, and target emission.
+- **`embed()`**: The main entry point. It handles local HTML parsing, component substitution, and target emission.
 - **`DesignNode`**: The unified AST format used by the compiler.
 - **`TargetEmitter`**: Responsible for taking the final AST and turning it into string-based file output.
 - **`Diagnostics`**: A structured way to report errors or warnings back to your calling system.

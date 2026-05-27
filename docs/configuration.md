@@ -109,16 +109,9 @@ styleMappings: {
 
 ---
 
-## Plugins & Transformers
+## Plugins
 
 - **`plugins`**: Configuration for source plugins (like `figma-html`).
-- **`transformers`**: Custom logic to modify the AST before emission.
-
-```typescript
-transformers: [
-  { path: "./transformers/my-custom-logic.ts", order: 10 }
-]
-```
 
 ---
 
