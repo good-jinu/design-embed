@@ -4,13 +4,14 @@
 	"type": "module",
 	"private": false,
 	"publishConfig": {
-		"access": "public"
+		"access": "public",
+		"provenance": true
 	},
 	"exports": {
 		".": {
 			"types": "./src/index.ts",
 			"development": "./src/index.ts",
-			"default": "./dist/index.js"
+			"default": "./dist/index.mjs"
 		}
 	},
 	"files": [
@@ -20,7 +21,7 @@
 		"README.md"
 	],
 	"bin": {
-		"design-embed": "./dist/cli.js"
+		"design-embed": "./dist/cli.mjs"
 	},
 	"scripts": {
 		"dev": "node src/cli.ts",
@@ -29,12 +30,8 @@
 		"compile:vanjs": "node src/cli.ts vanjs",
 		"get-raw": "node src/cli.ts raw"
 	},
-	"dependencies": {
+	"devDependencies": {
 		"@design-embed/config": "workspace:*",
 		"@design-embed/core": "workspace:*"
-	},
-	"bundledDependencies": [
-		"@design-embed/config",
-		"@design-embed/core"
-	]
+	}
 }

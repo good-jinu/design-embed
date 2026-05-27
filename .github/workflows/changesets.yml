@@ -24,18 +24,35 @@ jobs:
         uses: jdx/mise-action@v3
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile --config.node-linker=hoisted
+        run: pnpm install --frozen-lockfile
 
       - name: Build packages
         run: pnpm build:packages
 
       - name: Create and publish versions
+        id: changesets
         uses: changesets/action@v1
         with:
           commit: "chore: update versions"
           title: "chore: update versions"
           publish: pnpm changeset publish
+          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
+
+      - name: Retag design-embed release as semver
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: |
+          VERSION=$(echo "$PUBLISHED_PACKAGES" | jq -r '.[] | select(.name == "design-embed") | .version')
+          if [ -n "$VERSION" ]; then
+            OLD_TAG="design-embed@${VERSION}"
+            NEW_TAG="v${VERSION}"
+            NOTES=$(gh release view "$OLD_TAG" --json body -q '.body')
+            gh release delete "$OLD_TAG" --yes --cleanup-tag
+            gh release create "$NEW_TAG" --title "$NEW_TAG" --notes "$NOTES"
+          fi

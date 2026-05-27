@@ -47,7 +47,7 @@ importers:
   packages/core: {}
 
   packages/design-embed:
-    dependencies:
+    devDependencies:
       '@design-embed/config':
         specifier: workspace:*
         version: link:../config
