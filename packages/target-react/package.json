@@ -19,12 +19,10 @@
 		"!src/**/*.test.ts",
 		"README.md"
 	],
-	"dependencies": {
-		"@design-embed/config": "workspace:*",
-		"@design-embed/core": "workspace:*"
+	"peerDependencies": {
+		"design-embed": "*"
 	},
-	"bundledDependencies": [
-		"@design-embed/config",
-		"@design-embed/core"
-	]
+	"devDependencies": {
+		"design-embed": "workspace:*"
+	}
 }

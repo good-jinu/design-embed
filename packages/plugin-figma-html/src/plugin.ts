@@ -1,10 +1,10 @@
 import { join } from "node:path";
-import type { PluginDefinition } from "@design-embed/config";
 import type {
+	PluginDefinition,
 	SourcePlugin,
 	SourcePluginInput,
 	SourcePluginResult,
-} from "@design-embed/core";
+} from "design-embed";
 import { compileHtml } from "./compilers/index.ts";
 import { extractParamsFromURL, fetchFigmaNode } from "./external/figmaApi.ts";
 import { downloadFigmaImageFills } from "./external/imageDownloader.ts";

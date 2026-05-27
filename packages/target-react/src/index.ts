@@ -1,5 +1,5 @@
-import type { DesignEmbedConfig } from "@design-embed/config";
 import type {
+	DesignEmbedConfig,
 	DesignNode,
 	Diagnostic,
 	PropValue,
@@ -9,13 +9,7 @@ import type {
 	TargetTestGenerateInput,
 	TargetTestGenerateResult,
 	TargetTestGenerator,
-} from "@design-embed/core";
-import {
-	applyComponentMappings,
-	matchesSelector,
-	parseInlineStyle,
-	parseSelector,
-} from "@design-embed/core";
+} from "design-embed";
 
 export const reactEmitter: TargetEmitter = {
 	emit({ nodes, css, config, diagnostics }: TargetEmitInput): TargetEmitResult {
@@ -24,12 +18,7 @@ export const reactEmitter: TargetEmitter = {
 		const viewName = config?.output?.viewName ?? "DesignView";
 
 		const styleResult = transformStyles(nodes, css, config, diagnostics);
-		const transformed = applyComponentMappings(
-			styleResult.nodes,
-			config?.components ?? [],
-			diagnostics,
-		);
-		const contents = emitReactView(transformed, viewName, {
+		const contents = emitReactView(styleResult.nodes, viewName, {
 			cssModulePath: styleResult.cssModulePath,
 		});
 
@@ -386,6 +375,106 @@ function transformStyles(
 		severity: "error",
 	});
 	return { nodes: resolvedNodes };
+}
+
+interface ParsedSelector {
+	tagName?: string;
+	id?: string;
+	classes: string[];
+	attributes: Record<string, string>;
+}
+
+function parseInlineStyle(style: string | undefined): Record<string, string> {
+	const styles: Record<string, string> = {};
+	if (!style) {
+		return styles;
+	}
+	for (const declaration of style.split(";")) {
+		const [property, ...valueParts] = declaration.split(":");
+		const value = valueParts.join(":").trim();
+		if (!property?.trim() || !value) {
+			continue;
+		}
+		styles[property.trim().toLowerCase()] = value;
+	}
+	return styles;
+}
+
+function parseSelector(selector: string): ParsedSelector | undefined {
+	const trimmed = selector.trim();
+	if (!trimmed || /[\s>+~,:]/.test(trimmed)) {
+		return undefined;
+	}
+	const parsed: ParsedSelector = { classes: [], attributes: {} };
+	let rest = trimmed;
+	const tagMatch = rest.match(/^[a-zA-Z][a-zA-Z0-9-]*/);
+	if (tagMatch?.[0]) {
+		parsed.tagName = tagMatch[0].toLowerCase();
+		rest = rest.slice(tagMatch[0].length);
+	}
+	while (rest) {
+		if (rest.startsWith(".")) {
+			const match = rest.match(/^\.([a-zA-Z_][a-zA-Z0-9_-]*)/);
+			if (!match?.[1]) {
+				return undefined;
+			}
+			parsed.classes.push(match[1]);
+			rest = rest.slice(match[0].length);
+			continue;
+		}
+		if (rest.startsWith("#")) {
+			const match = rest.match(/^#([a-zA-Z_][a-zA-Z0-9_-]*)/);
+			if (!match?.[1] || parsed.id) {
+				return undefined;
+			}
+			parsed.id = match[1];
+			rest = rest.slice(match[0].length);
+			continue;
+		}
+		if (rest.startsWith("[")) {
+			const match = rest.match(
+				/^\[([a-zA-Z_][a-zA-Z0-9_.:-]*)(?:=(?:"([^"]*)"|'([^']*)'|([^\]]+)))?\]/,
+			);
+			if (!match?.[1]) {
+				return undefined;
+			}
+			parsed.attributes[match[1]] = match[2] ?? match[3] ?? match[4] ?? "";
+			rest = rest.slice(match[0].length);
+			continue;
+		}
+		return undefined;
+	}
+	return parsed;
+}
+
+function matchesSelector(node: DesignNode, selector: ParsedSelector): boolean {
+	if (node.kind !== "element") {
+		return false;
+	}
+	const attributes = node.attributes ?? {};
+	if (selector.tagName && node.tagName !== selector.tagName) {
+		return false;
+	}
+	if (selector.id && attributes.id !== selector.id) {
+		return false;
+	}
+	const classNames = new Set(
+		(attributes.class ?? "").split(/\s+/).filter(Boolean),
+	);
+	for (const className of selector.classes) {
+		if (!classNames.has(className)) {
+			return false;
+		}
+	}
+	for (const [name, value] of Object.entries(selector.attributes)) {
+		if (!(name in attributes)) {
+			return false;
+		}
+		if (value !== "" && attributes[name] !== value) {
+			return false;
+		}
+	}
+	return true;
 }
 
 function parseCssRules(

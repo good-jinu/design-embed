@@ -5,7 +5,6 @@ import ts from "typescript";
 const packageDirs = [
 	"packages/config",
 	"packages/core",
-	"packages/target-html",
 	"packages/target-react",
 	"packages/plugin-figma-html",
 	"packages/design-embed",

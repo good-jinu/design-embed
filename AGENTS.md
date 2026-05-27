@@ -62,6 +62,47 @@ Test conventions:
 - For deterministic behavior, compare repeated compilation results when the feature could affect ordering or formatting.
 - Do not require live Figma credentials in the normal test pipeline. Figma helpers should be tested with injected fetchers and fixtures.
 
+## Versioning
+
+This repository uses [Changesets](https://github.com/changesets/changesets) to manage package versions and changelogs.
+
+**When to add a changeset:**
+Add a changeset for every PR that changes the public behavior of a published package (`design-embed`, `@design-embed/plugin-figma-html`, `@design-embed/target-react`). This includes new features, bug fixes, and breaking changes. Skip changesets for changes that only affect private packages (`@design-embed/config`, `@design-embed/core`), tests, docs, CI, or tooling.
+
+**How to add a changeset:**
+Create a file directly in `.changeset/` with a unique kebab-case name (e.g. `.changeset/add-my-feature.md`):
+
+```md
+---
+"package-name": patch
+---
+
+Short description of what changed and why.
+```
+
+Replace `"package-name"` with the affected package name(s) and `patch` with the appropriate bump type. Multiple packages can be listed:
+
+```md
+---
+"design-embed": minor
+"@design-embed/target-react": patch
+---
+
+Short description.
+```
+
+Commit the `.changeset/*.md` file in the same PR as the code change. Do not reuse a filename that already exists in `.changeset/`.
+
+**Bump type guide:**
+| Change | Bump |
+|---|---|
+| Bug fix, internal refactor with no API change | `patch` |
+| New exported function, option, or plugin hook | `minor` |
+| Removed or renamed export, changed required signature | `major` |
+
+**Release flow (maintainers):**
+The `changesets` GitHub Actions workflow runs on every push to `main`. When changeset files are present it opens a "chore: update versions" PR that bumps versions and updates changelogs. Merging that PR triggers publishing to npm.
+
 ## Documentation Strategy
 
 Documentation has three layers:
