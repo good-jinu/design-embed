@@ -4,10 +4,11 @@
 	"private": true,
 	"workspaces": [
 		"packages/*",
+		"e2e",
 		"website"
 	],
 	"scripts": {
-		"test": "node --conditions=development --test packages/**/*.test.ts tests/**/*.test.ts && tsc --noEmit",
+		"test": "pnpm --filter './packages/**' test && pnpm --filter '@design-embed/e2e' test",
 		"build:packages": "tsdown",
 		"design-embed": "node packages/design-embed/src/cli.ts",
 		"check": "biome check",

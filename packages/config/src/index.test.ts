@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import { describe, test } from "node:test";
 import { type DesignEmbedConfig, loadConfig, validateConfig } from "./index.ts";
+
+const root = join(import.meta.dirname, "../../..");
 
 describe("config", () => {
 	test("reports invalid tokens", () => {
@@ -98,7 +101,8 @@ describe("config", () => {
 
 	test("loads a configuration file asynchronously", async () => {
 		const result = await loadConfig(
-			"tests/fixtures/phase1/simple-card.config.ts",
+			"e2e/fixtures/phase1/simple-card.config.ts",
+			root,
 		);
 		assert.deepEqual(result.diagnostics, []);
 		assert.equal(result.config?.output?.target, "html");
@@ -110,7 +114,10 @@ describe("config", () => {
 	});
 
 	test("reports error for unsupported config format", async () => {
-		const result = await loadConfig("tests/fixtures/phase1/simple-card.html");
+		const result = await loadConfig(
+			"e2e/fixtures/phase1/simple-card.html",
+			root,
+		);
 		assert.equal(result.diagnostics[0]?.code, "CONFIG_UNSUPPORTED_FORMAT");
 	});
 });

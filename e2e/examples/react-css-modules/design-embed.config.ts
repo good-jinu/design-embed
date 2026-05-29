@@ -3,19 +3,25 @@ import { reactTarget } from "../../../packages/target-react/src/index.ts";
 
 export default defineConfig({
 	output: {
-		viewsDir: "tests/fixtures/phase3/generated",
 		target: reactTarget,
-		viewName: "AmbiguousToken",
-		styleMode: "inline",
+		viewName: "CssModulesExample",
+		viewsDir: "e2e/examples/react-css-modules/expected/src/generated/views",
+		styleMode: "css-modules",
 	},
 	tokens: {
 		spacing: {
 			unit: "px",
-			threshold: 2,
+			threshold: 0,
 			values: {
-				"near-a": 14,
-				"near-b": 16,
+				"4": 16,
 			},
+		},
+		radius: {
+			lg: 8,
+		},
+		colors: {
+			"gray-900": "#111827",
+			white: "#ffffff",
 		},
 	},
 });

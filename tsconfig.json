@@ -32,8 +32,8 @@
 	"exclude": [
 		"dist",
 		"docs/api",
-		"tests/fixtures",
-		"tests/examples/*/expected",
+		"e2e/fixtures",
+		"e2e/examples/*/expected",
 		"website"
 	]
 }

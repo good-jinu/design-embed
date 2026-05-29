@@ -5,7 +5,7 @@ import type {
 	TargetEmitter,
 } from "@design-embed/core";
 
-export function emitHtmlDebug(nodes: DesignNode[], css?: string): string {
+function emitHtmlDebug(nodes: DesignNode[], css?: string): string {
 	const body = nodes.map((node) => emitNode(node, 0)).join("");
 	if (!css?.trim()) {
 		return body;

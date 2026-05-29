@@ -1,0 +1,12 @@
+{
+	"name": "@design-embed/e2e",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"test": "node --conditions=development --test *.test.ts"
+	},
+	"dependencies": {
+		"design-embed": "workspace:*",
+		"@design-embed/target-react": "workspace:*"
+	}
+}

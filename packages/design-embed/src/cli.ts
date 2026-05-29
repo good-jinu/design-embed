@@ -14,10 +14,6 @@ async function main(): Promise<number> {
 		return runCheckCommand(parsed.flags);
 	}
 
-	if (args[0] === "plugin") {
-		return runPluginCommand(parsed.positionals[0], parsed.flags);
-	}
-
 	if (args[0] === "generate-tests") {
 		return runGenerateTestsCommand(parsed.flags);
 	}

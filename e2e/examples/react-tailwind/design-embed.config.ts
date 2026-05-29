@@ -5,7 +5,7 @@ export default defineConfig({
 	output: {
 		target: reactTarget,
 		viewName: "TailwindExample",
-		viewsDir: "tests/examples/react-tailwind/expected/src/generated/views",
+		viewsDir: "e2e/examples/react-tailwind/expected/src/generated/views",
 		styleMode: "tailwind",
 	},
 	tokens: {
