@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type { Diagnostic } from "@design-embed/core";
 import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
+import type { Diagnostic } from "../core/index.ts";
 import { printDiagnostics } from "./compile.ts";
 
 export async function runInitCommand(

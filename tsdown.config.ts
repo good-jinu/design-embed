@@ -1,9 +1,6 @@
-import path from "node:path";
 import { defineConfig } from "tsdown";
 
 const unbundledPackages = [
-	"packages/config",
-	"packages/core",
 	"packages/target-react",
 	"packages/plugin-figma-html",
 ];
@@ -23,10 +20,9 @@ export default defineConfig([
 		exclude: [/\.test\.ts$/],
 	})),
 
-	// design-embed bundles its private workspace deps (@design-embed/config,
-	// @design-embed/core) into dist so the published package is self-contained.
-	// These are devDependencies so DepsPlugin won't externalize them;
-	// the alias routes their imports directly to source files for rolldown.
+	// design-embed is published as a self-contained bundle. Its former private
+	// workspace deps (config, core) now live in-tree under src/, so no aliases
+	// are needed to route their imports.
 	{
 		entry: {
 			index: "packages/design-embed/src/index.ts",
@@ -39,9 +35,5 @@ export default defineConfig([
 			eager: true,
 		},
 		platform: "node" as const,
-		alias: {
-			"@design-embed/config": path.resolve("packages/config/src/index.ts"),
-			"@design-embed/core": path.resolve("packages/core/src/index.ts"),
-		},
 	},
 ]);

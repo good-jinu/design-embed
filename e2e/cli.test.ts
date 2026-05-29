@@ -28,7 +28,7 @@ describe("CLI workflow", () => {
 		const compile = runCli(["--cwd", cwd, "--input", "design.html", "--quiet"]);
 		assert.equal(compile.status, 0, compile.stderr);
 		assert.equal(
-			readFileSync(join(cwd, "generated/views/debug.html"), "utf-8"),
+			readFileSync(join(cwd, "generated/views/index.html"), "utf-8"),
 			"<main>\n\tFetched\n</main>\n",
 		);
 	});

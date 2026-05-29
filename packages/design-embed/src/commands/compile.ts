@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { type DesignEmbedConfig, loadConfig } from "@design-embed/config";
+import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
+import { type DesignEmbedConfig, loadConfig } from "../config/index.ts";
 import {
 	checkGeneratedFiles,
 	type Diagnostic,
@@ -9,8 +10,7 @@ import {
 	type TargetEmitter,
 	type TargetTestGenerator,
 	toJsonDiagnostics,
-} from "@design-embed/core";
-import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
+} from "../core/index.ts";
 import { htmlEmitter } from "../targets/html.ts";
 
 export interface CompileCommandOptions {

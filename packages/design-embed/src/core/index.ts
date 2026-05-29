@@ -1,7 +1,4 @@
-import type {
-	ComponentMapping,
-	DesignEmbedConfig,
-} from "../../config/src/index.ts";
+import type { ComponentMapping, DesignEmbedConfig } from "../config/index.ts";
 import type { Diagnostic } from "./diagnostics/diagnostic.ts";
 import type { TargetEmitter } from "./plugins/pluginApi.ts";
 

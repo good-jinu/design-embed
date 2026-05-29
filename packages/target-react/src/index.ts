@@ -31,6 +31,13 @@ export const reactEmitter: TargetEmitter = {
 				contents: styleResult.cssModule,
 			});
 		}
+		for (const split of emitComponentSplitViews(
+			styleResult.nodes,
+			viewsDir,
+			styleResult.cssModulePath,
+		)) {
+			files.push(split);
+		}
 		if (assembliesDir) {
 			const pageName = `${viewName}Page`;
 			files.push({
@@ -236,6 +243,60 @@ function expectLayoutToMatch(actual, expected, tolerance) {
 \t}
 }
 `;
+}
+
+function emitComponentSplitViews(
+	nodes: DesignNode[],
+	viewsDir: string,
+	cssModulePath: string | undefined,
+): Array<{ path: string; contents: string }> {
+	const seen = new Set<string>();
+	const files: Array<{ path: string; contents: string }> = [];
+
+	function visit(node: DesignNode): void {
+		if (node.kind === "component") {
+			const importName = node.importName ?? node.component ?? "";
+			const childrenProp = node.props?.children;
+			const innerChildren: DesignNode[] =
+				childrenProp?.kind === "children"
+					? childrenProp.value
+					: (node.children ?? []);
+
+			if (importName && !seen.has(importName)) {
+				seen.add(importName);
+				const hasElementChildren = innerChildren.some(
+					(c) => c.kind === "element" || c.kind === "component",
+				);
+				if (hasElementChildren) {
+					const funcName = toPascalCase(importName);
+					files.push({
+						path: `${viewsDir}/${importName}.view.tsx`,
+						contents: emitReactView(innerChildren, funcName, { cssModulePath }),
+					});
+				}
+			}
+
+			for (const child of innerChildren) {
+				visit(child);
+			}
+		} else if (node.kind === "element") {
+			for (const child of node.children ?? []) {
+				visit(child);
+			}
+		}
+	}
+
+	for (const node of nodes) {
+		visit(node);
+	}
+	return files;
+}
+
+function toPascalCase(value: string): string {
+	return value
+		.split(/[-_\s]+/)
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join("");
 }
 
 function toRelativeImport(fromFile: string, toFile: string): string {

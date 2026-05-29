@@ -1,4 +1,4 @@
-import type { DesignEmbedConfig } from "../../../config/src/index.ts";
+import type { DesignEmbedConfig } from "../../config/index.ts";
 import type { Diagnostic } from "../diagnostics/diagnostic.ts";
 import type { DesignNode, GeneratedFile } from "../index.ts";
 

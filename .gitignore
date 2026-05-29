@@ -32,3 +32,4 @@ yarn-debug.log*
 
 # Runtime compiler output — not test oracles
 tests/fixtures/*/generated/
+e2e/fixtures/*/generated/

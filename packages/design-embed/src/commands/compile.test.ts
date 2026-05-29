@@ -25,7 +25,7 @@ describe("compile command", () => {
 		assert.equal(existsSync(join(cwd, "src/pages")), false);
 		assert.equal(existsSync(join(cwd, "tests")), false);
 		assert.equal(
-			readFileSync(join(cwd, "src/generated/views/debug.html"), "utf-8"),
+			readFileSync(join(cwd, "src/generated/views/index.html"), "utf-8"),
 			'<section style="width: 120px">\n\tHello\n</section>\n',
 		);
 	});
@@ -97,7 +97,7 @@ describe("compile command", () => {
 
 		assert.equal(code, 0);
 		assert.equal(
-			readFileSync(join(cwd, "custom/generated/debug.html"), "utf-8"),
+			readFileSync(join(cwd, "custom/generated/index.html"), "utf-8"),
 			"<main>\n\tDefault config\n</main>\n",
 		);
 	});

@@ -51,18 +51,7 @@ importers:
         specifier: workspace:*
         version: link:../packages/design-embed
 
-  packages/config: {}
-
-  packages/core: {}
-
-  packages/design-embed:
-    devDependencies:
-      '@design-embed/config':
-        specifier: workspace:*
-        version: link:../config
-      '@design-embed/core':
-        specifier: workspace:*
-        version: link:../core
+  packages/design-embed: {}
 
   packages/plugin-figma-html:
     devDependencies:

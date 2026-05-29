@@ -1,3 +1,3 @@
-export * from "@design-embed/config";
-export * from "@design-embed/core";
+export * from "./config/index.ts";
+export * from "./core/index.ts";
 export * from "./targets/html.ts";

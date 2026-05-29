@@ -30,9 +30,5 @@
 		"compile:html": "node src/cli.ts html",
 		"compile:vanjs": "node src/cli.ts vanjs",
 		"get-raw": "node src/cli.ts raw"
-	},
-	"devDependencies": {
-		"@design-embed/config": "workspace:*",
-		"@design-embed/core": "workspace:*"
 	}
 }

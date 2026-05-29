@@ -1,11 +1,15 @@
 import type {
 	DesignNode,
+	PropValue,
 	TargetEmitInput,
 	TargetEmitResult,
 	TargetEmitter,
-} from "@design-embed/core";
+	TargetTestGenerateInput,
+	TargetTestGenerateResult,
+	TargetTestGenerator,
+} from "../core/index.ts";
 
-function emitHtmlDebug(nodes: DesignNode[], css?: string): string {
+function emitHtml(nodes: DesignNode[], css?: string): string {
 	const body = nodes.map((node) => emitNode(node, 0)).join("");
 	if (!css?.trim()) {
 		return body;
@@ -16,15 +20,79 @@ function emitHtmlDebug(nodes: DesignNode[], css?: string): string {
 export const htmlEmitter: TargetEmitter = {
 	emit({ nodes, css, config }: TargetEmitInput): TargetEmitResult {
 		const viewsDir = config?.output?.viewsDir ?? "src/generated/views";
+		const viewName = config?.output?.viewName ?? "index";
 		return {
 			files: [
 				{
-					path: `${viewsDir}/debug.html`,
-					contents: emitHtmlDebug(nodes, css),
+					path: `${viewsDir}/${viewName}.html`,
+					contents: emitHtml(nodes, css),
 				},
 			],
 		};
 	},
+};
+
+export const htmlTestGenerator: TargetTestGenerator = {
+	generateTests({
+		html,
+		css,
+		config,
+		diagnostics,
+	}: TargetTestGenerateInput): TargetTestGenerateResult {
+		const tests = config.tests;
+
+		if (tests?.runner && tests.runner !== "playwright") {
+			diagnostics.push({
+				code: "TEST_RUNNER_UNSUPPORTED",
+				message: `Unsupported test runner: ${tests.runner}`,
+				severity: "error",
+			});
+			return { files: [] };
+		}
+
+		const viewsDir = config.output?.viewsDir ?? "src/generated/views";
+		const viewName = config.output?.viewName ?? "index";
+		const outputDir = tests?.outputDir ?? "tests/generated/design-embed";
+		const fixturePath = `${outputDir}/${viewName}.reference.html`;
+		const specPath = `${outputDir}/${viewName}.spec.ts`;
+		const outputHtmlPath = `${viewsDir}/${viewName}.html`;
+		const referenceHtml = `${css?.trim() ? `<style>\n${css}\n</style>\n` : ""}${html}`;
+
+		return {
+			files: [
+				{
+					path: fixturePath,
+					contents: referenceHtml.endsWith("\n")
+						? referenceHtml
+						: `${referenceHtml}\n`,
+				},
+				{
+					path: specPath,
+					contents: emitHtmlVisualSpec({
+						viewName,
+						relativeOutputPath: toRelativeFilePath(specPath, outputHtmlPath),
+						fixtureFileName: `${viewName}.reference.html`,
+						viewports: tests?.viewports ?? [
+							{ name: "default", width: 1440, height: 900 },
+						],
+						states: tests?.states ?? [{ name: "default" }],
+						assertions: {
+							screenshot: tests?.assertions?.screenshot ?? true,
+							layout: tests?.assertions?.layout ?? true,
+							layoutTolerance: tests?.assertions?.layoutTolerance ?? 0,
+							selectors: tests?.assertions?.selectors ?? [":scope", ":scope *"],
+						},
+					}),
+				},
+			],
+		};
+	},
+};
+
+export const htmlTarget: TargetEmitter & TargetTestGenerator = {
+	name: "html",
+	emit: htmlEmitter.emit,
+	generateTests: htmlTestGenerator.generateTests,
 };
 
 function emitNode(node: DesignNode, depth: number): string {
@@ -33,7 +101,7 @@ function emitNode(node: DesignNode, depth: number): string {
 		return `${indent}${escapeHtml(node.text ?? "")}\n`;
 	}
 	if (node.kind === "component") {
-		return `${indent}<${node.component}></${node.component}>\n`;
+		return emitComponentHtml(node, depth);
 	}
 
 	const attributes = Object.entries(node.attributes ?? {})
@@ -54,6 +122,194 @@ function emitNode(node: DesignNode, depth: number): string {
 	return `${indent}${openTag}\n${children
 		.map((child) => emitNode(child, depth + 1))
 		.join("")}${indent}</${node.tagName}>\n`;
+}
+
+function emitComponentHtml(node: DesignNode, depth: number): string {
+	const indent = "\t".repeat(depth);
+	const tag = node.component ?? "component";
+
+	const attrParts = Object.entries(node.props ?? {})
+		.filter(([name, prop]) => name !== "children" && prop.kind !== "children")
+		.sort(([left], [right]) => left.localeCompare(right))
+		.flatMap(([name, prop]) => {
+			const part = formatPropAsAttribute(name, prop);
+			return part !== null ? [part] : [];
+		})
+		.join(" ");
+	const openTag = attrParts ? `<${tag} ${attrParts}>` : `<${tag}>`;
+
+	const childrenProp = node.props?.children;
+	if (childrenProp?.kind === "text") {
+		return `${indent}${openTag}${escapeHtml(childrenProp.value)}</${tag}>\n`;
+	}
+	if (childrenProp?.kind === "children") {
+		const kids = childrenProp.value;
+		if (kids.length === 0) {
+			return `${indent}${openTag}</${tag}>\n`;
+		}
+		return `${indent}${openTag}\n${kids
+			.map((child) => emitNode(child, depth + 1))
+			.join("")}${indent}</${tag}>\n`;
+	}
+
+	const children = node.children ?? [];
+	if (children.length === 0) {
+		return `${indent}${openTag}</${tag}>\n`;
+	}
+	return `${indent}${openTag}\n${children
+		.map((child) => emitNode(child, depth + 1))
+		.join("")}${indent}</${tag}>\n`;
+}
+
+function formatPropAsAttribute(name: string, prop: PropValue): string | null {
+	if (prop.kind === "children") {
+		return null;
+	}
+	if (prop.value === false) {
+		return null;
+	}
+	if (prop.value === true) {
+		return name;
+	}
+	const value = String(prop.value);
+	return value === "" ? name : `${name}="${escapeAttribute(value)}"`;
+}
+
+interface HtmlVisualSpecInput {
+	viewName: string;
+	relativeOutputPath: string;
+	fixtureFileName: string;
+	viewports: Array<{ name?: string; width: number; height: number }>;
+	states: Array<{
+		name: string;
+		hover?: string;
+		focus?: string;
+		click?: string;
+		waitFor?: string;
+	}>;
+	assertions: {
+		screenshot: boolean;
+		layout: boolean;
+		layoutTolerance: number;
+		selectors: string[];
+	};
+}
+
+function emitHtmlVisualSpec(input: HtmlVisualSpecInput): string {
+	const viewports = JSON.stringify(input.viewports, null, 2);
+	const states = JSON.stringify(input.states, null, 2);
+	const selectors = JSON.stringify(input.assertions.selectors, null, 2);
+	const screenshotEnabled = JSON.stringify(input.assertions.screenshot);
+	const layoutEnabled = JSON.stringify(input.assertions.layout);
+	const layoutTolerance = JSON.stringify(input.assertions.layoutTolerance);
+
+	return `import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { expect, test } from "@playwright/test";
+
+const currentDir = dirname(fileURLToPath(import.meta.url));
+const referenceHtml = readFileSync(resolve(currentDir, "./${input.fixtureFileName}"), "utf-8");
+const outputHtmlPath = resolve(currentDir, "${input.relativeOutputPath}");
+const viewports = ${viewports};
+const states = ${states};
+const selectors = ${selectors};
+const screenshotEnabled = ${screenshotEnabled};
+const layoutEnabled = ${layoutEnabled};
+const layoutTolerance = ${layoutTolerance};
+
+for (const viewport of viewports) {
+\tfor (const state of states) {
+\t\tconst viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
+\t\ttest("${input.viewName} matches source at " + viewportName + " / " + state.name, async ({ page }) => {
+\t\t\tawait page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+\t\t\tawait page.setContent(referenceHtml);
+\t\t\tawait applyState(page, state);
+\t\t\tconst expectedScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
+\t\t\tconst expectedLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
+
+\t\t\tawait page.goto("file://" + outputHtmlPath);
+\t\t\tawait applyState(page, state);
+\t\t\tconst actualScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
+\t\t\tconst actualLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
+
+\t\t\tif (screenshotEnabled) {
+\t\t\t\texpect(actualScreenshot).toEqual(expectedScreenshot);
+\t\t\t}
+\t\t\tif (layoutEnabled) {
+\t\t\t\texpectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
+\t\t\t}
+\t\t});
+\t}
+}
+
+async function applyState(page, state) {
+\tif (state.waitFor) {
+\t\tawait page.waitForSelector(state.waitFor);
+\t}
+\tif (state.hover) {
+\t\tawait page.hover(state.hover);
+\t}
+\tif (state.focus) {
+\t\tawait page.focus(state.focus);
+\t}
+\tif (state.click) {
+\t\tawait page.click(state.click);
+\t}
+}
+
+async function readLayout(root, selectorsToRead) {
+\treturn root.evaluate((element, values) => {
+\t\treturn values.flatMap((selector) => {
+\t\t\tconst matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
+\t\t\treturn matches.map((matchedElement, index) => {
+\t\t\t\tconst rect = matchedElement.getBoundingClientRect();
+\t\t\t\treturn {
+\t\t\t\t\tselector,
+\t\t\t\t\tindex,
+\t\t\t\t\ttagName: matchedElement.tagName.toLowerCase(),
+\t\t\t\t\tx: rect.x,
+\t\t\t\t\ty: rect.y,
+\t\t\t\t\twidth: rect.width,
+\t\t\t\t\theight: rect.height,
+\t\t\t\t};
+\t\t\t});
+\t\t});
+\t}, selectorsToRead);
+}
+
+function expectLayoutToMatch(actual, expected, tolerance) {
+\texpect(actual.length).toBe(expected.length);
+\tfor (let index = 0; index < expected.length; index += 1) {
+\t\tconst actualRect = actual[index];
+\t\tconst expectedRect = expected[index];
+\t\texpect(actualRect.selector).toBe(expectedRect.selector);
+\t\texpect(actualRect.index).toBe(expectedRect.index);
+\t\texpect(actualRect.tagName).toBe(expectedRect.tagName);
+\t\tfor (const key of ["x", "y", "width", "height"]) {
+\t\t\tconst drift = Math.abs(actualRect[key] - expectedRect[key]);
+\t\t\texpect(drift, \`\${expectedRect.selector}[\${expectedRect.index}] \${key} drift\`).toBeLessThanOrEqual(tolerance);
+\t\t}
+\t}
+}
+`;
+}
+
+function toRelativeFilePath(fromFile: string, toFile: string): string {
+	const fromParts = fromFile.split("/").slice(0, -1);
+	const toParts = toFile.split("/");
+	while (
+		fromParts.length > 0 &&
+		toParts.length > 0 &&
+		fromParts[0] === toParts[0]
+	) {
+		fromParts.shift();
+		toParts.shift();
+	}
+	const prefix = fromParts.map(() => "..");
+	const relative = [...prefix, ...toParts].join("/");
+	return relative.startsWith(".") ? relative : `./${relative}`;
 }
 
 function escapeHtml(value: string): string {

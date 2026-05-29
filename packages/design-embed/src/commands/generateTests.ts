@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
-import { type DesignEmbedConfig, loadConfig } from "@design-embed/config";
-import type { Diagnostic, TargetTestGenerator } from "@design-embed/core";
 import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
+import { type DesignEmbedConfig, loadConfig } from "../config/index.ts";
+import type { Diagnostic, TargetTestGenerator } from "../core/index.ts";
 import { printDiagnostics } from "./compile.ts";
 
 export async function runGenerateTestsCommand(

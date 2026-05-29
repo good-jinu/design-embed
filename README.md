@@ -52,6 +52,17 @@ npm exec design-embed -- \
 
 ### What you get
 
+**HTML target (default) — web components, custom elements, plain HTML:**
+```
+your-project/
+├── src/
+│   └── generated/
+│       └── views/
+│           └── ProductList.html        # Embedded HTML with component tags
+└── design-embed.config.ts
+```
+
+**React target — JSX views with your existing components:**
 ```
 your-project/
 ├── src/
@@ -59,7 +70,7 @@ your-project/
 │       └── views/
 │           ├── Landing.view.tsx        # Generated React view
 │           └── Landing.module.css      # Optional CSS Module output
-└── design-embed.config.ts              # Explicit mappings to your components
+└── design-embed.config.ts
 ```
 
 ---
@@ -97,12 +108,68 @@ Your project has:
 - A Tailwind config with custom colors? We'll respect it.
 - Naming conventions (PascalCase for components, camelCase for props)? We'll follow them.
 
+### 🧪 Built-in visual regression tests
+Both `htmlTarget` and `reactTarget` can generate Playwright specs that verify your embedded output matches the original design. The spec loads the source HTML as the reference and the generated output as the actual, then compares screenshots and layout at configurable viewports and interaction states.
+
 ### 🔗 Local compiler core. Explicit source steps.
 Compilation runs locally and deterministically. Optional source plugins, such as the Figma plugin, run as explicit prestep commands before local compilation.
 
 ---
 
 ## Quick Example
+
+### HTML target — web components
+
+**Input HTML:**
+```html
+<div class="filter-section">
+  <button>Popularity</button>
+  <button>Price: Low to High</button>
+</div>
+<div class="product-grid">
+  <div class="product-card">
+    <span class="badge">BEST</span>
+    <img src="shoes.jpg" alt="Running Shoes">
+    <p class="price">$89.00</p>
+  </div>
+</div>
+```
+
+**Config:**
+```typescript
+import { defineConfig } from "design-embed";
+
+export default defineConfig({
+  output: {
+    viewName: "ProductList",
+    viewsDir: "src/generated/views",
+  },
+  components: [
+    { selector: ".filter-section", component: "components/product-filter", importName: "product-filter" },
+    { selector: ".product-grid",   component: "components/product-list",   importName: "product-list"   },
+    { selector: ".product-card",   component: "components/product-card",   importName: "product-card"   },
+  ],
+});
+```
+
+**Output (`ProductList.html`):**
+```html
+<product-filter>
+  <button>Popularity</button>
+  <button>Price: Low to High</button>
+</product-filter>
+<product-list>
+  <product-card>
+    <span class="badge">BEST</span>
+    <img alt="Running Shoes" src="shoes.jpg"></img>
+    <p class="price">$89.00</p>
+  </product-card>
+</product-list>
+```
+
+---
+
+### React target — Tailwind
 
 **Input HTML:**
 ```html
@@ -239,22 +306,40 @@ npm exec design-embed -- --input ./design.html
 Or use it programmatically:
 
 ```bash npm2yarn
+# HTML target (default — no extra package needed)
+npm install design-embed
+
+# React target
 npm install design-embed @design-embed/target-react
+```
+
+```typescript
+import { embed, htmlTarget } from "design-embed";
+
+// HTML target — web components, custom elements, plain HTML
+const htmlResult = await embed({
+  html: "<div>...</div>",
+  config: { output: { viewName: "ProductList" } },
+  targetEmitter: htmlTarget,
+});
+
+// Generate a Playwright visual regression spec
+const tests = htmlTarget.generateTests({
+  html: "<div>...</div>",
+  config: { output: { viewName: "ProductList" } },
+  diagnostics: [],
+});
 ```
 
 ```typescript
 import { embed } from "design-embed";
 import { reactTarget } from "@design-embed/target-react";
 
-const result = await embed({
+// React target
+const reactResult = await embed({
   html: "<div>...</div>",
-  config: {
-    output: {
-      target: reactTarget,
-      viewName: "DesignView"
-    }
-  },
-  targetEmitter: reactTarget
+  config: { output: { target: reactTarget, viewName: "DesignView" } },
+  targetEmitter: reactTarget,
 });
 ```
 

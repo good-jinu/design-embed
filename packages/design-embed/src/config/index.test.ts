@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, test } from "node:test";
 import { type DesignEmbedConfig, loadConfig, validateConfig } from "./index.ts";
 
-const root = join(import.meta.dirname, "../../..");
+const root = join(import.meta.dirname, "../../../..");
 
 describe("config", () => {
 	test("reports invalid tokens", () => {

@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { loadConfig, type PluginDefinition } from "@design-embed/config";
-import type { SourcePlugin } from "@design-embed/core";
 import { getStringFlag } from "../args.ts";
+import { loadConfig, type PluginDefinition } from "../config/index.ts";
+import type { SourcePlugin } from "../core/index.ts";
 
 export async function runPluginCommand(
 	_name: string | undefined,

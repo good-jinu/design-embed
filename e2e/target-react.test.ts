@@ -39,12 +39,20 @@ describe("React target fixture pipeline", () => {
 		const result = await embed({ html, config, targetEmitter: reactEmitter });
 
 		assert.deepEqual(result.diagnostics, []);
+		assert.deepEqual(
+			result.files.map((f) => f.path),
+			[
+				"e2e/fixtures/phase2/generated/CardWithImage.view.tsx",
+				"e2e/fixtures/phase2/generated/ProductLink.view.tsx",
+			],
+		);
 		assert.equal(
 			result.files[0]?.contents,
-			readFileSync(
-				join(fixtures, "phase2/expected/CardWithImage.view.tsx"),
-				"utf-8",
-			),
+			readFileSync(join(fixtures, "phase2/expected/CardWithImage.view.tsx"), "utf-8"),
+		);
+		assert.equal(
+			result.files[1]?.contents,
+			readFileSync(join(fixtures, "phase2/expected/ProductLink.view.tsx"), "utf-8"),
 		);
 	});
 

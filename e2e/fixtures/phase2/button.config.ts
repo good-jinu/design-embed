@@ -1,4 +1,4 @@
-import { defineConfig } from "../../../packages/config/src/index.ts";
+import { defineConfig } from "../../../packages/design-embed/src/config/index.ts";
 import { reactTarget } from "../../../packages/target-react/src/index.ts";
 
 export default defineConfig({
