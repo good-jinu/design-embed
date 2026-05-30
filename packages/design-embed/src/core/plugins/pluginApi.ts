@@ -41,4 +41,5 @@ export interface TargetEmitResult {
 
 export interface TargetTestGenerateResult {
 	files: GeneratedFile[];
+	diagnostics: Diagnostic[];
 }

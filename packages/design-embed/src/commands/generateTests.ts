@@ -1,8 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { resolve } from "node:path";
 import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
 import { type DesignEmbedConfig, loadConfig } from "../config/index.ts";
-import type { Diagnostic, TargetTestGenerator } from "../core/index.ts";
+import { type Diagnostic, embed } from "../core/index.ts";
 import { printDiagnostics } from "./compile.ts";
 
 export async function runGenerateTestsCommand(
@@ -23,14 +22,7 @@ export async function runGenerateTestsCommand(
 		return 2;
 	}
 
-	const source = readConfiguredSource(config, configPath, cwd, diagnostics);
-	if (!source || hasErrors(diagnostics)) {
-		printDiagnostics(diagnostics, format, quiet);
-		return 2;
-	}
-
-	const testGenerator = getTestGenerator(config);
-	if (!testGenerator) {
+	if (!getTestGenerator(config)) {
 		diagnostics.push({
 			code: "TEST_TARGET_UNSUPPORTED",
 			message:
@@ -41,24 +33,11 @@ export async function runGenerateTestsCommand(
 		return 2;
 	}
 
-	const result = testGenerator.generateTests({
-		html: source.html,
-		css: source.css,
-		config,
-		diagnostics,
-	});
+	const result = await embed({ config, cwd, generateTests: true });
+	diagnostics.push(...result.diagnostics);
 	if (hasErrors(diagnostics)) {
 		printDiagnostics(diagnostics, format, quiet);
 		return 2;
-	}
-
-	for (const file of result.files) {
-		const outPath = resolve(cwd, file.path);
-		mkdirSync(dirname(outPath), { recursive: true });
-		writeFileSync(outPath, file.contents, "utf-8");
-		if (!quiet && format === "text") {
-			console.log(`Wrote ${file.path}`);
-		}
 	}
 
 	printDiagnostics(diagnostics, format, quiet);
@@ -68,71 +47,9 @@ export async function runGenerateTestsCommand(
 	return 0;
 }
 
-interface SourceContents {
-	html: string;
-	css?: string;
-}
-
-function readConfiguredSource(
-	config: DesignEmbedConfig,
-	configPath: string,
-	cwd: string,
-	diagnostics: Diagnostic[],
-): SourceContents | undefined {
-	const source = config.tests?.source;
-	if (!source?.html) {
-		diagnostics.push({
-			code: "TEST_SOURCE_HTML_REQUIRED",
-			message: "tests.source.html is required for generate-tests.",
-			severity: "error",
-		});
-		return undefined;
-	}
-
-	const configDir = dirname(resolve(cwd, configPath));
-	const htmlPath = resolveConfigPath(source.html, configDir);
-	if (!existsSync(htmlPath)) {
-		diagnostics.push({
-			code: "TEST_SOURCE_HTML_NOT_FOUND",
-			message: `Test source HTML not found: ${htmlPath}`,
-			severity: "error",
-			file: source.html,
-		});
-		return undefined;
-	}
-
-	let css: string | undefined;
-	if (source.css) {
-		const cssPath = resolveConfigPath(source.css, configDir);
-		if (!existsSync(cssPath)) {
-			diagnostics.push({
-				code: "TEST_SOURCE_CSS_NOT_FOUND",
-				message: `Test source CSS not found: ${cssPath}`,
-				severity: "error",
-				file: source.css,
-			});
-			return undefined;
-		}
-		css = readFileSync(cssPath, "utf-8");
-	}
-
-	return {
-		html: readFileSync(htmlPath, "utf-8"),
-		css,
-	};
-}
-
-function resolveConfigPath(path: string, configDir: string): string {
-	return isAbsolute(path) ? path : resolve(configDir, path);
-}
-
-function getTestGenerator(
-	config: DesignEmbedConfig,
-): TargetTestGenerator | undefined {
+function getTestGenerator(config: DesignEmbedConfig): boolean {
 	const target = config.output?.target;
-	return target && target !== "html" && "generateTests" in target
-		? (target as TargetTestGenerator)
-		: undefined;
+	return !!(target && target !== "html" && "generateTests" in target);
 }
 
 function hasErrors(diagnostics: Diagnostic[]): boolean {

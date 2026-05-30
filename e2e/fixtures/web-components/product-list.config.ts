@@ -1,8 +1,9 @@
-import { defineConfig } from "../../../packages/design-embed/src/config/index.ts";
+import { defineConfig, fromFile } from "design-embed";
 
 export default defineConfig({
+	source: fromFile(new URL("./product-list.html", import.meta.url)),
 	output: {
-		viewsDir: "e2e/fixtures/web-components/generated",
+		viewsDir: new URL("./generated", import.meta.url),
 		viewName: "ProductList",
 		target: "html",
 	},

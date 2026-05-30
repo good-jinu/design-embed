@@ -1,17 +1,14 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
-import { type DesignEmbedConfig, loadConfig } from "../config/index.ts";
+import { loadConfig } from "../config/index.ts";
 import {
 	checkGeneratedFiles,
 	type Diagnostic,
 	embed,
 	formatDiagnosticText,
-	type TargetEmitter,
-	type TargetTestGenerator,
 	toJsonDiagnostics,
 } from "../core/index.ts";
-import { htmlEmitter } from "../targets/html.ts";
 
 export interface CompileCommandOptions {
 	check?: boolean;
@@ -29,7 +26,6 @@ export async function runCompileCommand(
 		(existsSync(defaultConfigPath) ? "design-embed.config.ts" : undefined);
 	const quiet = getBooleanFlag(flags, "--quiet");
 	const format = getFormat(flags);
-	const generateTests = !getBooleanFlag(flags, "--no-test");
 	const diagnostics: Diagnostic[] = [];
 
 	if (!configPath) {
@@ -52,70 +48,23 @@ export async function runCompileCommand(
 		return 2;
 	}
 
-	const plugin = config?.source;
-	if (!plugin) {
-		diagnostics.push({
-			code: "PLUGIN_REQUIRED",
-			message:
-				"Config must include a source plugin instance in the plugins array.",
-			severity: "error",
-		});
-		printDiagnostics(diagnostics, format, quiet);
-		return 2;
-	}
+	const isCheckMode = options.check && !getBooleanFlag(flags, "--write");
+	const generateTests = !getBooleanFlag(flags, "--no-test");
 
-	const pluginResult = await plugin.run({ cwd, args: {} });
-	diagnostics.push(...pluginResult.diagnostics);
-
-	if (hasErrors(diagnostics)) {
-		printDiagnostics(diagnostics, format, quiet);
-		return 2;
-	}
-
-	if (!pluginResult.html) {
-		diagnostics.push({
-			code: "PLUGIN_NO_HTML",
-			message: "Source plugin produced no HTML.",
-			severity: "error",
-		});
-		printDiagnostics(diagnostics, format, quiet);
-		return 2;
-	}
-
-	const targetAdapter = getTargetAdapter(config);
-
-	const cssPath = getStringFlag(flags, "--css");
-	const html = pluginResult.html;
-	const css = cssPath
-		? readFileSync(resolve(cwd, cssPath), "utf-8")
-		: pluginResult.css;
 	const result = await embed({
-		html,
-		css,
-		configPath,
 		config,
 		cwd,
-		targetEmitter: targetAdapter.emitter,
+		dryRun: isCheckMode,
+		generateTests,
 	});
 	diagnostics.push(...result.diagnostics);
 
-	if (generateTests && targetAdapter.testGenerator) {
-		const testResult = targetAdapter.testGenerator.generateTests({
-			html,
-			css,
-			config: config ?? {},
-			diagnostics,
-			generatedFiles: result.files,
-		});
-		result.files.push(...testResult.files);
-	}
-
 	if (hasErrors(diagnostics)) {
 		printDiagnostics(diagnostics, format, quiet);
 		return 2;
 	}
 
-	if (options.check && !getBooleanFlag(flags, "--write")) {
+	if (isCheckMode) {
 		const checkResult = checkGeneratedFiles({
 			cwd,
 			files: result.files,
@@ -123,19 +72,9 @@ export async function runCompileCommand(
 				return existsSync(path) ? readFileSync(path, "utf-8") : undefined;
 			},
 		});
-		const checkDiagnostics = checkResult.diagnostics;
-		diagnostics.push(...checkDiagnostics);
+		diagnostics.push(...checkResult.diagnostics);
 		printDiagnostics(diagnostics, format, quiet);
 		return checkResult.ok ? 0 : 3;
-	}
-
-	for (const file of result.files) {
-		const outPath = resolve(cwd, file.path);
-		mkdirSync(dirname(outPath), { recursive: true });
-		writeFileSync(outPath, file.contents, "utf-8");
-		if (!quiet && format === "text") {
-			console.log(`Wrote ${file.path}`);
-		}
 	}
 
 	printDiagnostics(diagnostics, format, quiet);
@@ -167,27 +106,6 @@ export function printDiagnostics(
 			console.warn(output);
 		}
 	}
-}
-
-interface ResolvedTargetAdapter {
-	emitter: TargetEmitter;
-	testGenerator?: TargetTestGenerator;
-}
-
-function getTargetAdapter(
-	config: DesignEmbedConfig | undefined,
-): ResolvedTargetAdapter {
-	const target = config?.output?.target;
-	if (!target || target === "html") {
-		return { emitter: htmlEmitter };
-	}
-	return {
-		emitter: target as TargetEmitter,
-		testGenerator:
-			"generateTests" in target
-				? (target as TargetEmitter & TargetTestGenerator)
-				: undefined,
-	};
 }
 
 function hasErrors(diagnostics: Diagnostic[]): boolean {

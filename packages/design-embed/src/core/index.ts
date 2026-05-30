@@ -1,3 +1,7 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { htmlTarget } from "../targets/html.ts";
 import type { Diagnostic } from "./diagnostics/diagnostic.ts";
 import type {
 	DesignNode,
@@ -10,6 +14,7 @@ import type {
 	ComponentMapping,
 	DesignEmbedConfig,
 	TargetEmitter,
+	TargetTestGenerator,
 } from "./types.ts";
 
 export type {
@@ -64,24 +69,24 @@ export type {
  * Input for the core embed function.
  */
 export interface DesignEmbedInput {
-	/** The source design HTML. */
-	html: string;
-	/** Optional external CSS. */
-	css?: string;
-	/** Optional path to the config file (for resolution). */
-	configPath?: string;
 	/** The compiler configuration. */
 	config?: DesignEmbedConfig;
 	/** Working directory. */
 	cwd?: string;
-	/** The target emitter to use. */
-	targetEmitter: TargetEmitter;
+	/** When true, skips writing output files to disk. Defaults to false. */
+	dryRun?: boolean;
+	/** When true, generates test files alongside output files. Defaults to false. */
+	generateTests?: boolean;
 }
 
 /**
  * Result of the embedding process.
  */
 export interface DesignEmbedResult {
+	/** Source HTML resolved from the config's source plugin. */
+	html: string;
+	/** Source CSS resolved from the config's source plugin. */
+	css?: string;
 	/** Generated files. */
 	files: GeneratedFile[];
 	/** Diagnostics reported during compilation. */
@@ -95,37 +100,119 @@ export interface DesignEmbedResult {
  * @param input - The compilation input.
  * @returns A promise resolving to the compilation result.
  *
- * @example
- * const result = await embed({
- *   html: '<div class="btn">Click me</div>',
- *   config: myConfig,
- *   targetEmitter: reactEmitter
- * });
  */
 export async function embed(
 	input: DesignEmbedInput,
 ): Promise<DesignEmbedResult> {
-	const ast = parseHtml(input.html);
-	const diagnostics = validateComponentMappings(input.config?.components ?? []);
+	const cwd = input.cwd ?? process.cwd();
 
-	if (diagnostics.some((d) => d.severity === "error")) {
-		return { files: [], diagnostics };
+	if (!input.config?.source) {
+		return {
+			html: "",
+			files: [],
+			diagnostics: [
+				{
+					code: "PLUGIN_REQUIRED",
+					message: "Config must include a source plugin.",
+					severity: "error",
+				},
+			],
+		};
 	}
 
+	const sourceResult = await input.config.source.run({ cwd, args: {} });
+	const diagnostics = [...sourceResult.diagnostics];
+
+	if (diagnostics.some((d) => d.severity === "error")) {
+		return { html: "", files: [], diagnostics };
+	}
+
+	if (!sourceResult.html) {
+		return {
+			html: "",
+			files: [],
+			diagnostics: [
+				...diagnostics,
+				{
+					code: "PLUGIN_NO_HTML",
+					message: "Source plugin produced no HTML.",
+					severity: "error",
+				},
+			],
+		};
+	}
+
+	const html = sourceResult.html;
+	const css = sourceResult.css;
+
+	const config = patchOutputPaths(input.config as DesignEmbedConfig, cwd);
+
+	const target = config?.output?.target;
+	const targetObj =
+		!target || target === "html" ? htmlTarget : (target as TargetEmitter);
+
+	const mappingDiagnostics = validateComponentMappings(
+		config?.components ?? [],
+	);
+	diagnostics.push(...mappingDiagnostics);
+
+	if (diagnostics.some((d) => d.severity === "error")) {
+		return { html, files: [], diagnostics };
+	}
+
+	const ast = parseHtml(html);
 	const mappedNodes = applyComponentMappings(
 		ast,
-		input.config?.components ?? [],
+		config?.components ?? [],
 		diagnostics,
 	);
 
-	const { files } = input.targetEmitter.emit({
+	const { files } = targetObj.emit({
 		nodes: mappedNodes,
-		css: input.css,
-		config: input.config,
+		css,
+		config,
 		diagnostics,
 	});
 
-	return { files, diagnostics };
+	if (input.generateTests && "generateTests" in targetObj) {
+		const testGen = targetObj as unknown as TargetTestGenerator;
+		const testResult = testGen.generateTests({ html, css, config });
+		diagnostics.push(...testResult.diagnostics);
+		if (!diagnostics.some((d) => d.severity === "error")) {
+			files.push(...testResult.files);
+		}
+	}
+
+	if (!input.dryRun) {
+		for (const file of files) {
+			const outPath = resolve(cwd, file.path);
+			mkdirSync(dirname(outPath), { recursive: true });
+			writeFileSync(outPath, file.contents, "utf-8");
+		}
+	}
+
+	return { html, css, files, diagnostics };
+}
+
+function patchOutputPaths(
+	config: DesignEmbedConfig,
+	cwd: string,
+): DesignEmbedConfig {
+	const viewsDir = config.output?.viewsDir;
+	if (!viewsDir) return config;
+	return {
+		...config,
+		output: { ...config.output, viewsDir: resolveDir(viewsDir, cwd) },
+	};
+}
+
+function resolveDir(
+	dir: string | URL | undefined,
+	cwd: string,
+): string | undefined {
+	if (!dir) return undefined;
+	if (dir instanceof URL) return relative(cwd, fileURLToPath(dir));
+	return dir;
 }
 
 export function applyComponentMappings(

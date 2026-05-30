@@ -1,5 +1,6 @@
 import type {
 	DesignNode,
+	Diagnostic,
 	PropValue,
 	TargetEmitInput,
 	TargetEmitResult,
@@ -19,7 +20,7 @@ function emitHtml(nodes: DesignNode[], css?: string): string {
 
 export const htmlEmitter: TargetEmitter = {
 	emit({ nodes, css, config }: TargetEmitInput): TargetEmitResult {
-		const viewsDir = config?.output?.viewsDir ?? "src/generated/views";
+		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "index";
 		return {
 			files: [
@@ -32,13 +33,13 @@ export const htmlEmitter: TargetEmitter = {
 	},
 };
 
-export const htmlTestGenerator: TargetTestGenerator = {
+const htmlTestGenerator: TargetTestGenerator = {
 	generateTests({
 		html,
 		css,
 		config,
-		diagnostics,
 	}: TargetTestGenerateInput): TargetTestGenerateResult {
+		const diagnostics: Diagnostic[] = [];
 		const tests = config.tests;
 
 		if (tests?.runner && tests.runner !== "playwright") {
@@ -47,18 +48,19 @@ export const htmlTestGenerator: TargetTestGenerator = {
 				message: `Unsupported test runner: ${tests.runner}`,
 				severity: "error",
 			});
-			return { files: [] };
+			return { files: [], diagnostics };
 		}
 
 		const viewsDir = config.output?.viewsDir ?? "src/generated/views";
 		const viewName = config.output?.viewName ?? "index";
-		const outputDir = tests?.outputDir ?? "tests/generated/design-embed";
+		const outputDir = tests?.outputDir ?? `${viewsDir}/tests`;
 		const fixturePath = `${outputDir}/${viewName}.reference.html`;
 		const specPath = `${outputDir}/${viewName}.spec.ts`;
 		const outputHtmlPath = `${viewsDir}/${viewName}.html`;
 		const referenceHtml = `${css?.trim() ? `<style>\n${css}\n</style>\n` : ""}${html}`;
 
 		return {
+			diagnostics,
 			files: [
 				{
 					path: fixturePath,
@@ -90,7 +92,6 @@ export const htmlTestGenerator: TargetTestGenerator = {
 };
 
 export const htmlTarget: TargetEmitter & TargetTestGenerator = {
-	name: "html",
 	emit: htmlEmitter.emit,
 	generateTests: htmlTestGenerator.generateTests,
 };
