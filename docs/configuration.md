@@ -109,9 +109,9 @@ styleMappings: {
 
 ---
 
-## Plugins
+## Source
 
-- **`plugins`**: Configuration for source plugins (like `figma-html`).
+- **`source`**: The source plugin instance that fetches or generates the design HTML passed to the compiler (e.g. `new FigmaHtmlPlugin(...)`).
 
 ---
 

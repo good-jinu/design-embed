@@ -52,13 +52,12 @@ export async function runInitCommand(
 function configTemplate(viewName: string): string {
 	return `import {
 \tdefineConfig,
-\ttype PluginDefinition,
 \ttype SourcePlugin,
 \ttype SourcePluginInput,
 \ttype SourcePluginResult,
 } from "design-embed";
 
-class HtmlFetcherPlugin implements PluginDefinition, SourcePlugin {
+class HtmlFetcherPlugin implements SourcePlugin {
 \treadonly name = "html-fetcher";
 \tprivate readonly options: { url: string };
 
@@ -100,11 +99,9 @@ class HtmlFetcherPlugin implements PluginDefinition, SourcePlugin {
 }
 
 export default defineConfig({
-\tplugins: [
-\t\tnew HtmlFetcherPlugin({
-\t\t\turl: "https://www.scrapethissite.com/pages/",
-\t\t}),
-\t],
+\tsource: new HtmlFetcherPlugin({
+\t\turl: "https://www.scrapethissite.com/pages/",
+\t}),
 \toutput: {
 \t\tviewName: "${viewName}",
 \t\tviewsDir: "src/generated/views",

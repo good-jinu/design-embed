@@ -24,11 +24,6 @@
 		"design-embed": "./dist/cli.mjs"
 	},
 	"scripts": {
-		"test": "node --conditions=development --test src/**/*.test.ts",
-		"dev": "node src/cli.ts",
-		"compile:react": "node src/cli.ts react",
-		"compile:html": "node src/cli.ts html",
-		"compile:vanjs": "node src/cli.ts vanjs",
-		"get-raw": "node src/cli.ts raw"
+		"test": "node --conditions=development --test src/**/*.test.ts"
 	}
 }

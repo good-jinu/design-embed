@@ -1,6 +1,5 @@
 import { join } from "node:path";
 import type {
-	PluginDefinition,
 	SourcePlugin,
 	SourcePluginInput,
 	SourcePluginResult,
@@ -15,7 +14,7 @@ export interface FigmaHtmlPluginOptions {
 	assetsDir?: string;
 }
 
-export class FigmaHtmlPlugin implements PluginDefinition, SourcePlugin {
+export class FigmaHtmlPlugin implements SourcePlugin {
 	readonly name = "figma-html";
 
 	constructor(private readonly options: FigmaHtmlPluginOptions) {}

@@ -1,210 +1,45 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import type { DesignEmbedConfig, TestGenerationConfig } from "../core/types.ts";
 
-/**
- * Minimal interface every source plugin instance must satisfy.
- * Keep this interface in the config package so plugin packages can implement
- * it without pulling in the heavier core package.
- */
-export interface PluginDefinition {
-	readonly name: string;
-}
+export type {
+	SourcePlugin,
+	SourcePluginInput,
+	SourcePluginResult,
+} from "../core/plugins/pluginApi.ts";
+export type {
+	ComponentMapping,
+	DesignEmbedConfig,
+	NumericTokenGroup,
+	StyleMappings,
+	StyleMode,
+	TargetEmitInput,
+	TargetEmitter,
+	TargetTestGenerateInput,
+	TargetTestGenerator,
+	TestAssertions,
+	TestGenerationConfig,
+	TestState,
+	TestViewport,
+	TokenConfig,
+} from "../core/types.ts";
 
-/**
- * External target adapter instance supplied by packages like
- * `@design-embed/target-react`.
- */
-export interface TargetAdapterDefinition {
-	readonly name?: string;
-	emit(input: unknown): unknown;
-	generateTests?(input: unknown): unknown;
-}
-
-/**
- * A diagnostic reported during configuration loading or validation.
- */
 export interface ConfigDiagnostic {
-	/** Unique error code. */
 	code: string;
-	/** Human-readable message. */
 	message: string;
-	/** Severity of the issue. */
 	severity: "error" | "warning" | "info";
 }
 
-/**
- * The root configuration object for design-embed.
- */
-export interface DesignEmbedConfig {
-	/** Output settings for the generated code. */
-	output?: {
-		/** Directory where generated views will be written. */
-		viewsDir?: string;
-		/** Directory for page-level assemblies. */
-		assembliesDir?: string;
-		/** Target adapter instance. Omit to use built-in HTML output. */
-		target?: "html" | TargetAdapterDefinition;
-		/** Name of the generated component/view. */
-		viewName?: string;
-		/** How to handle styles: inline, Tailwind, or CSS Modules. */
-		styleMode?: StyleMode;
-	};
-	/** Mappings from HTML selectors to project components. */
-	components?: ComponentMapping[];
-	/** Design token scales for style snapping. */
-	tokens?: TokenConfig;
-	/** Mappings for Tailwind utility classes. */
-	styleMappings?: StyleMappings;
-	/** Source plugin instances to run when fetching HTML with `design-embed --out`. */
-	plugins?: PluginDefinition[];
-	/** Visual and layout test generation settings. */
-	tests?: TestGenerationConfig;
-}
-
-/**
- * Configuration for generated regression tests.
- */
-export interface TestGenerationConfig {
-	/** Directory where generated test files and reference fixtures are written. */
-	outputDir?: string;
-	/** Test runner emitted by the generator. */
-	runner?: "playwright";
-	/** Source artifact paths used as the visual/layout reference. */
-	source?: {
-		/** Path to the reference design HTML, relative to the config directory or cwd. */
-		html?: string;
-		/** Optional path to external reference CSS, relative to the config directory or cwd. */
-		css?: string;
-	};
-	/** Viewports to verify. */
-	viewports?: TestViewport[];
-	/** Interaction states to verify for every viewport. */
-	states?: TestState[];
-	/** Assertion settings. */
-	assertions?: TestAssertions;
-}
-
-export interface TestViewport {
-	/** Stable viewport name used in test titles. */
-	name?: string;
-	width: number;
-	height: number;
-}
-
-export interface TestState {
-	/** Stable state name used in test titles. */
-	name: string;
-	/** Selector to hover before assertions. */
-	hover?: string;
-	/** Selector to focus before assertions. */
-	focus?: string;
-	/** Selector to click before assertions. */
-	click?: string;
-	/** Selector to wait for before assertions. */
-	waitFor?: string;
-}
-
-export interface TestAssertions {
-	/** Whether to compare full-page screenshots. Defaults to true. */
-	screenshot?: boolean;
-	/** Whether to compare element bounding boxes. Defaults to true. */
-	layout?: boolean;
-	/** Maximum x/y/width/height drift in CSS pixels. Defaults to 0. */
-	layoutTolerance?: number;
-	/** Selectors to collect for layout comparison. Defaults to [":scope", ":scope *"]. */
-	selectors?: string[];
-}
-
-/**
- * Available styling modes.
- */
-export type StyleMode = "inline" | "css-modules" | "tailwind";
-
-/**
- * Defines how to map a design element to a project component.
- */
-export interface ComponentMapping {
-	/** CSS selector to match the element in the design HTML. */
-	selector: string;
-	/** Import path of the project component. */
-	component: string;
-	/** Named export of the component. */
-	importName?: string;
-	/** Prop values to pass, supports $text, $children, and $attr expressions. */
-	props?: Record<string, string>;
-}
-
-/**
- * Configuration for design tokens.
- */
-export interface TokenConfig {
-	/** Spacing scale (e.g. padding, margin, gap). */
-	spacing?: {
-		/** Unit to use in generated styles. */
-		unit?: "px" | "rem";
-		/** Max distance for value snapping. */
-		threshold?: number;
-		/** The token scale mapping names to values. */
-		values?: Record<string, number>;
-	};
-	/** Sizing scale (e.g. width, height). */
-	sizing?: NumericTokenGroup;
-	/** Typography scale (e.g. font-size, line-height). */
-	typography?: NumericTokenGroup;
-	/** Border radius scale. */
-	radius?: Record<string, number>;
-	/** Border width scale. */
-	borderWidth?: Record<string, number>;
-	/** Box shadow scale. */
-	shadow?: Record<string, string>;
-	/** Color palette. */
-	colors?: Record<string, string>;
-	/** Color matching threshold (CIE76). */
-	colorThreshold?: number;
-}
-
-export interface NumericTokenGroup {
-	unit?: "px" | "rem";
-	threshold?: number;
-	values?: Record<string, number>;
-}
-
-export type StyleMappings = Record<string, Record<string, string>>;
-
-/**
- * Result of loading a configuration file.
- */
 export interface LoadConfigResult {
-	/** The loaded and validated config, if successful. */
 	config?: DesignEmbedConfig;
-	/** Any errors or warnings encountered during loading. */
 	diagnostics: ConfigDiagnostic[];
 }
 
-/**
- * Helper to define configuration with type safety.
- *
- * @param config - The configuration object.
- * @returns The same configuration object.
- *
- * @example
- * export default defineConfig({
- *   output: { target: reactTarget }
- * });
- */
 export function defineConfig(config: DesignEmbedConfig): DesignEmbedConfig {
 	return config;
 }
 
-/**
- * Asynchronously loads a configuration file from disk.
- * Supports .ts, .js, and .mjs files via dynamic import.
- *
- * @param configPath - Path to the config file.
- * @param cwd - Current working directory.
- * @returns A promise resolving to the load result.
- */
 export async function loadConfig(
 	configPath: string,
 	cwd = process.cwd(),
