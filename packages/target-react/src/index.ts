@@ -13,8 +13,7 @@ import type {
 
 export const reactEmitter: TargetEmitter = {
 	emit({ nodes, css, config, diagnostics }: TargetEmitInput): TargetEmitResult {
-		const viewsDir = config?.output?.viewsDir ?? "src/generated/views";
-		const assembliesDir = config?.output?.assembliesDir;
+		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "DesignView";
 
 		const styleResult = transformStyles(nodes, css, config, diagnostics);
@@ -38,27 +37,12 @@ export const reactEmitter: TargetEmitter = {
 		)) {
 			files.push(split);
 		}
-		if (assembliesDir) {
-			const pageName = `${viewName}Page`;
-			files.push({
-				path: `${assembliesDir}/${pageName}.tsx`,
-				contents: emitReactPage({
-					pageName,
-					viewName,
-					viewImportPath: toRelativeImport(
-						`${assembliesDir}/${pageName}.tsx`,
-						`${viewsDir}/${viewName}.view`,
-					),
-				}),
-			});
-		}
 
 		return { files };
 	},
 };
 
 export const reactTarget: TargetEmitter & TargetTestGenerator = {
-	name: "react",
 	emit: reactEmitter.emit,
 	generateTests(input: TargetTestGenerateInput): TargetTestGenerateResult {
 		return reactTestGenerator.generateTests(input);
@@ -70,8 +54,8 @@ export const reactTestGenerator: TargetTestGenerator = {
 		html,
 		css,
 		config,
-		diagnostics,
 	}: TargetTestGenerateInput): TargetTestGenerateResult {
+		const diagnostics: Diagnostic[] = [];
 		const tests = config.tests;
 		if (tests?.runner && tests.runner !== "playwright") {
 			diagnostics.push({
@@ -79,17 +63,18 @@ export const reactTestGenerator: TargetTestGenerator = {
 				message: `Unsupported test runner: ${tests.runner}`,
 				severity: "error",
 			});
-			return { files: [] };
+			return { files: [], diagnostics };
 		}
 
-		const viewsDir = config.output?.viewsDir ?? "src/generated/views";
+		const viewsDir = String(config.output?.viewsDir ?? "src/generated/views");
 		const viewName = config.output?.viewName ?? "DesignView";
-		const outputDir = tests?.outputDir ?? "tests/generated/design-embed";
+		const outputDir = tests?.outputDir ?? `${viewsDir}/tests`;
 		const fixturePath = `${outputDir}/${viewName}.reference.html`;
 		const specPath = `${outputDir}/${viewName}.visual.spec.tsx`;
 		const referenceHtml = `${css?.trim() ? `<style>\n${css}\n</style>\n` : ""}${html}`;
 
 		return {
+			diagnostics,
 			files: [
 				{
 					path: fixturePath,
@@ -313,19 +298,6 @@ function toRelativeImport(fromFile: string, toFile: string): string {
 	const prefix = fromParts.map(() => "..");
 	const relative = [...prefix, ...toParts].join("/");
 	return relative.startsWith(".") ? relative : `./${relative}`;
-}
-
-function emitReactPage(input: {
-	pageName: string;
-	viewName: string;
-	viewImportPath: string;
-}): string {
-	return `import { ${input.viewName} } from "${input.viewImportPath}";
-
-export default function ${input.pageName}() {
-\treturn <${input.viewName} />;
-}
-`;
 }
 
 export function emitReactView(

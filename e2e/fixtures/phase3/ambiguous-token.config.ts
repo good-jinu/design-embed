@@ -1,9 +1,10 @@
-import { defineConfig } from "../../../packages/design-embed/src/config/index.ts";
-import { reactTarget } from "../../../packages/target-react/src/index.ts";
+import { defineConfig, fromFile } from "design-embed";
+import { reactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
+	source: fromFile(new URL("./ambiguous-token.html", import.meta.url)),
 	output: {
-		viewsDir: "e2e/fixtures/phase3/generated",
+		viewsDir: new URL("./generated", import.meta.url),
 		target: reactTarget,
 		viewName: "AmbiguousToken",
 		styleMode: "inline",

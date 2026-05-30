@@ -1,7 +1,6 @@
 import type { Diagnostic } from "./diagnostics/diagnostic.ts";
 import type { DesignNode } from "./nodes.ts";
 import type {
-	GeneratedFile,
 	SourcePlugin,
 	TargetEmitResult,
 	TargetTestGenerateResult,
@@ -19,7 +18,6 @@ export interface TargetEmitInput {
 }
 
 export interface TargetEmitter {
-	name?: string;
 	emit(input: TargetEmitInput): TargetEmitResult;
 }
 
@@ -27,8 +25,6 @@ export interface TargetTestGenerateInput {
 	html: string;
 	css?: string;
 	config: DesignEmbedConfig;
-	diagnostics: Diagnostic[];
-	generatedFiles?: GeneratedFile[];
 }
 
 export interface TargetTestGenerator {
@@ -74,10 +70,6 @@ export type StyleMappings = Record<string, Record<string, string>>;
 export interface TestGenerationConfig {
 	outputDir?: string;
 	runner?: "playwright";
-	source?: {
-		html?: string;
-		css?: string;
-	};
 	viewports?: TestViewport[];
 	states?: TestState[];
 	assertions?: TestAssertions;
@@ -106,8 +98,7 @@ export interface TestAssertions {
 
 export interface DesignEmbedConfig {
 	output?: {
-		viewsDir?: string;
-		assembliesDir?: string;
+		viewsDir?: string | URL;
 		target?: "html" | TargetEmitter;
 		viewName?: string;
 		styleMode?: StyleMode;

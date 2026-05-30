@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { DesignNode, Diagnostic } from "design-embed";
-import {
-	emitReactView,
-	reactEmitter,
-	reactTarget,
-	reactTestGenerator,
-} from "./index.ts";
+import type { DesignNode } from "design-embed";
+import { emitReactView, reactTarget, reactTestGenerator } from "./index.ts";
 
 describe("React target", () => {
 	test("emits a React view from design nodes", () => {
@@ -33,41 +28,7 @@ describe("React target", () => {
 		);
 	});
 
-	test("emits a page assembly when assembliesDir is configured", () => {
-		const diagnostics: Diagnostic[] = [];
-		const result = reactEmitter.emit({
-			nodes: [{ kind: "element", tagName: "main", children: [] }],
-			config: {
-				output: {
-					viewName: "GeneratedView",
-					viewsDir: "src/generated/views",
-					assembliesDir: "src/generated/pages",
-				},
-			},
-			diagnostics,
-		});
-
-		assert.deepEqual(diagnostics, []);
-		assert.deepEqual(
-			result.files.map((file) => file.path),
-			[
-				"src/generated/views/GeneratedView.view.tsx",
-				"src/generated/pages/GeneratedViewPage.tsx",
-			],
-		);
-		assert.equal(
-			result.files[1]?.contents,
-			`import { GeneratedView } from "../views/GeneratedView.view";
-
-export default function GeneratedViewPage() {
-\treturn <GeneratedView />;
-}
-`,
-		);
-	});
-
 	test("emits deterministic React visual regression tests", () => {
-		const diagnostics: Diagnostic[] = [];
 		const result = reactTestGenerator.generateTests({
 			html: '<section style="width: 120px">Hello</section>',
 			config: {
@@ -88,10 +49,9 @@ export default function GeneratedViewPage() {
 					},
 				},
 			},
-			diagnostics,
 		});
 
-		assert.deepEqual(diagnostics, []);
+		assert.deepEqual(result.diagnostics, []);
 		assert.deepEqual(
 			result.files.map((file) => file.path),
 			[
@@ -115,7 +75,6 @@ export default function GeneratedViewPage() {
 	});
 
 	test("reports unsupported React test runners", () => {
-		const diagnostics: Diagnostic[] = [];
 		const result = reactTestGenerator.generateTests({
 			html: "<main></main>",
 			config: {
@@ -123,11 +82,10 @@ export default function GeneratedViewPage() {
 					runner: "vitest" as "playwright",
 				},
 			},
-			diagnostics,
 		});
 
 		assert.deepEqual(result.files, []);
-		assert.deepEqual(diagnostics, [
+		assert.deepEqual(result.diagnostics, [
 			{
 				code: "TEST_RUNNER_UNSUPPORTED",
 				message: "Unsupported test runner: vitest",

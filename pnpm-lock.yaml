@@ -44,6 +44,9 @@ importers:
 
   e2e:
     dependencies:
+      '@design-embed/plugin-figma-html':
+        specifier: workspace:*
+        version: link:../packages/plugin-figma-html
       '@design-embed/target-react':
         specifier: workspace:*
         version: link:../packages/target-react

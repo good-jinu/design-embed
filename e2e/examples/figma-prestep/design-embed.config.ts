@@ -1,5 +1,5 @@
-import { defineConfig } from "../../../packages/design-embed/src/config/index.ts";
-import { FigmaHtmlPlugin } from "../../../packages/plugin-figma-html/src/index.ts";
+import { defineConfig } from "design-embed";
+import { FigmaHtmlPlugin } from "@design-embed/plugin-figma-html";
 
 export default defineConfig({
 	source: new FigmaHtmlPlugin({

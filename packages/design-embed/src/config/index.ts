@@ -1,6 +1,11 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import type {
+	SourcePlugin,
+	SourcePluginInput,
+	SourcePluginResult,
+} from "../core/plugins/pluginApi.ts";
 import type { DesignEmbedConfig, TestGenerationConfig } from "../core/types.ts";
 
 export type {
@@ -33,11 +38,37 @@ export interface ConfigDiagnostic {
 
 export interface LoadConfigResult {
 	config?: DesignEmbedConfig;
+	configPath?: string;
 	diagnostics: ConfigDiagnostic[];
 }
 
 export function defineConfig(config: DesignEmbedConfig): DesignEmbedConfig {
 	return config;
+}
+
+export function fromFile(
+	htmlPath: string | URL,
+	cssPath?: string | URL,
+): SourcePlugin {
+	const resolvedHtml = htmlPath instanceof URL ? fileURLToPath(htmlPath) : null;
+	const resolvedCss = cssPath
+		? cssPath instanceof URL
+			? fileURLToPath(cssPath)
+			: null
+		: null;
+	return {
+		name: "html-file",
+		async run({ cwd }: SourcePluginInput): Promise<SourcePluginResult> {
+			const html = readFileSync(
+				resolvedHtml ?? resolve(cwd, htmlPath as string),
+				"utf-8",
+			);
+			const css = cssPath
+				? readFileSync(resolvedCss ?? resolve(cwd, cssPath as string), "utf-8")
+				: undefined;
+			return { html, css, diagnostics: [] };
+		},
+	};
 }
 
 export async function loadConfig(
@@ -90,7 +121,7 @@ export async function loadConfig(
 		}
 
 		diagnostics.push(...validateConfig(config));
-		return { config, diagnostics };
+		return { config, configPath: resolvedPath, diagnostics };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		return {
