@@ -126,7 +126,7 @@ function emitNode(node: DesignNode, depth: number): string {
 
 function emitComponentHtml(node: DesignNode, depth: number): string {
 	const indent = "\t".repeat(depth);
-	const tag = node.component ?? "component";
+	const tag = toKebabCase(node.component ?? "component");
 
 	const attrParts = Object.entries(node.props ?? {})
 		.filter(([name, prop]) => name !== "children" && prop.kind !== "children")
@@ -321,4 +321,11 @@ function escapeHtml(value: string): string {
 
 function escapeAttribute(value: string): string {
 	return escapeHtml(value).replace(/"/g, "&quot;");
+}
+
+function toKebabCase(s: string): string {
+	return s
+		.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+		.toLowerCase()
+		.replace(/^-/, "");
 }

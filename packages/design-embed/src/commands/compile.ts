@@ -22,8 +22,6 @@ export async function runCompileCommand(
 	options: CompileCommandOptions = {},
 ): Promise<number> {
 	const cwd = resolve(process.cwd(), getStringFlag(flags, "--cwd") ?? ".");
-	const inputPath =
-		getStringFlag(flags, "--input") ?? getStringFlag(flags, "--");
 	const explicitConfigPath = getStringFlag(flags, "--config");
 	const defaultConfigPath = resolve(cwd, "design-embed.config.ts");
 	const configPath =
@@ -34,47 +32,63 @@ export async function runCompileCommand(
 	const generateTests = !getBooleanFlag(flags, "--no-test");
 	const diagnostics: Diagnostic[] = [];
 
-	if (!inputPath) {
+	if (!configPath) {
 		diagnostics.push({
-			code: "INPUT_REQUIRED",
-			message: "--input is required.",
+			code: "CONFIG_REQUIRED",
+			message:
+				"No config file found. Create design-embed.config.ts or use --config.",
 			severity: "error",
 		});
 		printDiagnostics(diagnostics, format, quiet);
 		return 2;
 	}
 
-	const resolvedInputPath = resolve(cwd, inputPath);
-	if (!existsSync(resolvedInputPath)) {
+	const configResult = await loadConfig(configPath, cwd);
+	diagnostics.push(...configResult.diagnostics);
+	const config = configResult.config;
+
+	if (hasErrors(diagnostics)) {
+		printDiagnostics(diagnostics, format, quiet);
+		return 2;
+	}
+
+	const plugin = config?.source;
+	if (!plugin) {
 		diagnostics.push({
-			code: "INPUT_NOT_FOUND",
-			message: `Input file not found: ${resolvedInputPath}`,
+			code: "PLUGIN_REQUIRED",
+			message:
+				"Config must include a source plugin instance in the plugins array.",
 			severity: "error",
-			file: inputPath,
 		});
 		printDiagnostics(diagnostics, format, quiet);
 		return 2;
 	}
 
-	let config: DesignEmbedConfig | undefined;
-	if (configPath) {
-		const configResult = await loadConfig(configPath, cwd);
-		diagnostics.push(...configResult.diagnostics);
-		config = configResult.config;
+	const pluginResult = await plugin.run({ cwd, args: {} });
+	diagnostics.push(...pluginResult.diagnostics);
 
-		if (hasErrors(diagnostics)) {
-			printDiagnostics(diagnostics, format, quiet);
-			return 2;
-		}
+	if (hasErrors(diagnostics)) {
+		printDiagnostics(diagnostics, format, quiet);
+		return 2;
+	}
+
+	if (!pluginResult.html) {
+		diagnostics.push({
+			code: "PLUGIN_NO_HTML",
+			message: "Source plugin produced no HTML.",
+			severity: "error",
+		});
+		printDiagnostics(diagnostics, format, quiet);
+		return 2;
 	}
 
 	const targetAdapter = getTargetAdapter(config);
 
 	const cssPath = getStringFlag(flags, "--css");
-	const html = readFileSync(resolvedInputPath, "utf-8");
+	const html = pluginResult.html;
 	const css = cssPath
 		? readFileSync(resolve(cwd, cssPath), "utf-8")
-		: undefined;
+		: pluginResult.css;
 	const result = await embed({
 		html,
 		css,

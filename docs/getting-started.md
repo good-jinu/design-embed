@@ -55,11 +55,11 @@ npm exec design-embed -- init --force
 ### 2. Basic Configuration
 
 The generated `design-embed.config.ts` includes a local `HtmlFetcherPlugin`
-example. It fetches HTML from `https://www.scrapethissite.com/pages/` and writes
-the first `design.html` source artifact when you run the fetch command:
+example. It fetches HTML from `https://www.scrapethissite.com/pages/` and compiles
+it when you run:
 
 ```bash npm2yarn
-npm exec design-embed -- --out ./design.html
+npm exec design-embed
 ```
 
 The plugin is project code inside the generated config, so you can replace the
@@ -122,11 +122,9 @@ import { FigmaHtmlPlugin } from "@design-embed/plugin-figma-html";
 import { reactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
-  plugins: [
-    new FigmaHtmlPlugin({
-      url: "https://www.figma.com/file/KEY/NAME?node-id=ID"
-    })
-  ],
+  source: new FigmaHtmlPlugin({
+    url: "https://www.figma.com/file/KEY/NAME?node-id=ID"
+  }),
   output: {
     target: reactTarget,
     viewName: "WelcomeHero",
@@ -136,22 +134,13 @@ export default defineConfig({
 });
 ```
 
-Then run the fetch command to write the fetched design HTML to disk:
-
-```bash npm2yarn
-# Set your Figma personal access token
-export FIGMA_TOKEN=your_token_here
-
-# Fetch a design node
-npm exec design-embed -- --out ./design.html
-```
-
 ### 4. Run the Compiler
 
-Now, run the compiler to turn that HTML into a React component:
+Set your Figma personal access token and run the compiler. It fetches and compiles in one step:
 
 ```bash npm2yarn
-npm exec design-embed -- --input ./design.html
+export FIGMA_TOKEN=your_token_here
+npm exec design-embed
 ```
 
 This will create `src/generated/views/WelcomeHero.view.tsx`.
@@ -213,7 +202,7 @@ source: {
 ### 2. Compile the React view
 
 ```bash npm2yarn
-npm exec design-embed -- --input ./design.html
+npm exec design-embed
 ```
 
 ### 3. Generate the test files

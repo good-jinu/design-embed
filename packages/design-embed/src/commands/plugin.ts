@@ -1,8 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { getStringFlag } from "../args.ts";
-import { loadConfig, type PluginDefinition } from "../config/index.ts";
-import type { SourcePlugin } from "../core/index.ts";
+import { loadConfig } from "../config/index.ts";
 
 export async function runPluginCommand(
 	_name: string | undefined,
@@ -31,7 +30,7 @@ export async function runPluginCommand(
 		return 2;
 	}
 
-	const plugin = findSourcePlugin(configResult.config?.plugins);
+	const plugin = configResult.config?.source;
 	if (!plugin) {
 		console.error(
 			"Error: config must include a source plugin instance in the plugins array (e.g. new FigmaHtmlPlugin({ ... })).",
@@ -72,14 +71,4 @@ export async function runPluginCommand(
 	}
 
 	return 0;
-}
-
-function isSourcePlugin(plugin: PluginDefinition): plugin is SourcePlugin {
-	return typeof (plugin as SourcePlugin).run === "function";
-}
-
-function findSourcePlugin(
-	plugins: PluginDefinition[] | undefined,
-): SourcePlugin | undefined {
-	return plugins?.find(isSourcePlugin);
 }

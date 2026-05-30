@@ -23,8 +23,7 @@ design-embed.config.ts
 ```
 
 Existing files are skipped by default.
-Run `design-embed --out ./design.html` to create `design.html` from the
-generated fetcher plugin.
+Run `design-embed` to fetch and compile using the generated config.
 
 **Flags**
 
@@ -37,15 +36,14 @@ generated fetcher plugin.
 ---
 
 ### `design-embed`
-Compiles design HTML/CSS into your target format.
+Runs the source plugin from the config to fetch design HTML, then compiles it into your target format.
 
 ```bash npm2yarn
-npm exec design-embed -- --input <file> [flags]
+npm exec design-embed [flags]
 ```
 
 **Flags**
 
-- `--input`: Path to the input HTML file. Required.
 - `--config`: Path to your config file when it is not `design-embed.config.ts`.
 - `--css`: Optional path to a separate CSS file.
 - `--quiet`: Suppress text diagnostics and success output.
@@ -58,7 +56,7 @@ npm exec design-embed -- --input <file> [flags]
 Checks if generated files are up-to-date without writing anything. Ideal for CI/CD.
 
 ```bash npm2yarn
-npm exec design-embed -- check --input <file>
+npm exec design-embed check
 ```
 
 `check` uses the same flags as the default compile command. By default it compares generated output with files on disk and exits without writing. Pass `--write` to write the generated files instead.
@@ -88,18 +86,3 @@ The command reads the `tests` section from the config file. For React targets, i
 
 ---
 
-### `design-embed --out`
-Runs the configured source plugin to fetch or prepare design data before local compilation.
-
-```bash npm2yarn
-npm exec design-embed -- --out <path>
-```
-
-The command loads the first source plugin instance from `design-embed.config.ts`
-and writes the plugin-produced HTML. Pass `--config` only when your config file
-has a different path.
-
-**Flags**
-
-- `--out`: Path where the generated HTML should be written. Required.
-- `--config`: Path to a config file containing a source plugin instance when it is not `design-embed.config.ts`.

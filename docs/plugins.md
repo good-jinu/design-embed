@@ -20,13 +20,12 @@ from an external URL and returns it to the fetch command.
 // external-html-plugin.ts
 import type {
   Diagnostic,
-  PluginDefinition,
   SourcePlugin,
   SourcePluginInput,
   SourcePluginResult
 } from "design-embed";
 
-export class ExternalHtmlPlugin implements PluginDefinition, SourcePlugin {
+export class ExternalHtmlPlugin implements SourcePlugin {
   readonly name = "external-html";
   private readonly options: { url: string };
 
@@ -73,11 +72,9 @@ import { defineConfig } from "design-embed";
 import { ExternalHtmlPlugin } from "./external-html-plugin";
 
 export default defineConfig({
-  plugins: [
-    new ExternalHtmlPlugin({
-      url: "https://www.scrapethissite.com/pages/"
-    })
-  ],
+  source: new ExternalHtmlPlugin({
+    url: "https://www.scrapethissite.com/pages/"
+  }),
   output: {
     viewName: "ScrapeThisSitePages",
     viewsDir: "src/generated/views"
@@ -85,11 +82,10 @@ export default defineConfig({
 });
 ```
 
-Then write the fetched HTML to a local source artifact before compiling:
+Then run the compiler, which fetches and compiles in one step:
 
 ```bash npm2yarn
-npm exec design-embed -- --out ./design.html
-npm exec design-embed -- --input ./design.html
+npm exec design-embed
 ```
 
 ### Figma Plugin (`figma-html`)
@@ -103,17 +99,15 @@ import { defineConfig } from "design-embed";
 import { FigmaHtmlPlugin } from "@design-embed/plugin-figma-html";
 
 export default defineConfig({
-  plugins: [
-    new FigmaHtmlPlugin({
-      url: "https://www.figma.com/file/KEY/NAME?node-id=ID"
-    })
-  ]
+  source: new FigmaHtmlPlugin({
+    url: "https://www.figma.com/file/KEY/NAME?node-id=ID"
+  })
 });
 ```
 
 **Usage**
 ```bash npm2yarn
-npm exec design-embed -- --out ./design.html
+npm exec design-embed
 ```
 
 **Credentials:**

@@ -6,17 +6,24 @@ import { describe, test } from "node:test";
 import { runCompileCommand } from "./compile.ts";
 
 describe("compile command", () => {
-	test("generates built-in HTML from a positional input without a target adapter", async () => {
+	test("generates built-in HTML from a source plugin without a target adapter", async () => {
 		const cwd = mkdtempSync(join(tmpdir(), "design-embed-compile-"));
 		writeFileSync(
-			join(cwd, "target.html"),
-			'<section style="width: 120px">Hello</section>',
+			join(cwd, "design-embed.config.ts"),
+			`export default {
+	source: {
+		name: "test-source",
+		async run() {
+			return { html: '<section style="width: 120px">Hello</section>', diagnostics: [] };
+		},
+	},
+};
+`,
 			"utf-8",
 		);
 
 		const code = await runCompileCommand({
 			"--cwd": cwd,
-			"--": "target.html",
 			"--quiet": true,
 		});
 
@@ -32,10 +39,15 @@ describe("compile command", () => {
 
 	test("uses a configured target adapter and skips its tests with --no-test", async () => {
 		const cwd = mkdtempSync(join(tmpdir(), "design-embed-compile-"));
-		writeFileSync(join(cwd, "target.html"), "<main>No tests</main>", "utf-8");
 		writeFileSync(
 			join(cwd, "design-embed.config.mjs"),
 			`export default {
+	source: {
+		name: "test-source",
+		async run() {
+			return { html: "<main>No tests</main>", diagnostics: [] };
+		},
+	},
 	output: {
 		target: {
 			emit() {
@@ -57,7 +69,6 @@ describe("compile command", () => {
 
 		const code = await runCompileCommand({
 			"--cwd": cwd,
-			"--": "target.html",
 			"--config": "design-embed.config.mjs",
 			"--no-test": true,
 			"--quiet": true,
@@ -74,16 +85,17 @@ describe("compile command", () => {
 	test("uses design-embed.config.ts by default when it exists", async () => {
 		const cwd = mkdtempSync(join(tmpdir(), "design-embed-compile-"));
 		writeFileSync(
-			join(cwd, "target.html"),
-			"<main>Default config</main>",
-			"utf-8",
-		);
-		writeFileSync(
 			join(cwd, "design-embed.config.ts"),
 			`export default {
-\toutput: {
-\t\tviewsDir: "custom/generated",
-\t},
+	source: {
+		name: "test-source",
+		async run() {
+			return { html: "<main>Default config</main>", diagnostics: [] };
+		},
+	},
+	output: {
+		viewsDir: "custom/generated",
+	},
 };
 `,
 			"utf-8",
@@ -91,7 +103,6 @@ describe("compile command", () => {
 
 		const code = await runCompileCommand({
 			"--cwd": cwd,
-			"--input": "target.html",
 			"--quiet": true,
 		});
 

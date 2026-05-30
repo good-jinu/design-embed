@@ -1,4 +1,4 @@
-# 🧩 design-embed
+# design-embed
 
 **Embed your design into your existing codebase. Deterministically.**
 
@@ -41,11 +41,9 @@ No AI. No hallucinations. Just predictable, consistent transformations that embe
 ### How it works
 
 ```bash npm2yarn
-# 1. Export your design to HTML (from Figma, Penpot, Webflow, or any tool)
-# 2. Run design-embed
-npm exec design-embed -- \
-  --input design.html \
-  --config design-embed.config.ts
+# 1. Configure your source plugin (Figma, Penpot, Webflow, or any tool)
+# 2. Run design-embed — fetches from source and compiles in one step
+npm exec design-embed
 
 # 3. Get production-ready components, already embedded into your codebase
 ```
@@ -104,9 +102,9 @@ Define exactly which HTML elements become your existing project components using
 
 ### 📦 Codebase-aware output
 Your project has:
-- A specific `<Button>` component? We'll use it.
+- A specific `<Button>` component? We'll use it (as `<Button>` in React, or `<button>` in HTML).
 - A Tailwind config with custom colors? We'll respect it.
-- Naming conventions (PascalCase for components, camelCase for props)? We'll follow them.
+- Naming conventions (PascalCase for React components, kebab-case for Web Components)? We'll follow them.
 
 ### 🧪 Built-in visual regression tests
 Both `htmlTarget` and `reactTarget` can generate Playwright specs that verify your embedded output matches the original design. The spec loads the source HTML as the reference and the generated output as the actual, then compares screenshots and layout at configurable viewports and interaction states.
@@ -300,7 +298,7 @@ That's what we automate.
 
 ```bash npm2yarn
 npm install --save-dev design-embed
-npm exec design-embed -- --input ./design.html
+npm exec design-embed
 ```
 
 Or use it programmatically:
