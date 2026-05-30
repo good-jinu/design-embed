@@ -18,9 +18,10 @@ The most common programmatic use case is calling the `embed` function. You provi
 
 ```typescript
 import { embed } from "design-embed";
-import { reactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/target-react";
 
 async function runCompiler() {
+  const reactTarget = new ReactTarget();
   const result = await embed({
     html: '<div class="card">Hello World</div>',
     config: {
@@ -51,7 +52,7 @@ If you want to support a framework other than React or HTML, you can implement t
 ```typescript
 import { TargetEmitter, TargetEmitInput, TargetEmitResult } from "design-embed";
 
-export const myVueEmitter: TargetEmitter = {
+export class VueTarget implements TargetEmitter {
   emit(input: TargetEmitInput): TargetEmitResult {
     const { nodes, config } = input;
     
@@ -68,7 +69,7 @@ export const myVueEmitter: TargetEmitter = {
       ]
     };
   }
-};
+}
 ```
 
 ## Architecture Summary

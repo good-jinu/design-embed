@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import type { DesignNode } from "design-embed";
-import { emitReactView, reactTarget, reactTestGenerator } from "./index.ts";
+import { emitReactView, ReactTarget, reactTestGenerator } from "./index.ts";
 
 describe("React target", () => {
 	test("emits a React view from design nodes", () => {
@@ -33,7 +33,7 @@ describe("React target", () => {
 			html: '<section style="width: 120px">Hello</section>',
 			config: {
 				output: {
-					target: reactTarget,
+					target: new ReactTarget(),
 					viewName: "GeneratedCard",
 					viewsDir: "src/generated/views",
 				},

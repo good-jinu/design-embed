@@ -38,6 +38,11 @@ By default this uses the built-in HTML target and writes:
 src/generated/views/debug.html
 ```
 
+When `components` are configured with the HTML target, two additional files are generated for each view alongside the HTML:
+
+- `ViewName.ts` — a native web component scaffold (`HTMLElement` subclass with `observedAttributes`, lifecycle hooks, and a `render()` method; no React dependency)
+- `ViewName.html` — includes `<script type="module" src="./ViewName.js"></script>` at the bottom
+
 ## React Adapter Example
 
 Install the React target adapter alongside `design-embed`:
@@ -51,11 +56,11 @@ Create a config file:
 ```ts
 // design-embed.config.ts
 import { defineConfig } from "design-embed";
-import { reactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
 	output: {
-		target: reactTarget,
+		target: new ReactTarget(),
 		viewName: "WelcomeHero",
 		viewsDir: "src/components",
 		assembliesDir: "src/pages",

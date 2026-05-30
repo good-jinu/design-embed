@@ -1,5 +1,5 @@
 import { defineConfig, fromFile } from "design-embed";
-import { reactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
 	source: fromFile(
@@ -8,7 +8,7 @@ export default defineConfig({
 	),
 	output: {
 		viewsDir: new URL("./generated", import.meta.url),
-		target: reactTarget,
+		target: new ReactTarget(),
 		viewName: "CssModuleCard",
 		styleMode: "css-modules",
 	},
