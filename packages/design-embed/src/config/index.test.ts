@@ -101,7 +101,7 @@ describe("config", () => {
 
 	test("loads a configuration file asynchronously", async () => {
 		const result = await loadConfig(
-			"e2e/fixtures/phase1/simple-card.config.ts",
+			"e2e/fixtures/simple-card/default.config.ts",
 			root,
 		);
 		assert.deepEqual(result.diagnostics, []);
@@ -115,7 +115,7 @@ describe("config", () => {
 
 	test("reports error for unsupported config format", async () => {
 		const result = await loadConfig(
-			"e2e/fixtures/phase1/simple-card.html",
+			"e2e/fixtures/simple-card/simple-card.html",
 			root,
 		);
 		assert.equal(result.diagnostics[0]?.code, "CONFIG_UNSUPPORTED_FORMAT");

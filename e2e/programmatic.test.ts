@@ -1,49 +1,57 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 import { embed } from "design-embed";
-import phase1Config from "./fixtures/phase1/simple-card.config.ts";
-import webComponentsConfig from "./fixtures/web-components/product-list.config.ts";
+import simpleCardConfig from "./fixtures/simple-card/default.config.ts";
+import webComponentsConfig from "./fixtures/web-components/default.config.ts";
+import buttonConfig from "./fixtures/button/default.config.ts";
+import cardWithImageConfig from "./fixtures/card-with-image/default.config.ts";
+import tailwindCardConfig from "./fixtures/tailwind-card/default.config.ts";
+import cssModuleCardConfig from "./fixtures/css-module-card/default.config.ts";
 
 const fixtures = join(import.meta.dirname, "fixtures");
 
+function readExpectedDir(dir: string, prefix = ""): Map<string, string> {
+	const files = new Map<string, string>();
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+		if (entry.isDirectory()) {
+			for (const [k, v] of readExpectedDir(join(dir, entry.name), rel)) {
+				files.set(k, v);
+			}
+		} else {
+			files.set(rel, readFileSync(join(dir, entry.name), "utf-8"));
+		}
+	}
+	return files;
+}
+
+const FIXTURES = [
+	{ name: "simple-card", config: simpleCardConfig },
+	{ name: "web-components", config: webComponentsConfig, generateTests: true },
+	{ name: "button", config: buttonConfig },
+	{ name: "card-with-image", config: cardWithImageConfig },
+	{ name: "tailwind-card", config: tailwindCardConfig },
+	{ name: "css-module-card", config: cssModuleCardConfig },
+];
+
 describe("programmatic compiler pipeline", () => {
-	test("emits web component substitutions for the product list fixture", async () => {
-		const result = await embed({ config: webComponentsConfig, dryRun: true });
+	for (const { name, config, generateTests } of FIXTURES) {
+		test(`${name}: output matches expected snapshots`, async () => {
+			const result = await embed({ config, generateTests });
 
-		assert.deepEqual(result.diagnostics, []);
-		assert.equal(result.files[0]?.path, "fixtures/web-components/generated/ProductList.html");
-		assert.equal(
-			result.files[0]?.contents,
-			readFileSync(join(fixtures, "web-components/expected.html"), "utf-8"),
-		);
-	});
+			assert.deepEqual(result.diagnostics, []);
 
-	test("generates a visual regression spec for the web components fixture", async () => {
-		const result = await embed({ config: webComponentsConfig, generateTests: true, dryRun: true });
+			const expected = readExpectedDir(join(fixtures, name, "expected"));
+			const generatedPrefix = `fixtures/${name}/generated/`;
 
-		assert.deepEqual(result.diagnostics, []);
-		assert.deepEqual(result.files.map((f) => f.path), [
-			"fixtures/web-components/generated/ProductList.html",
-			"fixtures/web-components/generated/tests/ProductList.reference.html",
-			"fixtures/web-components/generated/tests/ProductList.spec.ts",
-		]);
-		assert.equal(result.files[1]?.contents, result.html);
-		assert.match(result.files[2]?.contents ?? "", /ProductList\.reference\.html/);
-		assert.match(result.files[2]?.contents ?? "", /page\.setContent\(referenceHtml\)/);
-		assert.match(result.files[2]?.contents ?? "", /page\.goto\("file:\/\/" \+ outputHtmlPath\)/);
-		assert.match(result.files[2]?.contents ?? "", /ProductList matches source/);
-	});
+			assert.equal(result.files.length, expected.size);
 
-	test("emits deterministic debug HTML for the fixture", async () => {
-		const result = await embed({ config: phase1Config, dryRun: true });
-
-		assert.deepEqual(result.diagnostics, []);
-		assert.equal(result.files[0]?.path, "fixtures/phase1/generated/index.html");
-		assert.equal(
-			result.files[0]?.contents,
-			readFileSync(join(fixtures, "phase1/expected.html"), "utf-8"),
-		);
-	});
+			for (const file of result.files) {
+				const rel = file.path.slice(generatedPrefix.length);
+				assert.equal(file.contents, expected.get(rel), `snapshot mismatch: ${rel}`);
+			}
+		});
+	}
 });
