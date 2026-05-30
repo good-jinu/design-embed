@@ -11,7 +11,7 @@ import type {
 	TargetTestGenerator,
 } from "design-embed";
 
-export const reactEmitter: TargetEmitter = {
+export class ReactTarget implements TargetEmitter, TargetTestGenerator {
 	emit({ nodes, css, config, diagnostics }: TargetEmitInput): TargetEmitResult {
 		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "DesignView";
@@ -39,15 +39,12 @@ export const reactEmitter: TargetEmitter = {
 		}
 
 		return { files };
-	},
-};
+	}
 
-export const reactTarget: TargetEmitter & TargetTestGenerator = {
-	emit: reactEmitter.emit,
 	generateTests(input: TargetTestGenerateInput): TargetTestGenerateResult {
 		return reactTestGenerator.generateTests(input);
-	},
-};
+	}
+}
 
 export const reactTestGenerator: TargetTestGenerator = {
 	generateTests({

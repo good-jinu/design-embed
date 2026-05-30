@@ -25,15 +25,37 @@ export default defineConfig({
 The `output` section controls how and where files are generated.
 
 ```typescript
-import { reactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/target-react";
 
 output: {
-  target: reactTarget,         // Omit for built-in HTML output
+  target: new ReactTarget(),   // Omit for built-in HTML output
   viewName: "LandingPage",     // Name of the generated component
   viewsDir: "src/generated",   // Directory for output files
   styleMode: "tailwind"        // "inline", "tailwind", or "css-modules"
 }
 ```
+
+### HtmlTarget options
+
+When no target is specified, the built-in `HtmlTarget` is used. You can also configure it explicitly:
+
+```typescript
+import { HtmlTarget } from "design-embed";
+
+// Light DOM output (default) — same as omitting the target entirely
+target: new HtmlTarget()
+
+// Shadow DOM output
+target: new HtmlTarget({ domModel: "shadow" })
+
+// Shorthand string — equivalent to new HtmlTarget()
+target: "html"
+```
+
+When `components` are configured alongside an HTML target, two additional files are generated for each view:
+
+- `ViewName.ts` — a native web component scaffold (`HTMLElement` subclass with `observedAttributes`, lifecycle hooks, and a `render()` method; no React dependency)
+- `ViewName.html` — includes `<script type="module" src="./ViewName.js"></script>` at the bottom
 
 ---
 

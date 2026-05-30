@@ -73,11 +73,11 @@ Add a target adapter such as React when you want framework output:
 
 ```typescript
 import { defineConfig } from "design-embed";
-import { reactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
   output: {
-    target: reactTarget,
+    target: new ReactTarget(),
     viewName: "WelcomeHero",
     viewsDir: "src/generated/views",
     styleMode: "inline"
@@ -119,14 +119,14 @@ npm install --save-dev @design-embed/plugin-figma-html
 ```typescript
 import { defineConfig } from "design-embed";
 import { FigmaHtmlPlugin } from "@design-embed/plugin-figma-html";
-import { reactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
   source: new FigmaHtmlPlugin({
     url: "https://www.figma.com/file/KEY/NAME?node-id=ID"
   }),
   output: {
-    target: reactTarget,
+    target: new ReactTarget(),
     viewName: "WelcomeHero",
     viewsDir: "src/generated/views",
     styleMode: "inline"
@@ -157,11 +157,11 @@ Update `design-embed.config.ts`:
 
 ```typescript
 import { defineConfig } from "design-embed";
-import { reactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/target-react";
 
 export default defineConfig({
   output: {
-    target: reactTarget,
+    target: new ReactTarget(),
     viewName: "WelcomeHero",
     viewsDir: "src/generated/views",
     styleMode: "inline"

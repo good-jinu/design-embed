@@ -1,6 +1,7 @@
 import type {
 	DesignNode,
 	Diagnostic,
+	GeneratedFile,
 	PropValue,
 	TargetEmitInput,
 	TargetEmitResult,
@@ -10,28 +11,62 @@ import type {
 	TargetTestGenerator,
 } from "../core/index.ts";
 
-function emitHtml(nodes: DesignNode[], css?: string): string {
-	const body = nodes.map((node) => emitNode(node, 0)).join("");
-	if (!css?.trim()) {
-		return body;
-	}
-	return `<style>\n${css.trim()}\n</style>\n${body}\n`;
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export interface HtmlTargetOptions {
+	domModel?: "light" | "shadow";
 }
 
-export const htmlEmitter: TargetEmitter = {
+export class HtmlTarget implements TargetEmitter, TargetTestGenerator {
+	private readonly domModel: "light" | "shadow";
+
+	constructor(options: HtmlTargetOptions = {}) {
+		this.domModel = options.domModel ?? "light";
+	}
+
 	emit({ nodes, css, config }: TargetEmitInput): TargetEmitResult {
 		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "index";
-		return {
-			files: [
-				{
-					path: `${viewsDir}/${viewName}.html`,
-					contents: emitHtml(nodes, css),
-				},
-			],
-		};
-	},
+
+		const components = collectComponents(nodes);
+		const scriptTag =
+			components.length > 0
+				? `<script type="module" src="./${viewName}.js"></script>\n`
+				: "";
+
+		const files: GeneratedFile[] = [
+			{
+				path: `${viewsDir}/${viewName}.html`,
+				contents: emitHtml(nodes, css) + scriptTag,
+			},
+		];
+
+		if (components.length > 0) {
+			files.push({
+				path: `${viewsDir}/${viewName}.ts`,
+				contents: emitWebComponentFile(components, this.domModel),
+			});
+		}
+
+		return { files };
+	}
+
+	generateTests(input: TargetTestGenerateInput): TargetTestGenerateResult {
+		return htmlTestGenerator.generateTests(input);
+	}
+}
+
+export const htmlTarget: TargetEmitter & TargetTestGenerator = new HtmlTarget();
+
+export const htmlEmitter: TargetEmitter = {
+	emit: (input: TargetEmitInput) => htmlTarget.emit(input),
 };
+
+// ---------------------------------------------------------------------------
+// Test generator (unchanged)
+// ---------------------------------------------------------------------------
 
 const htmlTestGenerator: TargetTestGenerator = {
 	generateTests({
@@ -91,10 +126,17 @@ const htmlTestGenerator: TargetTestGenerator = {
 	},
 };
 
-export const htmlTarget: TargetEmitter & TargetTestGenerator = {
-	emit: htmlEmitter.emit,
-	generateTests: htmlTestGenerator.generateTests,
-};
+// ---------------------------------------------------------------------------
+// HTML emit
+// ---------------------------------------------------------------------------
+
+function emitHtml(nodes: DesignNode[], css?: string): string {
+	const body = nodes.map((node) => emitNode(node, 0)).join("");
+	if (!css?.trim()) {
+		return body;
+	}
+	return `<style>\n${css.trim()}\n</style>\n${body}\n`;
+}
 
 function emitNode(node: DesignNode, depth: number): string {
 	const indent = "\t".repeat(depth);
@@ -127,7 +169,7 @@ function emitNode(node: DesignNode, depth: number): string {
 
 function emitComponentHtml(node: DesignNode, depth: number): string {
 	const indent = "\t".repeat(depth);
-	const tag = toKebabCase(node.component ?? "component");
+	const tag = toCustomElementTag(node.component ?? "component");
 
 	const attrParts = Object.entries(node.props ?? {})
 		.filter(([name, prop]) => name !== "children" && prop.kind !== "children")
@@ -175,6 +217,131 @@ function formatPropAsAttribute(name: string, prop: PropValue): string | null {
 	const value = String(prop.value);
 	return value === "" ? name : `${name}="${escapeAttribute(value)}"`;
 }
+
+// ---------------------------------------------------------------------------
+// Web component emit
+// ---------------------------------------------------------------------------
+
+interface ComponentInfo {
+	tagName: string;
+	className: string;
+	observedAttributes: string[];
+}
+
+function collectComponents(nodes: DesignNode[]): ComponentInfo[] {
+	const seen = new Map<string, ComponentInfo>();
+
+	function visit(node: DesignNode): void {
+		if (node.kind === "component") {
+			const key = `${node.importPath ?? ""}::${node.importName ?? ""}`;
+			if (!seen.has(key) && node.importPath && node.importName) {
+				seen.set(key, buildComponentInfo(node));
+			}
+			for (const child of node.children ?? []) {
+				visit(child);
+			}
+			for (const prop of Object.values(node.props ?? {})) {
+				if (prop.kind === "children") {
+					for (const child of prop.value) {
+						visit(child);
+					}
+				}
+			}
+		} else if (node.kind === "element") {
+			for (const child of node.children ?? []) {
+				visit(child);
+			}
+		}
+	}
+
+	for (const node of nodes) {
+		visit(node);
+	}
+
+	return Array.from(seen.values());
+}
+
+function buildComponentInfo(node: DesignNode): ComponentInfo {
+	const importName = node.importName ?? node.component ?? "Component";
+	const tagName = toCustomElementTag(importName);
+	const className = toPascalCase(tagName);
+
+	const observedAttributes: string[] = [];
+	for (const [name, prop] of Object.entries(node.props ?? {})) {
+		if (prop.kind === "literal") {
+			observedAttributes.push(name);
+		}
+	}
+	observedAttributes.sort();
+
+	return { tagName, className, observedAttributes };
+}
+
+function emitWebComponentFile(
+	components: ComponentInfo[],
+	domModel: "light" | "shadow",
+): string {
+	const classes = components
+		.map((c) => emitWebComponentClass(c, domModel))
+		.join("\n\n");
+
+	const registrations = components
+		.map((c) => `customElements.define("${c.tagName}", ${c.className});`)
+		.join("\n");
+
+	return `${classes}\n\n${registrations}\n`;
+}
+
+function emitWebComponentClass(
+	info: ComponentInfo,
+	domModel: "light" | "shadow",
+): string {
+	const hasShadow = domModel === "shadow";
+	const { className, observedAttributes } = info;
+
+	const attrArray =
+		observedAttributes.length === 0
+			? "[]"
+			: `[${observedAttributes.map((a) => JSON.stringify(a)).join(", ")}]`;
+
+	const shadowSetup = hasShadow
+		? `\tprivate shadow: ShadowRoot;\n\n\tconstructor() {\n\t\tsuper();\n\t\tthis.shadow = this.attachShadow({ mode: "open" });\n\t}\n\n`
+		: "";
+
+	const attrVars = observedAttributes
+		.map((a) => `\t\tconst ${a} = this.getAttribute("${a}");`)
+		.join("\n");
+
+	const renderLines: string[] = [];
+	if (attrVars) renderLines.push(attrVars);
+	if (hasShadow)
+		renderLines.push(`\t\tthis.shadow.innerHTML = \`<slot></slot>\`;`);
+	const renderBody = renderLines.join("\n");
+
+	const renderMethod = renderBody
+		? `\tprivate render(): void {\n${renderBody}\n\t}`
+		: `\tprivate render(): void {\n\t}`;
+
+	return `class ${className} extends HTMLElement {
+${shadowSetup}\tstatic get observedAttributes(): string[] {
+\t\treturn ${attrArray};
+\t}
+
+\tconnectedCallback(): void {
+\t\tthis.render();
+\t}
+
+\tattributeChangedCallback(): void {
+\t\tthis.render();
+\t}
+
+${renderMethod}
+}`;
+}
+
+// ---------------------------------------------------------------------------
+// Playwright test generator
+// ---------------------------------------------------------------------------
 
 interface HtmlVisualSpecInput {
 	viewName: string;
@@ -297,6 +464,10 @@ function expectLayoutToMatch(actual, expected, tolerance) {
 `;
 }
 
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
+
 function toRelativeFilePath(fromFile: string, toFile: string): string {
 	const fromParts = fromFile.split("/").slice(0, -1);
 	const toParts = toFile.split("/");
@@ -324,9 +495,17 @@ function escapeAttribute(value: string): string {
 	return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
-function toKebabCase(s: string): string {
-	return s
+function toCustomElementTag(name: string): string {
+	const kebab = name
 		.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
 		.toLowerCase()
 		.replace(/^-/, "");
+	return kebab.includes("-") ? kebab : `${kebab}-el`;
+}
+
+function toPascalCase(kebab: string): string {
+	return kebab
+		.split("-")
+		.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+		.join("");
 }
