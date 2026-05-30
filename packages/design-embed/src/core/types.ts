@@ -40,7 +40,6 @@ export type StyleMode = "inline" | "css-modules" | "tailwind";
 export interface ComponentMapping {
 	selector: string;
 	component: string;
-	importName?: string;
 	props?: Record<string, string>;
 }
 

@@ -10,8 +10,7 @@ export default defineConfig({
 	components: [
 		{
 			selector: "img",
-			component: "@/components/media/ProductImage",
-			importName: "ProductImage",
+			component: "ProductImage",
 			props: {
 				src: "$attr.src",
 				alt: "$attr.alt",
@@ -19,8 +18,7 @@ export default defineConfig({
 		},
 		{
 			selector: "a.product-link",
-			component: "@/components/ui/ProductLink",
-			importName: "ProductLink",
+			component: "ProductLink",
 			props: {
 				href: "$attr.href",
 				children: "$children",

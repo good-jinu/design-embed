@@ -70,38 +70,62 @@ export const reactTestGenerator: TargetTestGenerator = {
 		const specPath = `${outputDir}/${viewName}.visual.spec.tsx`;
 		const referenceHtml = `${css?.trim() ? `<style>\n${css}\n</style>\n` : ""}${html}`;
 
-		return {
-			diagnostics,
-			files: [
-				{
-					path: fixturePath,
-					contents: referenceHtml.endsWith("\n")
-						? referenceHtml
-						: `${referenceHtml}\n`,
-				},
-				{
-					path: specPath,
-					contents: emitReactVisualSpec({
-						viewName,
-						viewImportPath: toRelativeImport(
-							specPath,
-							`${viewsDir}/${viewName}.view`,
-						),
-						fixtureFileName: `${viewName}.reference.html`,
-						viewports: tests?.viewports ?? [
-							{ name: "default", width: 1440, height: 900 },
-						],
-						states: tests?.states ?? [{ name: "default" }],
-						assertions: {
-							screenshot: tests?.assertions?.screenshot ?? true,
-							layout: tests?.assertions?.layout ?? true,
-							layoutTolerance: tests?.assertions?.layoutTolerance ?? 0,
-							selectors: tests?.assertions?.selectors ?? [":scope", ":scope *"],
-						},
-					}),
-				},
-			],
+		const assertionDefaults = {
+			screenshot: tests?.assertions?.screenshot ?? true,
+			layout: tests?.assertions?.layout ?? true,
+			layoutTolerance: tests?.assertions?.layoutTolerance ?? 0,
+			selectors: tests?.assertions?.selectors ?? [":scope", ":scope *"],
 		};
+		const viewportDefaults = tests?.viewports ?? [
+			{ name: "default", width: 1440, height: 900 },
+		];
+		const stateDefaults = tests?.states ?? [{ name: "default" }];
+		const referenceHtmlFileName = `${viewName}.reference.html`;
+
+		const files: Array<{ path: string; contents: string }> = [
+			{
+				path: fixturePath,
+				contents: referenceHtml.endsWith("\n")
+					? referenceHtml
+					: `${referenceHtml}\n`,
+			},
+			{
+				path: specPath,
+				contents: emitReactVisualSpec({
+					viewName,
+					viewImportPath: toRelativeImport(
+						specPath,
+						`${viewsDir}/${viewName}.view`,
+					),
+					fixtureFileName: referenceHtmlFileName,
+					viewports: viewportDefaults,
+					states: stateDefaults,
+					assertions: assertionDefaults,
+				}),
+			},
+		];
+
+		for (const mapping of config.components ?? []) {
+			const componentName = mapping.component;
+			const componentSpecPath = `${outputDir}/${componentName}.visual.spec.tsx`;
+			files.push({
+				path: componentSpecPath,
+				contents: emitComponentVisualSpec({
+					componentName,
+					selector: mapping.selector,
+					componentImportPath: toRelativeImport(
+						componentSpecPath,
+						`${viewsDir}/${componentName}.view`,
+					),
+					referenceHtmlFileName,
+					viewports: viewportDefaults,
+					states: stateDefaults,
+					assertions: assertionDefaults,
+				}),
+			});
+		}
+
+		return { diagnostics, files };
 	},
 };
 
@@ -227,6 +251,131 @@ function expectLayoutToMatch(actual, expected, tolerance) {
 `;
 }
 
+interface ComponentVisualSpecInput {
+	componentName: string;
+	selector: string;
+	componentImportPath: string;
+	referenceHtmlFileName: string;
+	viewports: Array<{ name?: string; width: number; height: number }>;
+	states: Array<{
+		name: string;
+		hover?: string;
+		focus?: string;
+		click?: string;
+		waitFor?: string;
+	}>;
+	assertions: {
+		screenshot: boolean;
+		layout: boolean;
+		layoutTolerance: number;
+		selectors: string[];
+	};
+}
+
+function emitComponentVisualSpec(input: ComponentVisualSpecInput): string {
+	const viewports = JSON.stringify(input.viewports, null, 2);
+	const states = JSON.stringify(input.states, null, 2);
+	const selectors = JSON.stringify(input.assertions.selectors, null, 2);
+	const screenshotEnabled = JSON.stringify(input.assertions.screenshot);
+	const layoutEnabled = JSON.stringify(input.assertions.layout);
+	const layoutTolerance = JSON.stringify(input.assertions.layoutTolerance);
+	const selector = JSON.stringify(input.selector);
+
+	return `import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { expect, test } from "@playwright/experimental-ct-react";
+import { ${input.componentName} } from "${input.componentImportPath}";
+
+const currentDir = dirname(fileURLToPath(import.meta.url));
+const referenceHtml = readFileSync(resolve(currentDir, "./${input.referenceHtmlFileName}"), "utf-8");
+const selector = ${selector};
+const viewports = ${viewports};
+const states = ${states};
+const selectors = ${selectors};
+const screenshotEnabled = ${screenshotEnabled};
+const layoutEnabled = ${layoutEnabled};
+const layoutTolerance = ${layoutTolerance};
+
+for (const viewport of viewports) {
+\tfor (const state of states) {
+\t\tconst viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
+\t\ttest("${input.componentName} matches source at " + viewportName + " / " + state.name, async ({ mount, page }) => {
+\t\t\tawait page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+\t\t\tawait page.setContent(referenceHtml);
+\t\t\tawait applyState(page, state);
+\t\t\tconst expectedEl = page.locator(selector).first();
+\t\t\tconst expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
+\t\t\tconst expectedLayout = layoutEnabled ? await readLayout(expectedEl, selectors) : [];
+
+\t\t\tconst component = await mount(<${input.componentName} />);
+\t\t\tawait applyState(page, state);
+\t\t\tconst actualScreenshot = screenshotEnabled ? await component.screenshot() : undefined;
+\t\t\tconst actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
+
+\t\t\tif (screenshotEnabled) {
+\t\t\t\texpect(actualScreenshot).toEqual(expectedScreenshot);
+\t\t\t}
+\t\t\tif (layoutEnabled) {
+\t\t\t\texpectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
+\t\t\t}
+\t\t});
+\t}
+}
+
+async function applyState(page, state) {
+\tif (state.waitFor) {
+\t\tawait page.waitForSelector(state.waitFor);
+\t}
+\tif (state.hover) {
+\t\tawait page.hover(state.hover);
+\t}
+\tif (state.focus) {
+\t\tawait page.focus(state.focus);
+\t}
+\tif (state.click) {
+\t\tawait page.click(state.click);
+\t}
+}
+
+async function readLayout(root, selectorsToRead) {
+\treturn root.evaluate((element, values) => {
+\t\treturn values.flatMap((selector) => {
+\t\t\tconst matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
+\t\t\treturn matches.map((matchedElement, index) => {
+\t\t\t\tconst rect = matchedElement.getBoundingClientRect();
+\t\t\t\treturn {
+\t\t\t\t\tselector,
+\t\t\t\t\tindex,
+\t\t\t\t\ttagName: matchedElement.tagName.toLowerCase(),
+\t\t\t\t\tx: rect.x,
+\t\t\t\t\ty: rect.y,
+\t\t\t\t\twidth: rect.width,
+\t\t\t\t\theight: rect.height,
+\t\t\t\t};
+\t\t\t});
+\t\t});
+\t}, selectorsToRead);
+}
+
+function expectLayoutToMatch(actual, expected, tolerance) {
+\texpect(actual.length).toBe(expected.length);
+\tfor (let index = 0; index < expected.length; index += 1) {
+\t\tconst actualRect = actual[index];
+\t\tconst expectedRect = expected[index];
+\t\texpect(actualRect.selector).toBe(expectedRect.selector);
+\t\texpect(actualRect.index).toBe(expectedRect.index);
+\t\texpect(actualRect.tagName).toBe(expectedRect.tagName);
+\t\tfor (const key of ["x", "y", "width", "height"]) {
+\t\t\tconst drift = Math.abs(actualRect[key] - expectedRect[key]);
+\t\t\texpect(drift, \`\${expectedRect.selector}[\${expectedRect.index}] \${key} drift\`).toBeLessThanOrEqual(tolerance);
+\t\t}
+\t}
+}
+`;
+}
+
 function emitComponentSplitViews(
 	nodes: DesignNode[],
 	viewsDir: string,
@@ -246,10 +395,7 @@ function emitComponentSplitViews(
 
 			if (importName && !seen.has(importName)) {
 				seen.add(importName);
-				const hasElementChildren = innerChildren.some(
-					(c) => c.kind === "element" || c.kind === "component",
-				);
-				if (hasElementChildren) {
+				if (innerChildren.length > 0) {
 					const funcName = toPascalCase(importName);
 					files.push({
 						path: `${viewsDir}/${importName}.view.tsx`,
@@ -314,7 +460,7 @@ export function emitReactView(
 		: "";
 	const allImports = [importLines, cssModuleImport].filter(Boolean).join("\n");
 	const body =
-		nodes.length === 1
+		nodes.length === 1 && nodes[0]?.kind !== "text"
 			? emitJsxNode(nodes[0], 2)
 			: `${"\t".repeat(2)}<>\n${nodes.map((node) => emitJsxNode(node, 3)).join("")}${"\t".repeat(2)}</>\n`;
 

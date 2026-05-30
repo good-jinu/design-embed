@@ -10,18 +10,41 @@ Selectors currently support a single element selector made from an optional tag,
 
 ## Basic Mapping
 
-A mapping consists of a `selector` and a `component` definition.
+A mapping consists of a `selector` and a `component` name.
 
 ```typescript
 {
   selector: ".hero-button",
-  component: "@/components/ui/Button",
-  importName: "Button"
+  component: "Button"
 }
 ```
 
-This will find any element with the class `hero-button` and replace it with:
-`import { Button } from "@/components/ui/Button"`.
+`component` is the component name (PascalCase). design-embed generates a `Button.view.tsx` file in the same output directory and imports from it automatically. No import path is needed.
+
+## What Gets Generated
+
+For a view named `WelcomeHero` with a `Button` mapping, design-embed outputs:
+
+```text
+src/generated/views/
+  WelcomeHero.view.tsx   ← main view, imports Button locally
+  Button.view.tsx        ← Button component scaffold
+```
+
+`WelcomeHero.view.tsx`:
+```tsx
+import { Button } from "./Button.view";
+
+export function WelcomeHero() {
+  return (
+    <section>
+      <Button variant="primary">Get Started</Button>
+    </section>
+  );
+}
+```
+
+`Button.view.tsx` contains the component's inner design content extracted from the source HTML. You fill in the real implementation there.
 
 ## Prop Extraction
 

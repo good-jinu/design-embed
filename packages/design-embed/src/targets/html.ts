@@ -60,10 +60,6 @@ export class HtmlTarget implements TargetEmitter, TargetTestGenerator {
 
 export const htmlTarget: TargetEmitter & TargetTestGenerator = new HtmlTarget();
 
-export const htmlEmitter: TargetEmitter = {
-	emit: (input: TargetEmitInput) => htmlTarget.emit(input),
-};
-
 // ---------------------------------------------------------------------------
 // Test generator (unchanged)
 // ---------------------------------------------------------------------------

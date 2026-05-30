@@ -81,24 +81,6 @@ export default defineConfig({
     viewName: "WelcomeHero",
     viewsDir: "src/generated/views",
     styleMode: "inline"
-  },
-  tests: {
-    outputDir: "tests/generated/design-embed",
-    runner: "playwright",
-    source: {
-      html: "./design.html"
-    },
-    viewports: [
-      { name: "mobile", width: 390, height: 844 },
-      { name: "desktop", width: 1440, height: 900 }
-    ],
-    states: [{ name: "default" }],
-    assertions: {
-      screenshot: true,
-      layout: true,
-      layoutTolerance: 1,
-      selectors: [":scope", ":scope *"]
-    }
   }
 });
 ```
@@ -149,7 +131,7 @@ This will create `src/generated/views/WelcomeHero.view.tsx`.
 
 ## Generate Visual Tests
 
-You can also generate a Playwright test that compares the original design HTML with the generated React view. This is useful as an end-to-end regression check for viewport-specific layout and visual drift.
+design-embed can generate Playwright tests that verify each generated component visually matches its source design. When the design changes, re-run the compiler in CI to update the reference snapshots — tests then catch any component that hasn't been updated to match.
 
 ### 1. Add test settings to the config
 
@@ -166,12 +148,16 @@ export default defineConfig({
     viewsDir: "src/generated/views",
     styleMode: "inline"
   },
+  components: [
+    {
+      selector: "button[data-role='primary']",
+      component: "Button",
+      props: { variant: "primary", children: "$text" }
+    }
+  ],
   tests: {
     outputDir: "tests/generated/design-embed",
     runner: "playwright",
-    source: {
-      html: "./design.html"
-    },
     viewports: [
       { name: "mobile", width: 390, height: 844 },
       { name: "desktop", width: 1440, height: 900 }
@@ -190,15 +176,6 @@ export default defineConfig({
 });
 ```
 
-If your source uses a separate stylesheet, add it under `tests.source`:
-
-```typescript
-source: {
-  html: "./design.html",
-  css: "./design.css"
-}
-```
-
 ### 2. Compile the React view
 
 ```bash npm2yarn
@@ -211,16 +188,22 @@ npm exec design-embed
 npm exec design-embed -- generate-tests
 ```
 
-This writes files like:
+This writes one spec per generated component plus a shared reference HTML snapshot:
 
 ```text
-tests/generated/design-embed/WelcomeHero.reference.html
-tests/generated/design-embed/WelcomeHero.visual.spec.tsx
+tests/generated/design-embed/
+  WelcomeHero.reference.html    ← source HTML snapshot (updated on each compile)
+  WelcomeHero.visual.spec.tsx   ← full view test
+  Button.visual.spec.tsx        ← per-component test
 ```
+
+The **view spec** compares the full source HTML against `<WelcomeHero />` (full-page screenshot + layout).
+
+Each **component spec** locates the matched element in the source HTML by its CSS selector, screenshots just that element, then mounts the React component in isolation and compares.
 
 ### 4. Run with Playwright component testing
 
-The generated React test imports from `@playwright/experimental-ct-react`, so your app needs Playwright component testing configured.
+The generated React tests import from `@playwright/experimental-ct-react`, so your app needs Playwright component testing configured.
 
 ```bash npm2yarn
 npm install --save-dev @playwright/test @playwright/experimental-ct-react
@@ -228,7 +211,9 @@ npm exec playwright install
 npm exec playwright -- test -c playwright-ct.config.ts tests/generated/design-embed
 ```
 
-The generated test renders the source HTML and the generated React component at each configured viewport. It compares full-page screenshots and each selected element's `x`, `y`, `width`, and `height`.
+### Design update tracking
+
+Re-run `design-embed` (step 2) in your CI pipeline whenever the source design changes. This regenerates `WelcomeHero.reference.html` with the latest design. The Playwright tests then fail for any component that no longer matches — signalling that the component needs to be updated.
 
 ---
 

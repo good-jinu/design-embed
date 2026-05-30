@@ -28,18 +28,18 @@ function readExpectedDir(dir: string, prefix = ""): Map<string, string> {
 }
 
 const FIXTURES = [
-	{ name: "simple-card", config: simpleCardConfig },
-	{ name: "web-components", config: webComponentsConfig },
-	{ name: "button", config: buttonConfig },
-	{ name: "card-with-image", config: cardWithImageConfig },
-	{ name: "tailwind-card", config: tailwindCardConfig },
-	{ name: "css-module-card", config: cssModuleCardConfig, expectedDiagnosticCodes: ["CSS_SELECTOR_UNSUPPORTED"] },
+	{ name: "simple-card", config: simpleCardConfig, generateTests: true },
+	{ name: "web-components", config: webComponentsConfig, generateTests: true },
+	{ name: "button", config: buttonConfig, generateTests: true },
+	{ name: "card-with-image", config: cardWithImageConfig, generateTests: true },
+	{ name: "tailwind-card", config: tailwindCardConfig, generateTests: true },
+	{ name: "css-module-card", config: cssModuleCardConfig, expectedDiagnosticCodes: ["CSS_SELECTOR_UNSUPPORTED"], generateTests: true },
 ];
 
 describe("React target fixture pipeline", () => {
-	for (const { name, config, expectedDiagnosticCodes = [] } of FIXTURES) {
+	for (const { name, config, expectedDiagnosticCodes = [], generateTests } of FIXTURES) {
 		test(`${name}: output matches expected snapshots`, async () => {
-			const result = await embed({ config, dryRun: true });
+			const result = await embed({ config, generateTests });
 
 			assert.deepEqual(result.diagnostics.map((d) => d.code), expectedDiagnosticCodes);
 

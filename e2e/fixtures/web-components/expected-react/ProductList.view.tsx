@@ -1,6 +1,6 @@
-import { ProductCard } from "@/components/ProductCard";
-import { ProductFilter } from "@/components/ProductFilter";
-import { ProductGrid } from "@/components/ProductGrid";
+import { ProductCard } from "./ProductCard.view";
+import { ProductFilter } from "./ProductFilter.view";
+import { ProductGrid } from "./ProductGrid.view";
 
 export function ProductList() {
 	return (

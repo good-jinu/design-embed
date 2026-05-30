@@ -11,8 +11,7 @@ export default defineConfig({
 	components: [
 		{
 			selector: ".card button",
-			component: "@/components/ui/Button",
-			importName: "Button",
+			component: "Button",
 			props: {
 				children: "$text",
 			},
