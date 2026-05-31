@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const referenceHtml = readFileSync(resolve(currentDir, "./index.reference.html"), "utf-8");
@@ -25,6 +27,8 @@ const selectors = [
 const screenshotEnabled = true;
 const layoutEnabled = true;
 const layoutTolerance = 0;
+const screenshotThreshold = 0.1;
+const screenshotMaxDiffPixels = 0;
 
 for (const viewport of viewports) {
 	for (const state of states) {
@@ -44,7 +48,13 @@ for (const viewport of viewports) {
 			const actualLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
 
 			if (screenshotEnabled) {
-				expect(actualScreenshot).toEqual(expectedScreenshot);
+				const expectedPng = PNG.sync.read(expectedScreenshot);
+				const actualPng = PNG.sync.read(actualScreenshot);
+				expect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+				expect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+				const diff = new PNG({ width: expectedPng.width, height: expectedPng.height });
+				const diffPixelCount = pixelmatch(expectedPng.data, actualPng.data, diff.data, expectedPng.width, expectedPng.height, { threshold: screenshotThreshold });
+				expect(diffPixelCount, "screenshot diff pixels").toBeLessThanOrEqual(screenshotMaxDiffPixels);
 			}
 			if (layoutEnabled) {
 				expectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
