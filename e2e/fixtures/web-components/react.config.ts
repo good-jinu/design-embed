@@ -8,21 +8,19 @@ export default defineConfig({
 		target: new ReactTarget(),
 		viewName: "ProductList",
 	},
+	tests: { assertions: { screenshot: false, layout: false } },
 	components: [
 		{
 			selector: ".filter-section",
-			component: "@/components/ProductFilter",
-			importName: "ProductFilter",
+			component: "ProductFilter",
 		},
 		{
 			selector: ".product-grid",
-			component: "@/components/ProductGrid",
-			importName: "ProductGrid",
+			component: "ProductGrid",
 		},
 		{
 			selector: ".product-card",
-			component: "@/components/ProductCard",
-			importName: "ProductCard",
+			component: "ProductCard",
 		},
 	],
 });

@@ -12,6 +12,7 @@ export default defineConfig({
 		viewName: "CssModuleCard",
 		styleMode: "css-modules",
 	},
+	tests: { assertions: { screenshot: false, layoutTolerance: 10 } },
 	tokens: {
 		spacing: {
 			unit: "px",

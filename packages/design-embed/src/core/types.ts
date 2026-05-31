@@ -40,7 +40,6 @@ export type StyleMode = "inline" | "css-modules" | "tailwind";
 export interface ComponentMapping {
 	selector: string;
 	component: string;
-	importName?: string;
 	props?: Record<string, string>;
 }
 
@@ -94,6 +93,16 @@ export interface TestAssertions {
 	layout?: boolean;
 	layoutTolerance?: number;
 	selectors?: string[];
+	/**
+	 * Per-pixel color sensitivity (0-1) for the screenshot comparison. Smaller
+	 * is stricter. Defaults to 0.2.
+	 */
+	screenshotThreshold?: number;
+	/**
+	 * Maximum number of differing pixels tolerated in the screenshot
+	 * comparison. Defaults to 0 (byte-exact).
+	 */
+	screenshotMaxDiffPixels?: number;
 }
 
 export interface DesignEmbedConfig {

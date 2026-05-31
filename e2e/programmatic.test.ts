@@ -28,12 +28,12 @@ function readExpectedDir(dir: string, prefix = ""): Map<string, string> {
 }
 
 const FIXTURES = [
-	{ name: "simple-card", config: simpleCardConfig },
+	{ name: "simple-card", config: simpleCardConfig, generateTests: true },
 	{ name: "web-components", config: webComponentsConfig, generateTests: true },
-	{ name: "button", config: buttonConfig },
-	{ name: "card-with-image", config: cardWithImageConfig },
-	{ name: "tailwind-card", config: tailwindCardConfig },
-	{ name: "css-module-card", config: cssModuleCardConfig },
+	{ name: "button", config: buttonConfig, generateTests: true },
+	{ name: "card-with-image", config: cardWithImageConfig, generateTests: true },
+	{ name: "tailwind-card", config: tailwindCardConfig, generateTests: true },
+	{ name: "css-module-card", config: cssModuleCardConfig, generateTests: true },
 ];
 
 describe("programmatic compiler pipeline", () => {

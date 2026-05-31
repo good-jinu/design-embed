@@ -33,3 +33,9 @@ yarn-debug.log*
 # Runtime compiler output — not test oracles
 tests/fixtures/*/generated/
 e2e/fixtures/*/generated/
+examples/*/src/generated/
+
+# Playwright output
+examples/*/test-results/
+examples/*/.playwright/
+examples/*/__snapshots__/

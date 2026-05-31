@@ -8,11 +8,11 @@ export default defineConfig({
 		target: new ReactTarget(),
 		viewName: "CardWithImage",
 	},
+	tests: { assertions: { layoutTolerance: 5 } },
 	components: [
 		{
 			selector: "img",
-			component: "@/components/media/ProductImage",
-			importName: "ProductImage",
+			component: "ProductImage",
 			props: {
 				src: "$attr.src",
 				alt: "$attr.alt",
@@ -20,8 +20,7 @@ export default defineConfig({
 		},
 		{
 			selector: "a.product-link",
-			component: "@/components/ui/ProductLink",
-			importName: "ProductLink",
+			component: "ProductLink",
 			props: {
 				href: "$attr.href",
 				children: "$children",

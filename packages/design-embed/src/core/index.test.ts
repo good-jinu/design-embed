@@ -110,8 +110,7 @@ describe("core", () => {
 		const transformed = applyComponentMappings(ast, [
 			{
 				selector: "button[data-role='primary']",
-				component: "@/components/ui/Button",
-				importName: "Button",
+				component: "Button",
 				props: {
 					variant: "primary",
 					children: "$text",
@@ -129,7 +128,7 @@ describe("core", () => {
 			{
 				kind: "component",
 				component: "Button",
-				importPath: "@/components/ui/Button",
+				importPath: "./Button.view",
 				props: {
 					variant: { kind: "literal", value: "primary" },
 					children: { kind: "text", value: "Continue" },

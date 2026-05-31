@@ -67,8 +67,7 @@ This is where you tell the compiler to replace specific HTML elements with your 
 components: [
   {
     selector: "button[data-role='primary']",
-    component: "@/components/ui/Button",
-    importName: "Button",
+    component: "Button",
     props: {
       variant: "primary",
       children: "$text"
@@ -78,8 +77,7 @@ components: [
 ```
 
 - **`selector`**: A CSS selector to match nodes in the design HTML.
-- **`component`**: The import path for your component.
-- **`importName`**: (Optional) The named export to use.
+- **`component`**: The component name (e.g. `"Button"`). design-embed generates a `Button.view.tsx` file in the output directory and the main view imports from it automatically.
 - **`props`**: A mapping of component props to values extracted from the HTML:
   - `"$text"`: The inner text of the element.
   - `"$children"`: The inner HTML elements.
@@ -139,16 +137,12 @@ styleMappings: {
 
 ## Test Generation
 
-The `tests` section controls generated visual regression tests. The first supported target is React, which emits Playwright component-test code that compares the generated React view against the source HTML at configured viewport sizes and interaction states.
+The `tests` section controls generated visual regression tests. React target emits Playwright component-test code that compares each generated React component against the source HTML at configured viewport sizes and interaction states.
 
 ```typescript
 tests: {
   outputDir: "tests/generated/design-embed",
   runner: "playwright",
-  source: {
-    html: "./design.html",
-    css: "./design.css"
-  },
   viewports: [
     { name: "mobile", width: 390, height: 844 },
     { name: "desktop", width: 1440, height: 900 }
@@ -172,4 +166,23 @@ Run the generator with:
 npm exec design-embed -- generate-tests
 ```
 
-Generated tests perform full-page screenshot equality and compare each collected element's `x`, `y`, `width`, and `height`. The React generator uses `@playwright/experimental-ct-react`, so the consuming project should provide the matching Playwright component-test setup.
+### What gets generated
+
+For a view `WelcomeHero` with a `Button` component mapping:
+
+```text
+tests/generated/design-embed/
+  WelcomeHero.reference.html      ← source HTML snapshot
+  WelcomeHero.visual.spec.tsx     ← full view test
+  Button.visual.spec.tsx          ← per-component test
+```
+
+The **view test** renders the full source HTML and the generated `<WelcomeHero />`, then compares full-page screenshots and layout.
+
+Each **component test** loads the same source HTML, locates the matched element using its CSS selector (e.g. `button[data-role='primary']`), screenshots just that element, then mounts the React component in isolation and compares.
+
+### Design update tracking
+
+When the design changes, re-run `design-embed` in CI to regenerate component files and the reference HTML snapshot. The Playwright tests then detect any component that no longer matches the updated design.
+
+The React generator uses `@playwright/experimental-ct-react`, so the consuming project should provide the matching Playwright component-test setup.

@@ -12,7 +12,13 @@ class ButtonEl extends HTMLElement {
 	}
 
 	private render(): void {
+		if (!this.parentNode) return;
 		const variant = this.getAttribute("variant");
+		const el = document.createElement("button");
+		el.setAttribute("data-role", "primary");
+		el.setAttribute("style", "padding: 8px 12px;");
+		el.innerHTML = this.innerHTML;
+		this.replaceWith(el);
 	}
 }
 

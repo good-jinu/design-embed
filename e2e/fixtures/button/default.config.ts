@@ -10,8 +10,7 @@ export default defineConfig({
 	components: [
 		{
 			selector: "button[data-role='primary']",
-			component: "@/components/ui/Button",
-			importName: "Button",
+			component: "Button",
 			props: {
 				variant: "primary",
 				children: "$text",

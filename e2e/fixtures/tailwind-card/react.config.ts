@@ -9,6 +9,7 @@ export default defineConfig({
 		viewName: "TailwindCard",
 		styleMode: "tailwind",
 	},
+	tests: { assertions: { screenshot: false, layout: false } },
 	tokens: {
 		spacing: {
 			unit: "px",

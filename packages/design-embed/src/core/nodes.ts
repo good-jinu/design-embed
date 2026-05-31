@@ -38,13 +38,24 @@ export interface DesignNode {
 	props?: Record<string, PropValue>;
 	/** Import path of the component. */
 	importPath?: string;
+	/**
+	 * The original element node a component was mapped from. Retained so
+	 * targets can reconstruct the element's structure when emitting the
+	 * component implementation.
+	 */
+	sourceElement?: DesignNode;
 }
 
 /**
  * A value passed to a component prop.
  */
 export type PropValue =
-	| { kind: "literal"; value: string | number | boolean }
+	| {
+			kind: "literal";
+			value: string | number | boolean;
+			/** Source attribute name when the prop is bound to `$attr.*`. */
+			attribute?: string;
+	  }
 	| { kind: "text"; value: string }
 	| { kind: "children"; value: DesignNode[] };
 

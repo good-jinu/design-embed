@@ -178,7 +178,7 @@ export function validateConfig(config: DesignEmbedConfig): ConfigDiagnostic[] {
 		if (!component.component || typeof component.component !== "string") {
 			diagnostics.push({
 				code: "COMPONENT_IMPORT_INVALID",
-				message: `Component mapping ${index} must include a component path.`,
+				message: `Component mapping ${index} must include a component name.`,
 				severity: "error",
 			});
 		}

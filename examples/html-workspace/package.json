@@ -1,0 +1,16 @@
+{
+	"name": "@design-embed/example-html",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"generate": "node --conditions=development ../../packages/design-embed/src/cli.ts",
+		"test": "playwright test",
+		"run": "pnpm generate && pnpm test"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.52.0",
+		"design-embed": "workspace:*",
+		"esbuild": "^0.25.0",
+		"typescript": "catalog:"
+	}
+}

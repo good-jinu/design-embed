@@ -1,5 +1,5 @@
-import { ProductImage } from "@/components/media/ProductImage";
-import { ProductLink } from "@/components/ui/ProductLink";
+import { ProductImage } from "./ProductImage.view";
+import { ProductLink } from "./ProductLink.view";
 
 export function CardWithImage() {
 	return (

@@ -244,9 +244,9 @@ export function applyComponentMappings(
 			const props = extractProps(node, match.mapping, diagnostics);
 			return {
 				kind: "component",
-				component: match.mapping.importName ?? inferImportName(match.mapping),
-				importName: match.mapping.importName ?? inferImportName(match.mapping),
-				importPath: match.mapping.component,
+				component: match.mapping.component,
+				importName: match.mapping.component,
+				importPath: `./${match.mapping.component}.view`,
 				props,
 				children:
 					props.children?.kind === "children"
@@ -257,6 +257,7 @@ export function applyComponentMappings(
 								diagnostics,
 							),
 				source: node.source,
+				sourceElement: node,
 			};
 		}
 
@@ -526,7 +527,11 @@ function extractProps(
 				});
 				continue;
 			}
-			props[propName] = { kind: "literal", value };
+			props[propName] = {
+				kind: "literal",
+				value,
+				attribute: attributeName,
+			};
 			continue;
 		}
 
@@ -544,11 +549,6 @@ function collectText(node: DesignNode): string {
 		.filter(Boolean)
 		.join(" ")
 		.trim();
-}
-
-function inferImportName(mapping: ComponentMapping): string {
-	const lastSegment = mapping.component.split("/").filter(Boolean).at(-1);
-	return mapping.importName ?? lastSegment ?? "Component";
 }
 
 function currentParent(stack: DesignNode[]): DesignNode {

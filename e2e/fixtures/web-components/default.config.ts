@@ -10,18 +10,15 @@ export default defineConfig({
 	components: [
 		{
 			selector: ".filter-section",
-			component: "components/product-filter",
-			importName: "product-filter",
+			component: "product-filter",
 		},
 		{
 			selector: ".product-grid",
-			component: "components/product-list",
-			importName: "product-list",
+			component: "product-list",
 		},
 		{
 			selector: ".product-card",
-			component: "components/product-card",
-			importName: "product-card",
+			component: "product-card",
 		},
 	],
 });

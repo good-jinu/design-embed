@@ -8,7 +8,9 @@
 		"website"
 	],
 	"scripts": {
-		"test": "pnpm --filter './packages/**' test && pnpm --filter '@design-embed/e2e' test",
+		"test": "pnpm --filter './packages/**' test && pnpm --filter '@design-embed/e2e' test && pnpm test:visual",
+		"test:visual": "pnpm --filter '@design-embed/example-react' test && pnpm --filter '@design-embed/example-html' test",
+		"test:install-browsers": "pnpm --filter '@design-embed/example-react' exec playwright install chromium && pnpm --filter '@design-embed/example-html' exec playwright install chromium",
 		"build:packages": "tsdown",
 		"design-embed": "node packages/design-embed/src/cli.ts",
 		"check": "biome check",
