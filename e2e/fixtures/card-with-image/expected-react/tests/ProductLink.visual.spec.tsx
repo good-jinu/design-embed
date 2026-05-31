@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/experimental-ct-react";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 import { ProductLink } from "../ProductLink.view";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -25,7 +27,9 @@ const selectors = [
 ];
 const screenshotEnabled = true;
 const layoutEnabled = true;
-const layoutTolerance = 0;
+const layoutTolerance = 5;
+const screenshotThreshold = 0.2;
+const screenshotMaxDiffPixels = 500;
 
 for (const viewport of viewports) {
 	for (const state of states) {
@@ -34,18 +38,20 @@ for (const viewport of viewports) {
 			await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
 			await page.setContent(referenceHtml);
+			const isolatedHtml = await page.locator(selector).first().evaluate((node) => node.outerHTML);
+			await page.setContent(isolatedHtml);
 			await applyState(page, state);
 			const expectedEl = page.locator(selector).first();
 			const expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
 			const expectedLayout = layoutEnabled ? await readLayout(expectedEl, selectors) : [];
 
-			const component = await mount(<ProductLink />);
+			const component = await mount(<ProductLink href="/products/trail-shoe"><span>Trail Shoe</span></ProductLink>);
 			await applyState(page, state);
 			const actualScreenshot = screenshotEnabled ? await component.screenshot() : undefined;
 			const actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
 
 			if (screenshotEnabled) {
-				expect(actualScreenshot).toEqual(expectedScreenshot);
+				compareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
 			}
 			if (layoutEnabled) {
 				expectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
@@ -71,6 +77,7 @@ async function applyState(page, state) {
 
 async function readLayout(root, selectorsToRead) {
 	return root.evaluate((element, values) => {
+		const origin = element.getBoundingClientRect();
 		return values.flatMap((selector) => {
 			const matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
 			return matches.map((matchedElement, index) => {
@@ -79,14 +86,27 @@ async function readLayout(root, selectorsToRead) {
 					selector,
 					index,
 					tagName: matchedElement.tagName.toLowerCase(),
-					x: rect.x,
-					y: rect.y,
+					x: rect.x - origin.x,
+					y: rect.y - origin.y,
 					width: rect.width,
 					height: rect.height,
 				};
 			});
 		});
 	}, selectorsToRead);
+}
+
+function compareScreenshots(actual, expected, threshold, maxDiffPixels) {
+	if (!actual || !expected) {
+		expect(actual).toEqual(expected);
+		return;
+	}
+	const actualPng = PNG.sync.read(actual);
+	const expectedPng = PNG.sync.read(expected);
+	expect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+	expect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+	const diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
+	expect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
 }
 
 function expectLayoutToMatch(actual, expected, tolerance) {

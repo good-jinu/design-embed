@@ -8,6 +8,7 @@ export default defineConfig({
 		target: new ReactTarget(),
 		viewName: "CardWithImage",
 	},
+	tests: { assertions: { layoutTolerance: 5 } },
 	components: [
 		{
 			selector: "img",

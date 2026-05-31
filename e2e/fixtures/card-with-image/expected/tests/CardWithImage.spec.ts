@@ -38,6 +38,7 @@ for (const viewport of viewports) {
 			const expectedLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
 
 			await page.goto("file://" + outputHtmlPath);
+			await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 			await applyState(page, state);
 			const actualScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
 			const actualLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];

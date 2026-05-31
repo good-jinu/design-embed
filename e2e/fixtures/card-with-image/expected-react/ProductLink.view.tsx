@@ -1,7 +1,14 @@
-export function ProductLink() {
+import type { ReactNode } from "react";
+
+interface ProductLinkProps {
+	href?: string;
+	children?: ReactNode;
+}
+
+export function ProductLink({ href, children }: ProductLinkProps) {
 	return (
-		<span>
-			Trail Shoe
-		</span>
+		<a className="product-link" href={href}>
+			{children}
+		</a>
 	);
 }

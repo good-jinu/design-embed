@@ -33,7 +33,7 @@ export class HtmlTarget implements TargetEmitter, TargetTestGenerator {
 		const components = collectComponents(nodes);
 		const scriptTag =
 			components.length > 0
-				? `<script type="module" src="./${viewName}.js"></script>\n`
+				? `<script defer src="./${viewName}.js"></script>\n`
 				: "";
 
 		const files: GeneratedFile[] = [
@@ -218,10 +218,35 @@ function formatPropAsAttribute(name: string, prop: PropValue): string | null {
 // Web component emit
 // ---------------------------------------------------------------------------
 
+const VOID_ELEMENTS = new Set([
+	"area",
+	"base",
+	"br",
+	"col",
+	"embed",
+	"hr",
+	"img",
+	"input",
+	"link",
+	"meta",
+	"param",
+	"source",
+	"track",
+	"wbr",
+]);
+
+interface PropBinding {
+	propName: string;
+	attrName: string;
+}
+
 interface ComponentInfo {
 	tagName: string;
 	className: string;
 	observedAttributes: string[];
+	sourceTagName?: string;
+	staticAttrEntries: [string, string][];
+	propBindings: PropBinding[];
 }
 
 function collectComponents(nodes: DesignNode[]): ComponentInfo[] {
@@ -263,14 +288,40 @@ function buildComponentInfo(node: DesignNode): ComponentInfo {
 	const className = toPascalCase(tagName);
 
 	const observedAttributes: string[] = [];
+	const propBindings: PropBinding[] = [];
+	const mappedOriginalAttrs = new Set<string>();
+
 	for (const [name, prop] of Object.entries(node.props ?? {})) {
 		if (prop.kind === "literal") {
 			observedAttributes.push(name);
+			if (prop.attribute) {
+				propBindings.push({ propName: name, attrName: prop.attribute });
+				mappedOriginalAttrs.add(prop.attribute);
+			}
 		}
 	}
 	observedAttributes.sort();
+	propBindings.sort((a, b) => a.attrName.localeCompare(b.attrName));
 
-	return { tagName, className, observedAttributes };
+	const sourceEl = node.sourceElement;
+	let sourceTagName: string | undefined;
+	let staticAttrEntries: [string, string][] = [];
+
+	if (sourceEl?.kind === "element" && sourceEl.tagName) {
+		sourceTagName = sourceEl.tagName;
+		staticAttrEntries = Object.entries(sourceEl.attributes ?? {})
+			.filter(([attr]) => !mappedOriginalAttrs.has(attr))
+			.sort(([a], [b]) => a.localeCompare(b));
+	}
+
+	return {
+		tagName,
+		className,
+		observedAttributes,
+		sourceTagName,
+		staticAttrEntries,
+		propBindings,
+	};
 }
 
 function emitWebComponentFile(
@@ -293,7 +344,13 @@ function emitWebComponentClass(
 	domModel: "light" | "shadow",
 ): string {
 	const hasShadow = domModel === "shadow";
-	const { className, observedAttributes } = info;
+	const {
+		className,
+		observedAttributes,
+		sourceTagName,
+		staticAttrEntries,
+		propBindings,
+	} = info;
 
 	const attrArray =
 		observedAttributes.length === 0
@@ -304,15 +361,49 @@ function emitWebComponentClass(
 		? `\tprivate shadow: ShadowRoot;\n\n\tconstructor() {\n\t\tsuper();\n\t\tthis.shadow = this.attachShadow({ mode: "open" });\n\t}\n\n`
 		: "";
 
-	const attrVars = observedAttributes
-		.map((a) => `\t\tconst ${a} = this.getAttribute("${a}");`)
-		.join("\n");
+	let renderBody: string;
 
-	const renderLines: string[] = [];
-	if (attrVars) renderLines.push(attrVars);
-	if (hasShadow)
-		renderLines.push(`\t\tthis.shadow.innerHTML = \`<slot></slot>\`;`);
-	const renderBody = renderLines.join("\n");
+	if (sourceTagName && !hasShadow) {
+		const isVoid = VOID_ELEMENTS.has(sourceTagName);
+		const lines: string[] = ["\t\tif (!this.parentNode) return;"];
+
+		if (observedAttributes.length > 0) {
+			for (const a of observedAttributes) {
+				lines.push(`\t\tconst ${a} = this.getAttribute(${JSON.stringify(a)});`);
+			}
+		}
+
+		lines.push(
+			`\t\tconst el = document.createElement(${JSON.stringify(sourceTagName)});`,
+		);
+
+		for (const [attr, value] of staticAttrEntries) {
+			lines.push(
+				`\t\tel.setAttribute(${JSON.stringify(attr)}, ${JSON.stringify(value)});`,
+			);
+		}
+		for (const { propName, attrName } of propBindings) {
+			lines.push(
+				`\t\tif (${propName} !== null) el.setAttribute(${JSON.stringify(attrName)}, ${propName});`,
+			);
+		}
+
+		if (!isVoid) {
+			lines.push("\t\tel.innerHTML = this.innerHTML;");
+		}
+
+		lines.push("\t\tthis.replaceWith(el);");
+		renderBody = lines.join("\n");
+	} else {
+		const attrVars = observedAttributes
+			.map((a) => `\t\tconst ${a} = this.getAttribute("${a}");`)
+			.join("\n");
+		const fallbackLines: string[] = [];
+		if (attrVars) fallbackLines.push(attrVars);
+		if (hasShadow)
+			fallbackLines.push(`\t\tthis.shadow.innerHTML = \`<slot></slot>\`;`);
+		renderBody = fallbackLines.join("\n");
+	}
 
 	const renderMethod = renderBody
 		? `\tprivate render(): void {\n${renderBody}\n\t}`
@@ -394,6 +485,7 @@ for (const viewport of viewports) {
 \t\t\tconst expectedLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
 
 \t\t\tawait page.goto("file://" + outputHtmlPath);
+\t\t\tawait page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 \t\t\tawait applyState(page, state);
 \t\t\tconst actualScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
 \t\t\tconst actualLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];

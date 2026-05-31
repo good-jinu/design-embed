@@ -257,6 +257,7 @@ export function applyComponentMappings(
 								diagnostics,
 							),
 				source: node.source,
+				sourceElement: node,
 			};
 		}
 
@@ -526,7 +527,11 @@ function extractProps(
 				});
 				continue;
 			}
-			props[propName] = { kind: "literal", value };
+			props[propName] = {
+				kind: "literal",
+				value,
+				attribute: attributeName,
+			};
 			continue;
 		}
 

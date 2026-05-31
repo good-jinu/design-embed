@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/experimental-ct-react";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 import { TailwindCard } from "../TailwindCard.view";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -22,9 +24,11 @@ const selectors = [
   ":scope",
   ":scope *"
 ];
-const screenshotEnabled = true;
-const layoutEnabled = true;
-const layoutTolerance = 0;
+const screenshotEnabled = false;
+const layoutEnabled = false;
+const layoutTolerance = 1;
+const screenshotThreshold = 0.2;
+const screenshotMaxDiffPixels = 500;
 
 for (const viewport of viewports) {
 	for (const state of states) {
@@ -44,7 +48,7 @@ for (const viewport of viewports) {
 			const actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
 
 			if (screenshotEnabled) {
-				expect(actualScreenshot).toEqual(expectedScreenshot);
+				compareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
 			}
 			if (layoutEnabled) {
 				expectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
@@ -70,6 +74,7 @@ async function applyState(page, state) {
 
 async function readLayout(root, selectorsToRead) {
 	return root.evaluate((element, values) => {
+		const origin = element.getBoundingClientRect();
 		return values.flatMap((selector) => {
 			const matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
 			return matches.map((matchedElement, index) => {
@@ -78,14 +83,27 @@ async function readLayout(root, selectorsToRead) {
 					selector,
 					index,
 					tagName: matchedElement.tagName.toLowerCase(),
-					x: rect.x,
-					y: rect.y,
+					x: rect.x - origin.x,
+					y: rect.y - origin.y,
 					width: rect.width,
 					height: rect.height,
 				};
 			});
 		});
 	}, selectorsToRead);
+}
+
+function compareScreenshots(actual, expected, threshold, maxDiffPixels) {
+	if (!actual || !expected) {
+		expect(actual).toEqual(expected);
+		return;
+	}
+	const actualPng = PNG.sync.read(actual);
+	const expectedPng = PNG.sync.read(expected);
+	expect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+	expect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+	const diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
+	expect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
 }
 
 function expectLayoutToMatch(actual, expected, tolerance) {

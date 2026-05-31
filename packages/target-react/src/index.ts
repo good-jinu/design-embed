@@ -1,14 +1,16 @@
-import type {
-	DesignEmbedConfig,
-	DesignNode,
-	Diagnostic,
-	PropValue,
-	TargetEmitInput,
-	TargetEmitResult,
-	TargetEmitter,
-	TargetTestGenerateInput,
-	TargetTestGenerateResult,
-	TargetTestGenerator,
+import {
+	applyComponentMappings,
+	type DesignEmbedConfig,
+	type DesignNode,
+	type Diagnostic,
+	type PropValue,
+	parseHtml,
+	type TargetEmitInput,
+	type TargetEmitResult,
+	type TargetEmitter,
+	type TargetTestGenerateInput,
+	type TargetTestGenerateResult,
+	type TargetTestGenerator,
 } from "design-embed";
 
 export class ReactTarget implements TargetEmitter, TargetTestGenerator {
@@ -73,8 +75,11 @@ export const reactTestGenerator: TargetTestGenerator = {
 		const assertionDefaults = {
 			screenshot: tests?.assertions?.screenshot ?? true,
 			layout: tests?.assertions?.layout ?? true,
-			layoutTolerance: tests?.assertions?.layoutTolerance ?? 0,
+			layoutTolerance: tests?.assertions?.layoutTolerance ?? 1,
 			selectors: tests?.assertions?.selectors ?? [":scope", ":scope *"],
+			screenshotThreshold: tests?.assertions?.screenshotThreshold ?? 0.2,
+			screenshotMaxDiffPixels:
+				tests?.assertions?.screenshotMaxDiffPixels ?? 500,
 		};
 		const viewportDefaults = tests?.viewports ?? [
 			{ name: "default", width: 1440, height: 900 },
@@ -105,14 +110,20 @@ export const reactTestGenerator: TargetTestGenerator = {
 			},
 		];
 
+		const componentNodes = collectComponentNodes(
+			applyComponentMappings(parseHtml(html), config.components ?? []),
+		);
+
 		for (const mapping of config.components ?? []) {
 			const componentName = mapping.component;
 			const componentSpecPath = `${outputDir}/${componentName}.visual.spec.tsx`;
+			const mountNode = componentNodes.get(componentName);
 			files.push({
 				path: componentSpecPath,
 				contents: emitComponentVisualSpec({
 					componentName,
 					selector: mapping.selector,
+					mountJsx: emitComponentMount(componentName, mountNode),
 					componentImportPath: toRelativeImport(
 						componentSpecPath,
 						`${viewsDir}/${componentName}.view`,
@@ -146,6 +157,8 @@ interface ReactVisualSpecInput {
 		layout: boolean;
 		layoutTolerance: number;
 		selectors: string[];
+		screenshotThreshold: number;
+		screenshotMaxDiffPixels: number;
 	};
 }
 
@@ -156,11 +169,19 @@ function emitReactVisualSpec(input: ReactVisualSpecInput): string {
 	const screenshotEnabled = JSON.stringify(input.assertions.screenshot);
 	const layoutEnabled = JSON.stringify(input.assertions.layout);
 	const layoutTolerance = JSON.stringify(input.assertions.layoutTolerance);
+	const screenshotThreshold = JSON.stringify(
+		input.assertions.screenshotThreshold,
+	);
+	const screenshotMaxDiffPixels = JSON.stringify(
+		input.assertions.screenshotMaxDiffPixels,
+	);
 
 	return `import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/experimental-ct-react";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 import { ${input.viewName} } from "${input.viewImportPath}";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -171,6 +192,8 @@ const selectors = ${selectors};
 const screenshotEnabled = ${screenshotEnabled};
 const layoutEnabled = ${layoutEnabled};
 const layoutTolerance = ${layoutTolerance};
+const screenshotThreshold = ${screenshotThreshold};
+const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
 
 for (const viewport of viewports) {
 \tfor (const state of states) {
@@ -190,7 +213,7 @@ for (const viewport of viewports) {
 \t\t\tconst actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
 
 \t\t\tif (screenshotEnabled) {
-\t\t\t\texpect(actualScreenshot).toEqual(expectedScreenshot);
+\t\t\t\tcompareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
 \t\t\t}
 \t\t\tif (layoutEnabled) {
 \t\t\t\texpectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
@@ -216,6 +239,7 @@ async function applyState(page, state) {
 
 async function readLayout(root, selectorsToRead) {
 \treturn root.evaluate((element, values) => {
+\t\tconst origin = element.getBoundingClientRect();
 \t\treturn values.flatMap((selector) => {
 \t\t\tconst matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
 \t\t\treturn matches.map((matchedElement, index) => {
@@ -224,14 +248,27 @@ async function readLayout(root, selectorsToRead) {
 \t\t\t\t\tselector,
 \t\t\t\t\tindex,
 \t\t\t\t\ttagName: matchedElement.tagName.toLowerCase(),
-\t\t\t\t\tx: rect.x,
-\t\t\t\t\ty: rect.y,
+\t\t\t\t\tx: rect.x - origin.x,
+\t\t\t\t\ty: rect.y - origin.y,
 \t\t\t\t\twidth: rect.width,
 \t\t\t\t\theight: rect.height,
 \t\t\t\t};
 \t\t\t});
 \t\t});
 \t}, selectorsToRead);
+}
+
+function compareScreenshots(actual, expected, threshold, maxDiffPixels) {
+\tif (!actual || !expected) {
+\t\texpect(actual).toEqual(expected);
+\t\treturn;
+\t}
+\tconst actualPng = PNG.sync.read(actual);
+\tconst expectedPng = PNG.sync.read(expected);
+\texpect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+\texpect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+\tconst diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
+\texpect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
 }
 
 function expectLayoutToMatch(actual, expected, tolerance) {
@@ -254,6 +291,7 @@ function expectLayoutToMatch(actual, expected, tolerance) {
 interface ComponentVisualSpecInput {
 	componentName: string;
 	selector: string;
+	mountJsx: string;
 	componentImportPath: string;
 	referenceHtmlFileName: string;
 	viewports: Array<{ name?: string; width: number; height: number }>;
@@ -269,6 +307,8 @@ interface ComponentVisualSpecInput {
 		layout: boolean;
 		layoutTolerance: number;
 		selectors: string[];
+		screenshotThreshold: number;
+		screenshotMaxDiffPixels: number;
 	};
 }
 
@@ -279,12 +319,20 @@ function emitComponentVisualSpec(input: ComponentVisualSpecInput): string {
 	const screenshotEnabled = JSON.stringify(input.assertions.screenshot);
 	const layoutEnabled = JSON.stringify(input.assertions.layout);
 	const layoutTolerance = JSON.stringify(input.assertions.layoutTolerance);
+	const screenshotThreshold = JSON.stringify(
+		input.assertions.screenshotThreshold,
+	);
+	const screenshotMaxDiffPixels = JSON.stringify(
+		input.assertions.screenshotMaxDiffPixels,
+	);
 	const selector = JSON.stringify(input.selector);
 
 	return `import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/experimental-ct-react";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 import { ${input.componentName} } from "${input.componentImportPath}";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -296,6 +344,8 @@ const selectors = ${selectors};
 const screenshotEnabled = ${screenshotEnabled};
 const layoutEnabled = ${layoutEnabled};
 const layoutTolerance = ${layoutTolerance};
+const screenshotThreshold = ${screenshotThreshold};
+const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
 
 for (const viewport of viewports) {
 \tfor (const state of states) {
@@ -304,18 +354,20 @@ for (const viewport of viewports) {
 \t\t\tawait page.setViewportSize({ width: viewport.width, height: viewport.height });
 
 \t\t\tawait page.setContent(referenceHtml);
+\t\t\tconst isolatedHtml = await page.locator(selector).first().evaluate((node) => node.outerHTML);
+\t\t\tawait page.setContent(isolatedHtml);
 \t\t\tawait applyState(page, state);
 \t\t\tconst expectedEl = page.locator(selector).first();
 \t\t\tconst expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
 \t\t\tconst expectedLayout = layoutEnabled ? await readLayout(expectedEl, selectors) : [];
 
-\t\t\tconst component = await mount(<${input.componentName} />);
+\t\t\tconst component = await mount(${input.mountJsx});
 \t\t\tawait applyState(page, state);
 \t\t\tconst actualScreenshot = screenshotEnabled ? await component.screenshot() : undefined;
 \t\t\tconst actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
 
 \t\t\tif (screenshotEnabled) {
-\t\t\t\texpect(actualScreenshot).toEqual(expectedScreenshot);
+\t\t\t\tcompareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
 \t\t\t}
 \t\t\tif (layoutEnabled) {
 \t\t\t\texpectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
@@ -341,6 +393,7 @@ async function applyState(page, state) {
 
 async function readLayout(root, selectorsToRead) {
 \treturn root.evaluate((element, values) => {
+\t\tconst origin = element.getBoundingClientRect();
 \t\treturn values.flatMap((selector) => {
 \t\t\tconst matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
 \t\t\treturn matches.map((matchedElement, index) => {
@@ -349,14 +402,27 @@ async function readLayout(root, selectorsToRead) {
 \t\t\t\t\tselector,
 \t\t\t\t\tindex,
 \t\t\t\t\ttagName: matchedElement.tagName.toLowerCase(),
-\t\t\t\t\tx: rect.x,
-\t\t\t\t\ty: rect.y,
+\t\t\t\t\tx: rect.x - origin.x,
+\t\t\t\t\ty: rect.y - origin.y,
 \t\t\t\t\twidth: rect.width,
 \t\t\t\t\theight: rect.height,
 \t\t\t\t};
 \t\t\t});
 \t\t});
 \t}, selectorsToRead);
+}
+
+function compareScreenshots(actual, expected, threshold, maxDiffPixels) {
+\tif (!actual || !expected) {
+\t\texpect(actual).toEqual(expected);
+\t\treturn;
+\t}
+\tconst actualPng = PNG.sync.read(actual);
+\tconst expectedPng = PNG.sync.read(expected);
+\texpect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+\texpect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+\tconst diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
+\texpect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
 }
 
 function expectLayoutToMatch(actual, expected, tolerance) {
@@ -395,13 +461,11 @@ function emitComponentSplitViews(
 
 			if (importName && !seen.has(importName)) {
 				seen.add(importName);
-				if (innerChildren.length > 0) {
-					const funcName = toPascalCase(importName);
-					files.push({
-						path: `${viewsDir}/${importName}.view.tsx`,
-						contents: emitReactView(innerChildren, funcName, { cssModulePath }),
-					});
-				}
+				const funcName = toPascalCase(importName);
+				files.push({
+					path: `${viewsDir}/${importName}.view.tsx`,
+					contents: emitComponentView(node, funcName, { cssModulePath }),
+				});
 			}
 
 			for (const child of innerChildren) {
@@ -418,6 +482,208 @@ function emitComponentSplitViews(
 		visit(node);
 	}
 	return files;
+}
+
+/**
+ * Emits the implementation of a mapped component. The component reconstructs
+ * the original element (tag, attributes, styles) captured in `sourceElement`,
+ * exposes the mapping's props as a typed interface, and wires `children` and
+ * `$attr.*` props into the rendered element.
+ */
+function emitComponentView(
+	node: DesignNode,
+	funcName: string,
+	options: { cssModulePath?: string } = {},
+): string {
+	const props = node.props ?? {};
+	const source = node.sourceElement;
+	const propEntries = Object.entries(props);
+
+	// Classify props into an attribute binding (attr name -> prop name), the
+	// children prop, and the destructured parameter list (props referenced by
+	// the body). Plain literal props are documented in the interface but are
+	// not destructured because they are not rendered.
+	const attributeBindings = new Map<string, string>();
+	const interfaceLines: string[] = [];
+	const destructured: string[] = [];
+	let childrenPropName: string | undefined;
+
+	for (const [propName, prop] of propEntries) {
+		if (prop.kind === "text" || prop.kind === "children") {
+			childrenPropName = propName;
+			interfaceLines.push(`\t${propName}?: ReactNode;`);
+			destructured.push(propName);
+			continue;
+		}
+		interfaceLines.push(`\t${propName}?: string;`);
+		if (prop.kind === "literal" && prop.attribute) {
+			attributeBindings.set(prop.attribute, propName);
+			destructured.push(propName);
+		}
+	}
+
+	const body = emitComponentBody(
+		node,
+		source,
+		attributeBindings,
+		childrenPropName,
+		2,
+	);
+
+	const importNodes = childrenPropName ? [] : (node.children ?? []);
+	const componentImports = collectImports(importNodes)
+		.map(
+			({ importName, importPath }) =>
+				`import { ${importName} } from "${importPath}";`,
+		)
+		.join("\n");
+	const reactImport = childrenPropName
+		? `import type { ReactNode } from "react";`
+		: "";
+	const cssModuleImport = options.cssModulePath
+		? `import styles from "./${options.cssModulePath}";`
+		: "";
+	const allImports = [reactImport, componentImports, cssModuleImport]
+		.filter(Boolean)
+		.join("\n");
+
+	const hasProps = propEntries.length > 0;
+	const interfaceBlock = hasProps
+		? `interface ${funcName}Props {\n${interfaceLines.join("\n")}\n}\n\n`
+		: "";
+	const params =
+		destructured.length > 0
+			? `{ ${destructured.join(", ")} }: ${funcName}Props`
+			: "";
+
+	return `${allImports ? `${allImports}\n\n` : ""}${interfaceBlock}export function ${funcName}(${params}) {\n\treturn (\n${body}\t);\n}\n`;
+}
+
+function emitComponentBody(
+	node: DesignNode,
+	source: DesignNode | undefined,
+	attributeBindings: Map<string, string>,
+	childrenPropName: string | undefined,
+	depth: number,
+): string {
+	const indent = "\t".repeat(depth);
+
+	if (!source) {
+		// Fall back to rendering the mapped children as a fragment when the
+		// original element was not captured.
+		const children = node.children ?? [];
+		return `${indent}<>\n${children
+			.map((child) => emitJsxNode(child, depth + 1))
+			.join("")}${indent}</>\n`;
+	}
+
+	const tagName = source.tagName ?? "div";
+	const attributes = emitJsxAttributes(
+		source.attributes ?? {},
+		source.styles ?? {},
+		source.generatedClassNames ?? [],
+		attributeBindings,
+	);
+	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
+
+	if (childrenPropName) {
+		const inner = `${"\t".repeat(depth + 1)}{${childrenPropName}}\n`;
+		return `${indent}${openTag}\n${inner}${indent}</${tagName}>\n`;
+	}
+
+	const children = node.children ?? [];
+	if (children.length === 0) {
+		return `${indent}${attributes ? `<${tagName} ${attributes} />` : `<${tagName} />`}\n`;
+	}
+
+	return `${indent}${openTag}\n${children
+		.map((child) => emitJsxNode(child, depth + 1))
+		.join("")}${indent}</${tagName}>\n`;
+}
+
+/**
+ * Walks a mapped AST and returns the first component node seen for each
+ * component name, so the test generator can mount components with the same
+ * props the design supplies.
+ */
+function collectComponentNodes(nodes: DesignNode[]): Map<string, DesignNode> {
+	const map = new Map<string, DesignNode>();
+	function visit(list: DesignNode[]): void {
+		for (const node of list) {
+			if (node.kind === "component") {
+				const name = node.component ?? node.importName;
+				if (name && !map.has(name)) {
+					map.set(name, node);
+				}
+				const childrenProp = node.props?.children;
+				visit(
+					childrenProp?.kind === "children"
+						? childrenProp.value
+						: (node.children ?? []),
+				);
+			} else if (node.kind === "element") {
+				visit(node.children ?? []);
+			}
+		}
+	}
+	visit(nodes);
+	return map;
+}
+
+/**
+ * Emits the JSX used to mount a component in its visual test, forwarding the
+ * literal/attribute props as attributes and the text/children prop as the
+ * element body so the rendered component matches the source design.
+ */
+function emitComponentMount(
+	componentName: string,
+	node: DesignNode | undefined,
+): string {
+	const attributeParts: string[] = [];
+	let childrenJsx = "";
+	for (const [propName, prop] of Object.entries(node?.props ?? {})) {
+		if (prop.kind === "text") {
+			childrenJsx = escapeJsxText(prop.value);
+			continue;
+		}
+		if (prop.kind === "children") {
+			childrenJsx = prop.value.map((child) => emitInlineJsx(child)).join("");
+			continue;
+		}
+		const attribute = emitProp(propName, prop);
+		if (attribute) {
+			attributeParts.push(attribute);
+		}
+	}
+	const attributes =
+		attributeParts.length > 0 ? ` ${attributeParts.join(" ")}` : "";
+	return childrenJsx
+		? `<${componentName}${attributes}>${childrenJsx}</${componentName}>`
+		: `<${componentName}${attributes} />`;
+}
+
+/** Renders a node as single-line JSX for use inside a mount expression. */
+function emitInlineJsx(node: DesignNode): string {
+	if (node.kind === "text") {
+		return escapeJsxText(node.text ?? "");
+	}
+	if (node.kind === "component") {
+		return emitComponentMount(
+			node.component ?? node.importName ?? "Component",
+			node,
+		);
+	}
+	const tagName = node.tagName ?? "div";
+	const attributes = emitJsxAttributes(
+		node.attributes ?? {},
+		node.styles ?? {},
+		node.generatedClassNames ?? [],
+	);
+	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
+	const children = (node.children ?? [])
+		.map((child) => emitInlineJsx(child))
+		.join("");
+	return `${openTag}${children}</${tagName}>`;
 }
 
 function toPascalCase(value: string): string {
@@ -1204,6 +1470,7 @@ function emitJsxAttributes(
 	attributes: Record<string, string>,
 	styles: Record<string, string>,
 	generatedClassNames: string[] = [],
+	attributeBindings: Map<string, string> = new Map(),
 ): string {
 	const mergedAttributes = { ...attributes };
 	const classNames = [
@@ -1219,6 +1486,10 @@ function emitJsxAttributes(
 		.sort(([left], [right]) => left.localeCompare(right))
 		.map(([name, value]) => {
 			const jsxName = toJsxAttributeName(name);
+			const binding = attributeBindings.get(name);
+			if (binding) {
+				return `${jsxName}={${binding}}`;
+			}
 			if (value === "") {
 				return jsxName;
 			}

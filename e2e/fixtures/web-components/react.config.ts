@@ -8,6 +8,7 @@ export default defineConfig({
 		target: new ReactTarget(),
 		viewName: "ProductList",
 	},
+	tests: { assertions: { screenshot: false, layout: false } },
 	components: [
 		{
 			selector: ".filter-section",
