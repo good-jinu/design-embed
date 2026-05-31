@@ -1,0 +1,1508 @@
+import {
+	applyComponentMappings,
+	type DesignEmbedConfig,
+	type DesignNode,
+	type Diagnostic,
+	type PropValue,
+	parseHtml,
+	type TargetEmitInput,
+	type TargetEmitResult,
+	type TargetEmitter,
+	type TargetTestGenerateInput,
+	type TargetTestGenerateResult,
+	type TargetTestGenerator,
+} from "design-embed";
+
+export interface VueTargetOptions {
+	api?: "composition" | "options";
+}
+
+export class VueTarget implements TargetEmitter, TargetTestGenerator {
+	private options: VueTargetOptions;
+
+	constructor(options: VueTargetOptions = { api: "composition" }) {
+		this.options = options;
+	}
+
+	emit({ nodes, css, config, diagnostics }: TargetEmitInput): TargetEmitResult {
+		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
+		const viewName = config?.output?.viewName ?? "DesignView";
+
+		const styleResult = transformStyles(nodes, css, config, diagnostics);
+		const contents = emitVueView(styleResult.nodes, viewName, {
+			cssModule: styleResult.cssModule,
+			api: this.options.api,
+		});
+
+		const files: Array<{ path: string; contents: string }> = [
+			{ path: `${viewsDir}/${viewName}.vue`, contents },
+		];
+
+		for (const split of emitComponentSplitViews(
+			styleResult.nodes,
+			viewsDir,
+			this.options.api,
+		)) {
+			files.push(split);
+		}
+
+		return { files };
+	}
+
+	generateTests(input: TargetTestGenerateInput): TargetTestGenerateResult {
+		return vueTestGenerator.generateTests(input);
+	}
+}
+
+export const vueTestGenerator: TargetTestGenerator = {
+	generateTests({
+		html,
+		css,
+		config,
+	}: TargetTestGenerateInput): TargetTestGenerateResult {
+		const diagnostics: Diagnostic[] = [];
+		const tests = config.tests;
+		if (tests?.runner && tests.runner !== "playwright") {
+			diagnostics.push({
+				code: "TEST_RUNNER_UNSUPPORTED",
+				message: `Unsupported test runner: ${tests.runner}`,
+				severity: "error",
+			});
+			return { files: [], diagnostics };
+		}
+
+		const viewsDir = String(config.output?.viewsDir ?? "src/generated/views");
+		const viewName = config.output?.viewName ?? "DesignView";
+		const outputDir = tests?.outputDir ?? `${viewsDir}/tests`;
+		const fixturePath = `${outputDir}/${viewName}.reference.html`;
+		const specPath = `${outputDir}/${viewName}.visual.spec.ts`;
+		const referenceHtml = `${css?.trim() ? "<style>\n" + css + "\n</style>\n" : ""}${html}`;
+
+		const assertionDefaults = {
+			screenshot: tests?.assertions?.screenshot ?? true,
+			layout: tests?.assertions?.layout ?? true,
+			layoutTolerance: tests?.assertions?.layoutTolerance ?? 1,
+			selectors: tests?.assertions?.selectors ?? [":scope", ":scope *"],
+			screenshotThreshold: tests?.assertions?.screenshotThreshold ?? 0.2,
+			screenshotMaxDiffPixels:
+				tests?.assertions?.screenshotMaxDiffPixels ?? 500,
+		};
+		const viewportDefaults = tests?.viewports ?? [
+			{ name: "default", width: 1440, height: 900 },
+		];
+		const stateDefaults = tests?.states ?? [{ name: "default" }];
+		const referenceHtmlFileName = `${viewName}.reference.html`;
+
+		const files: Array<{ path: string; contents: string }> = [
+			{
+				path: fixturePath,
+				contents: referenceHtml.endsWith("\n")
+					? referenceHtml
+					: referenceHtml + "\n",
+			},
+			{
+				path: specPath,
+				contents: emitVueVisualSpec({
+					viewName,
+					viewImportPath: toRelativeImport(
+						specPath,
+						viewsDir + "/" + viewName + ".vue",
+					),
+					fixtureFileName: referenceHtmlFileName,
+					viewports: viewportDefaults,
+					states: stateDefaults,
+					assertions: assertionDefaults,
+				}),
+			},
+		];
+
+		const componentNodes = collectComponentNodes(
+			applyComponentMappings(parseHtml(html), config.components ?? []),
+		);
+
+		for (const mapping of config.components ?? []) {
+			const componentName = mapping.component;
+			const componentSpecPath = `${outputDir}/${componentName}.visual.spec.ts`;
+			const mountNode = componentNodes.get(componentName);
+			files.push({
+				path: componentSpecPath,
+				contents: emitComponentVisualSpec({
+					componentName,
+					selector: mapping.selector,
+					mountInfo: emitComponentMountInfo(componentName, mountNode),
+					componentImportPath: toRelativeImport(
+						componentSpecPath,
+						viewsDir + "/" + componentName + ".vue",
+					),
+					referenceHtmlFileName,
+					viewports: viewportDefaults,
+					states: stateDefaults,
+					assertions: assertionDefaults,
+				}),
+			});
+		}
+
+		return { diagnostics, files };
+	},
+};
+
+interface VueVisualSpecInput {
+	viewName: string;
+	viewImportPath: string;
+	fixtureFileName: string;
+	viewports: Array<{ name?: string; width: number; height: number }>;
+	states: Array<{
+		name: string;
+		hover?: string;
+		focus?: string;
+		click?: string;
+		waitFor?: string;
+	}>;
+	assertions: {
+		screenshot: boolean;
+		layout: boolean;
+		layoutTolerance: number;
+		selectors: string[];
+		screenshotThreshold: number;
+		screenshotMaxDiffPixels: number;
+	};
+}
+
+function emitVueVisualSpec(input: VueVisualSpecInput): string {
+	const viewports = JSON.stringify(input.viewports, null, 2);
+	const states = JSON.stringify(input.states, null, 2);
+	const selectors = JSON.stringify(input.assertions.selectors, null, 2);
+	const screenshotEnabled = JSON.stringify(input.assertions.screenshot);
+	const layoutEnabled = JSON.stringify(input.assertions.layout);
+	const layoutTolerance = JSON.stringify(input.assertions.layoutTolerance);
+	const screenshotThreshold = JSON.stringify(
+		input.assertions.screenshotThreshold,
+	);
+	const screenshotMaxDiffPixels = JSON.stringify(
+		input.assertions.screenshotMaxDiffPixels,
+	);
+
+	return `import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { expect, test } from "@playwright/experimental-ct-vue";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
+import ${input.viewName} from "${input.viewImportPath}";
+
+const currentDir = dirname(fileURLToPath(import.meta.url));
+const referenceHtml = readFileSync(resolve(currentDir, "./${input.fixtureFileName}"), "utf-8");
+const viewports = ${viewports};
+const states = ${states};
+const selectors = ${selectors};
+const screenshotEnabled = ${screenshotEnabled};
+const layoutEnabled = ${layoutEnabled};
+const layoutTolerance = ${layoutTolerance};
+const screenshotThreshold = ${screenshotThreshold};
+const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
+
+for (const viewport of viewports) {
+	for (const state of states) {
+		const viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
+		test("${input.viewName} matches source at " + viewportName + " / " + state.name, async ({ mount, page }) => {
+			await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+			await page.setContent(referenceHtml);
+			await applyState(page, state);
+			const expectedScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
+			const expectedLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
+
+			await page.setContent("");
+			const component = await mount(${input.viewName});
+			await applyState(page, state);
+			const actualScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
+			const actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
+
+			if (screenshotEnabled) {
+				compareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
+			}
+			if (layoutEnabled) {
+				expectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
+			}
+		});
+	}
+}
+
+async function applyState(page, state) {
+	if (state.waitFor) {
+		await page.waitForSelector(state.waitFor);
+	}
+	if (state.hover) {
+		await page.hover(state.hover);
+	}
+	if (state.focus) {
+		await page.focus(state.focus);
+	}
+	if (state.click) {
+		await page.click(state.click);
+	}
+}
+
+async function readLayout(root, selectorsToRead) {
+	return root.evaluate((element, values) => {
+		const origin = element.getBoundingClientRect();
+		return values.flatMap((selector) => {
+			const matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
+			return matches.map((matchedElement, index) => {
+				const rect = matchedElement.getBoundingClientRect();
+				return {
+					selector,
+					index,
+					tagName: matchedElement.tagName.toLowerCase(),
+					x: rect.x - origin.x,
+					y: rect.y - origin.y,
+					width: rect.width,
+					height: rect.height,
+				};
+			});
+		});
+	}, selectorsToRead);
+}
+
+function compareScreenshots(actual, expected, threshold, maxDiffPixels) {
+	if (!actual || !expected) {
+		expect(actual).toEqual(expected);
+		return;
+	}
+	const actualPng = PNG.sync.read(actual);
+	const expectedPng = PNG.sync.read(expected);
+	expect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+	expect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+	const diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
+	expect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
+}
+
+function expectLayoutToMatch(actual, expected, tolerance) {
+	expect(actual.length).toBe(expected.length);
+	for (let index = 0; index < expected.length; index += 1) {
+		const actualRect = actual[index];
+		const expectedRect = expected[index];
+		expect(actualRect.selector).toBe(expectedRect.selector);
+		expect(actualRect.index).toBe(expectedRect.index);
+		expect(actualRect.tagName).toBe(expectedRect.tagName);
+		for (const key of ["x", "y", "width", "height"]) {
+			const drift = Math.abs(actualRect[key] - expectedRect[key]);
+			expect(drift, expectedRect.selector + "[" + expectedRect.index + "] " + key + " drift").toBeLessThanOrEqual(tolerance);
+		}
+	}
+}
+`;
+}
+
+interface ComponentVisualSpecInput {
+	componentName: string;
+	selector: string;
+	mountInfo: { props: Record<string, any>; slots: Record<string, string> };
+	componentImportPath: string;
+	referenceHtmlFileName: string;
+	viewports: Array<{ name?: string; width: number; height: number }>;
+	states: Array<{
+		name: string;
+		hover?: string;
+		focus?: string;
+		click?: string;
+		waitFor?: string;
+	}>;
+	assertions: {
+		screenshot: boolean;
+		layout: boolean;
+		layoutTolerance: number;
+		selectors: string[];
+		screenshotThreshold: number;
+		screenshotMaxDiffPixels: number;
+	};
+}
+
+function emitComponentVisualSpec(input: ComponentVisualSpecInput): string {
+	const viewports = JSON.stringify(input.viewports, null, 2);
+	const states = JSON.stringify(input.states, null, 2);
+	const selectors = JSON.stringify(input.assertions.selectors, null, 2);
+	const screenshotEnabled = JSON.stringify(input.assertions.screenshot);
+	const layoutEnabled = JSON.stringify(input.assertions.layout);
+	const layoutTolerance = JSON.stringify(input.assertions.layoutTolerance);
+	const screenshotThreshold = JSON.stringify(
+		input.assertions.screenshotThreshold,
+	);
+	const screenshotMaxDiffPixels = JSON.stringify(
+		input.assertions.screenshotMaxDiffPixels,
+	);
+	const selector = JSON.stringify(input.selector);
+	const mountProps = JSON.stringify(input.mountInfo.props, null, 2);
+	const mountSlots = JSON.stringify(input.mountInfo.slots, null, 2);
+
+	return `import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { expect, test } from "@playwright/experimental-ct-vue";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
+import ${input.componentName} from "${input.componentImportPath}";
+
+const currentDir = dirname(fileURLToPath(import.meta.url));
+const referenceHtml = readFileSync(resolve(currentDir, "./${input.referenceHtmlFileName}"), "utf-8");
+const selector = ${selector};
+const viewports = ${viewports};
+const states = ${states};
+const selectors = ${selectors};
+const screenshotEnabled = ${screenshotEnabled};
+const layoutEnabled = ${layoutEnabled};
+const layoutTolerance = ${layoutTolerance};
+const screenshotThreshold = ${screenshotThreshold};
+const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
+
+for (const viewport of viewports) {
+	for (const state of states) {
+		const viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
+		test("${input.componentName} matches source at " + viewportName + " / " + state.name, async ({ mount, page }) => {
+			await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+			await page.setContent(referenceHtml);
+			const isolatedHtml = await page.locator(selector).first().evaluate((node) => node.outerHTML);
+			await page.setContent(isolatedHtml);
+			await applyState(page, state);
+			const expectedEl = page.locator(selector).first();
+			const expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
+			const expectedLayout = layoutEnabled ? await readLayout(expectedEl, selectors) : [];
+
+			const component = await mount(${input.componentName}, {
+				props: ${mountProps},
+				slots: ${mountSlots},
+			});
+			await applyState(page, state);
+			const actualScreenshot = screenshotEnabled ? await component.screenshot() : undefined;
+			const actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
+
+			if (screenshotEnabled) {
+				compareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
+			}
+			if (layoutEnabled) {
+				expectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
+			}
+		});
+	}
+}
+
+async function applyState(page, state) {
+	if (state.waitFor) {
+		await page.waitForSelector(state.waitFor);
+	}
+	if (state.hover) {
+		await page.hover(state.hover);
+	}
+	if (state.focus) {
+		await page.focus(state.focus);
+	}
+	if (state.click) {
+		await page.click(state.click);
+	}
+}
+
+async function readLayout(root, selectorsToRead) {
+	return root.evaluate((element, values) => {
+		const origin = element.getBoundingClientRect();
+		return values.flatMap((selector) => {
+			const matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
+			return matches.map((matchedElement, index) => {
+				const rect = matchedElement.getBoundingClientRect();
+				return {
+					selector,
+					index,
+					tagName: matchedElement.tagName.toLowerCase(),
+					x: rect.x - origin.x,
+					y: rect.y - origin.y,
+					width: rect.width,
+					height: rect.height,
+				};
+			});
+		});
+	}, selectorsToRead);
+}
+
+function compareScreenshots(actual, expected, threshold, maxDiffPixels) {
+	if (!actual || !expected) {
+		expect(actual).toEqual(expected);
+		return;
+	}
+	const actualPng = PNG.sync.read(actual);
+	const expectedPng = PNG.sync.read(expected);
+	expect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+	expect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+	const diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
+	expect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
+}
+
+function expectLayoutToMatch(actual, expected, tolerance) {
+	expect(actual.length).toBe(expected.length);
+	for (let index = 0; index < expected.length; index += 1) {
+		const actualRect = actual[index];
+		const expectedRect = expected[index];
+		expect(actualRect.selector).toBe(expectedRect.selector);
+		expect(actualRect.index).toBe(expectedRect.index);
+		expect(actualRect.tagName).toBe(expectedRect.tagName);
+		for (const key of ["x", "y", "width", "height"]) {
+			const drift = Math.abs(actualRect[key] - expectedRect[key]);
+			expect(drift, expectedRect.selector + "[" + expectedRect.index + "] " + key + " drift").toBeLessThanOrEqual(tolerance);
+		}
+	}
+}
+`;
+}
+
+function emitComponentSplitViews(
+	nodes: DesignNode[],
+	viewsDir: string,
+	api: "composition" | "options" | undefined,
+): Array<{ path: string; contents: string }> {
+	const seen = new Set<string>();
+	const files: Array<{ path: string; contents: string }> = [];
+
+	function visit(node: DesignNode): void {
+		if (node.kind === "component") {
+			const importName = node.importName ?? node.component ?? "";
+			const childrenProp = node.props?.children;
+			const innerChildren: DesignNode[] =
+				childrenProp?.kind === "children"
+					? childrenProp.value
+					: (node.children ?? []);
+
+			if (importName && !seen.has(importName)) {
+				seen.add(importName);
+				const funcName = toPascalCase(importName);
+				files.push({
+					path: viewsDir + "/" + importName + ".vue",
+					contents: emitVueView([node], funcName, { api }),
+				});
+			}
+
+			for (const child of innerChildren) {
+				visit(child);
+			}
+		} else if (node.kind === "element") {
+			for (const child of node.children ?? []) {
+				visit(child);
+			}
+		}
+	}
+
+	for (const node of nodes) {
+		visit(node);
+	}
+	return files;
+}
+
+export function emitVueView(
+	nodes: DesignNode[],
+	viewName: string,
+	options: {
+		cssModule?: string;
+		api?: "composition" | "options";
+	} = {},
+): string {
+	const api = options.api ?? "composition";
+	const isComponentImplementation =
+		nodes.length === 1 && nodes[0]?.kind === "component";
+	const componentNode = isComponentImplementation ? nodes[0] : undefined;
+
+	let script = "";
+	let template = "";
+
+	if (componentNode) {
+		const props = componentNode.props ?? {};
+		const source = componentNode.sourceElement;
+		const propEntries = Object.entries(props);
+
+		const attributeBindings = new Map<string, string>();
+		const propsDefinitions: string[] = [];
+		let childrenPropName: string | undefined;
+
+		for (const [propName, prop] of propEntries) {
+			if (prop.kind === "text" || prop.kind === "children") {
+				childrenPropName = propName;
+				propsDefinitions.push(propName + ": {}");
+				continue;
+			}
+			propsDefinitions.push(propName + ": String");
+			if (prop.kind === "literal" && prop.attribute) {
+				attributeBindings.set(prop.attribute, propName);
+			}
+		}
+
+		const imports = collectImports(childrenPropName ? [] : (componentNode.children ?? []));
+		const importLines = imports
+			.map(
+				({ importName, importPath }) =>
+					'import ' + importName + ' from "' + importPath.replace(/\.tsx$/, ".vue") + '";',
+			)
+			.join("\n");
+
+		if (api === "composition") {
+			script = '<script setup lang="ts">\n' + importLines + (importLines ? "\n" : "") + 'defineProps<{\n' + Object.keys(props)
+				.map((p) => "\t" + p + "?: any;")
+				.join("\n") + "\n}>();\n</script>\n";
+		} else {
+			script = '<script lang="ts">\nimport { defineComponent } from "vue";\n' + importLines + (importLines ? "\n" : "") + 'export default defineComponent({\n\tcomponents: { ' + imports.map((i) => i.importName).join(", ") + ' },\n\tprops: {\n\t\t' + propsDefinitions.join(",\n\t\t") + "\n\t}\n});\n</script>\n";
+		}
+
+		template = "<template>\n" + emitVueComponentBody(componentNode, source, attributeBindings, childrenPropName, 1) + "</template>\n";
+	} else {
+		const imports = collectImports(nodes);
+		const importLines = imports
+			.map(
+				({ importName, importPath }) =>
+					'import ' + importName + ' from "' + importPath.replace(/\.tsx$/, ".vue") + '";',
+			)
+			.join("\n");
+
+		if (api === "composition") {
+			script = importLines ? '<script setup lang="ts">\n' + importLines + "\n</script>\n" : "";
+		} else {
+			script = '<script lang="ts">\nimport { defineComponent } from "vue";\n' + importLines + (importLines ? "\n" : "") + 'export default defineComponent({\n\tcomponents: { ' + imports.map((i) => i.importName).join(", ") + " }\n});\n</script>\n";
+		}
+
+		const body =
+			nodes.length === 1 && nodes[0]?.kind !== "text"
+				? emitVueNode(nodes[0], 1)
+				: '\t<template v-if="true">\n' + nodes.map((node) => emitVueNode(node, 2)).join("") + "\t</template>\n";
+
+		template = "<template>\n" + body + "</template>\n";
+	}
+
+	const style = options.cssModule
+		? "\n<style module>\n" + options.cssModule + "</style>\n"
+		: "";
+
+	return script + "\n" + template + style;
+}
+
+function emitVueComponentBody(
+	node: DesignNode,
+	source: DesignNode | undefined,
+	attributeBindings: Map<string, string>,
+	childrenPropName: string | undefined,
+	depth: number,
+): string {
+	const indent = "\t".repeat(depth);
+
+	if (!source) {
+		const children = node.children ?? [];
+		return indent + '<template v-if="true">\n' + children
+			.map((child) => emitVueNode(child, depth + 1))
+			.join("") + indent + "</template>\n";
+	}
+
+	const tagName = source.tagName ?? "div";
+	const attributes = emitVueAttributes(
+		source.attributes ?? {},
+		source.styles ?? {},
+		source.generatedClassNames ?? [],
+		attributeBindings,
+	);
+	const openTag = attributes ? "<" + tagName + " " + attributes + ">" : "<" + tagName + ">";
+
+	if (childrenPropName) {
+		const inner = "\t".repeat(depth + 1) + '<slot name="' + childrenPropName + '">{{ ' + childrenPropName + " }}</slot>\n";
+		return indent + openTag + "\n" + inner + indent + "</" + tagName + ">\n";
+	}
+
+	const children = node.children ?? [];
+	if (children.length === 0) {
+		return indent + openTag + "</" + tagName + ">\n";
+	}
+
+	return indent + openTag + "\n" + children
+		.map((child) => emitVueNode(child, depth + 1))
+		.join("") + indent + "</" + tagName + ">\n";
+}
+
+function emitVueNode(node: DesignNode | undefined, depth: number): string {
+	if (!node) {
+		return "";
+	}
+	const indent = "\t".repeat(depth);
+	if (node.kind === "text") {
+		return indent + escapeHtml(node.text ?? "") + "\n";
+	}
+	if (node.kind === "component") {
+		return emitVueComponentJsx(node, depth);
+	}
+
+	const tagName = node.tagName ?? "div";
+	const attributes = emitVueAttributes(
+		node.attributes ?? {},
+		node.styles ?? {},
+		node.generatedClassNames ?? [],
+	);
+	const children = node.children ?? [];
+	const openTag = attributes ? "<" + tagName + " " + attributes + ">" : "<" + tagName + ">";
+	if (children.length === 0) {
+		return indent + openTag + "</" + tagName + ">\n";
+	}
+
+	return indent + openTag + "\n" + children
+		.map((child) => emitVueNode(child, depth + 1))
+		.join("") + indent + "</" + tagName + ">\n";
+}
+
+function emitVueComponentJsx(node: DesignNode, depth: number): string {
+	const indent = "\t".repeat(depth);
+	const component = node.component ?? node.importName ?? "Component";
+	const childrenProp = node.props?.children;
+	const attributes = Object.entries(node.props ?? {})
+		.filter(([name]) => name !== "children")
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([name, prop]) => emitVueProp(name, prop))
+		.join(" ");
+	const openTag = attributes
+		? "<" + component + " " + attributes + ">"
+		: "<" + component + ">";
+
+	if (childrenProp?.kind === "text") {
+		return indent + openTag + "\n" + "\t".repeat(depth + 1) + '<template #' + (childrenProp.kind === "children" ? "children" : "default") + ">" + escapeHtml(childrenProp.value) + "</template>\n" + indent + "</" + component + ">\n";
+	}
+	if (childrenProp?.kind === "children") {
+		return indent + openTag + "\n" + "\t".repeat(depth + 1) + "<template #children>\n" + childrenProp.value
+			.map((child) => emitVueNode(child, depth + 2))
+			.join("") + "\t".repeat(depth + 1) + "</template>\n" + indent + "</" + component + ">\n";
+	}
+	const children = node.children ?? [];
+	if (children.length === 0) {
+		return indent + openTag + "</" + component + ">\n";
+	}
+	return indent + openTag + "\n" + children
+		.map((child) => emitVueNode(child, depth + 1))
+		.join("") + indent + "</" + component + ">\n";
+}
+
+function emitVueProp(name: string, prop: PropValue): string {
+	if (prop.kind === "children") {
+		return "";
+	}
+	if (typeof prop.value === "boolean" || typeof prop.value === "number") {
+		return ":" + name + "=\"" + JSON.stringify(prop.value).replace(/"/g, "'") + "\"";
+	}
+	return name + "=\"" + escapeAttribute(prop.value) + "\"";
+}
+
+function emitVueAttributes(
+	attributes: Record<string, string>,
+	styles: Record<string, string>,
+	generatedClassNames: string[] = [],
+	attributeBindings: Map<string, string> = new Map(),
+): string {
+	const mergedAttributes = { ...attributes };
+	const classNames = [
+		...(attributes.class ?? "").split(/\s+/).filter(Boolean),
+		...generatedClassNames,
+	];
+	if (classNames.length > 0) {
+		mergedAttributes.class = classNames.join(" ");
+	}
+
+	const result = Object.entries(mergedAttributes)
+		.filter(([name]) => name !== "style")
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([name, value]) => {
+			const binding = attributeBindings.get(name);
+			if (binding) {
+				return ":" + name + "=\"" + binding + "\"";
+			}
+			if (value === "") {
+				return name;
+			}
+			if (name === "class" && generatedClassNames.some(isCssModuleReference)) {
+				return ":class=\"" + emitVueClassNameExpression(classNames) + "\"";
+			}
+			return name + "=\"" + escapeAttribute(value) + "\"";
+		});
+
+	const styleAttr = emitVueStyleAttribute(styles);
+	if (styleAttr) {
+		result.push(styleAttr);
+	}
+
+	return result.join(" ");
+}
+
+function emitVueClassNameExpression(classNames: string[]): string {
+	return "[" + classNames
+		.map((className) =>
+			isCssModuleReference(className)
+				? "$style." + className.slice(7)
+				: JSON.stringify(className),
+		)
+		.join(", ") + "].filter(Boolean).join(' ')";
+}
+
+function emitVueStyleAttribute(styles: Record<string, string>): string | undefined {
+	const entries = Object.entries(styles).sort(([left], [right]) =>
+		left.localeCompare(right),
+	);
+	if (entries.length === 0) {
+		return undefined;
+	}
+	const styleObject = entries
+		.map(
+			([property, value]) =>
+				"'" + toCamelCase(property) + "': " + JSON.stringify(value).replace(/"/g, "'"),
+		)
+		.join(", ");
+	return ":style=\"{ " + styleObject + " }\"";
+}
+
+function toPascalCase(value: string): string {
+	return value
+		.split(/[-_\s]+/)
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join("");
+}
+
+function toCamelCase(value: string): string {
+	return value.replace(/-([a-z])/g, (_, letter: string) =>
+		letter.toUpperCase(),
+	);
+}
+
+function toRelativeImport(fromFile: string, toFile: string): string {
+	const fromParts = fromFile.split("/").slice(0, -1);
+	const toParts = toFile.split("/");
+	while (
+		fromParts.length > 0 &&
+		toParts.length > 0 &&
+		fromParts[0] === toParts[0]
+	) {
+		fromParts.shift();
+		toParts.shift();
+	}
+	const prefix = fromParts.map(() => "..");
+	const relative = prefix.concat(toParts).join("/");
+	return relative.startsWith(".") ? relative : "./" + relative;
+}
+
+function isCssModuleReference(className: string): boolean {
+	return className.startsWith("module:");
+}
+
+function escapeHtml(value: string): string {
+	return value
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;");
+}
+
+function escapeAttribute(value: string): string {
+	return escapeHtml(value).replace(/"/g, "&quot;");
+}
+
+/**
+ * Walks a mapped AST and returns the first component node seen for each
+ * component name, so the test generator can mount components with the same
+ * props the design supplies.
+ */
+function collectComponentNodes(nodes: DesignNode[]): Map<string, DesignNode> {
+	const map = new Map<string, DesignNode>();
+	function visit(list: DesignNode[]): void {
+		for (const node of list) {
+			if (node.kind === "component") {
+				const name = node.component ?? node.importName;
+				if (name && !map.has(name)) {
+					map.set(name, node);
+				}
+				const childrenProp = node.props?.children;
+				visit(
+					childrenProp?.kind === "children"
+						? childrenProp.value
+						: (node.children ?? []),
+				);
+			} else if (node.kind === "element") {
+				visit(node.children ?? []);
+			}
+		}
+	}
+	visit(nodes);
+	return map;
+}
+
+function emitComponentMountInfo(
+	_componentName: string,
+	node: DesignNode | undefined,
+): { props: Record<string, any>; slots: Record<string, string> } {
+	const props: Record<string, any> = {};
+	const slots: Record<string, string> = {};
+	for (const [propName, prop] of Object.entries(node?.props ?? {})) {
+		if (prop.kind === "text") {
+			slots[propName] = prop.value;
+			continue;
+		}
+		if (prop.kind === "children") {
+			slots[propName] = prop.value.map((child) => emitInlineVue(child)).join("");
+			continue;
+		}
+		props[propName] = prop.value;
+	}
+	return { props, slots };
+}
+
+function emitInlineVue(node: DesignNode): string {
+	if (node.kind === "text") {
+		return escapeHtml(node.text ?? "");
+	}
+	if (node.kind === "component") {
+		const info = emitComponentMountInfo(node.component ?? "Component", node);
+		const propsStr = Object.entries(info.props)
+			.map(([k, v]) => k + "=\"" + v + "\"")
+			.join(" ");
+		const slotsStr = Object.entries(info.slots)
+			.map(([k, v]) => "<template #" + k + ">" + v + "</template>")
+			.join("");
+		return "<" + node.component + " " + propsStr + ">" + slotsStr + "</" + node.component + ">";
+	}
+	const tagName = node.tagName ?? "div";
+	const attributes = emitVueAttributes(
+		node.attributes ?? {},
+		node.styles ?? {},
+		node.generatedClassNames ?? [],
+	);
+	const openTag = attributes ? "<" + tagName + " " + attributes + ">" : "<" + tagName + ">";
+	const children = (node.children ?? [])
+		.map((child) => emitInlineVue(child))
+		.join("");
+	return openTag + children + "</" + tagName + ">";
+}
+
+// Reuse logic from target-react where applicable or implement similar
+// The following functions are copied and adapted from target-react
+
+interface StyleTransformResult {
+	nodes: DesignNode[];
+	cssModule?: string;
+}
+
+interface TokenMatch {
+	group: string;
+	name: string;
+	value: string;
+}
+
+function transformStyles(
+	nodes: DesignNode[],
+	css: string | undefined,
+	config: DesignEmbedConfig | undefined,
+	diagnostics: Diagnostic[],
+): StyleTransformResult {
+	const styleMode = config?.output?.styleMode ?? "inline";
+	const cssRules = parseCssRules(css, diagnostics);
+	const resolvedNodes = resolveCssStyles(nodes, cssRules);
+
+	if (styleMode === "inline") {
+		return {
+			nodes: mapStyleNodes(resolvedNodes, (node) => ({
+				...node,
+				styles: snapStyleValues(node.styles ?? {}, config, diagnostics, node),
+			})),
+		};
+	}
+
+	if (styleMode === "tailwind") {
+		return {
+			nodes: mapStyleNodes(resolvedNodes, (node) =>
+				applyTailwindStyles(node, config, diagnostics),
+			),
+		};
+	}
+
+	if (styleMode === "css-modules") {
+		const rules: string[] = [];
+		let index = 0;
+		const moduleNodes = mapStyleNodes(resolvedNodes, (node) => {
+			const snapped = snapStyleValues(
+				node.styles ?? {},
+				config,
+				diagnostics,
+				node,
+			);
+			if (Object.keys(snapped).length === 0) {
+				return { ...node, styles: snapped };
+			}
+			index += 1;
+			const className = "style" + index;
+			rules.push(emitCssModuleRule(className, snapped));
+			return {
+				...node,
+				styles: {},
+				generatedClassNames: [
+					...(node.generatedClassNames ?? []),
+					"module:" + className,
+				],
+			};
+		});
+		return {
+			nodes: moduleNodes,
+			cssModule: rules.length > 0 ? rules.join("\n\n") + "\n" : undefined,
+		};
+	}
+
+	diagnostics.push({
+		code: "STYLE_MODE_UNSUPPORTED",
+		message: "Unsupported style mode: " + styleMode,
+		severity: "error",
+	});
+	return { nodes: resolvedNodes };
+}
+
+// Parser and resolver functions (same as React target)
+function parseInlineStyle(style: string | undefined): Record<string, string> {
+	const styles: Record<string, string> = {};
+	if (!style) {
+		return styles;
+	}
+	for (const declaration of style.split(";")) {
+		const [property, ...valueParts] = declaration.split(":");
+		const value = valueParts.join(":").trim();
+		if (!property?.trim() || !value) {
+			continue;
+		}
+		styles[property.trim().toLowerCase()] = value;
+	}
+	return styles;
+}
+
+interface ParsedSelector {
+	tagName?: string;
+	id?: string;
+	classes: string[];
+	attributes: Record<string, string>;
+}
+
+function parseSelector(selector: string): ParsedSelector | undefined {
+	const trimmed = selector.trim();
+	if (!trimmed || /[\s>+~,:]/.test(trimmed)) {
+		return undefined;
+	}
+	const parsed: ParsedSelector = { classes: [], attributes: {} };
+	let rest = trimmed;
+	const tagMatch = rest.match(/^[a-zA-Z][a-zA-Z0-9-]*/);
+	if (tagMatch?.[0]) {
+		parsed.tagName = tagMatch[0].toLowerCase();
+		rest = rest.slice(tagMatch[0].length);
+	}
+	while (rest) {
+		if (rest.startsWith(".")) {
+			const match = rest.match(/^\.([a-zA-Z_][a-zA-Z0-9_-]*)/);
+			if (!match?.[1]) {
+				return undefined;
+			}
+			parsed.classes.push(match[1]);
+			rest = rest.slice(match[0].length);
+			continue;
+		}
+		if (rest.startsWith("#")) {
+			const match = rest.match(/^#([a-zA-Z_][a-zA-Z0-9_-]*)/);
+			if (!match?.[1] || parsed.id) {
+				return undefined;
+			}
+			parsed.id = match[1];
+			rest = rest.slice(match[0].length);
+			continue;
+		}
+		if (rest.startsWith("[")) {
+			const match = rest.match(
+				/^\[([a-zA-Z_][a-zA-Z0-9_.:-]*)(?:=(?:"([^"]*)"|'([^']*)'|([^\]]+)))?\]/,
+			);
+			if (!match?.[1]) {
+				return undefined;
+			}
+			parsed.attributes[match[1]] = match[2] ?? match[3] ?? match[4] ?? "";
+			rest = rest.slice(match[0].length);
+			continue;
+		}
+		return undefined;
+	}
+	return parsed;
+}
+
+function matchesSelector(node: DesignNode, selector: ParsedSelector): boolean {
+	if (node.kind !== "element") {
+		return false;
+	}
+	const attributes = node.attributes ?? {};
+	if (selector.tagName && node.tagName !== selector.tagName) {
+		return false;
+	}
+	if (selector.id && attributes.id !== selector.id) {
+		return false;
+	}
+	const classNames = new Set(
+		(attributes.class ?? "").split(/\s+/).filter(Boolean),
+	);
+	for (const className of selector.classes) {
+		if (!classNames.has(className)) {
+			return false;
+		}
+	}
+	for (const [name, value] of Object.entries(selector.attributes)) {
+		if (!(name in attributes)) {
+			return false;
+		}
+		if (value !== "" && attributes[name] !== value) {
+			return false;
+		}
+	}
+	return true;
+}
+
+interface CssRule {
+	selector: string;
+	declarations: Record<string, string>;
+	order: number;
+}
+
+function parseCssRules(
+	css: string | undefined,
+	diagnostics: Diagnostic[],
+): CssRule[] {
+	if (!css?.trim()) {
+		return [];
+	}
+	const rules: CssRule[] = [];
+	let order = 0;
+	for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+		const selectorText = match[1]?.trim() ?? "";
+		const declarations = parseInlineStyle(match[2]);
+		for (const selector of selectorText.split(",").map((item) => item.trim())) {
+			if (!selector) {
+				continue;
+			}
+			if (!parseSelector(selector)) {
+				diagnostics.push({
+					code: "CSS_SELECTOR_UNSUPPORTED",
+					message: "Unsupported CSS selector: " + selector,
+					severity: "warning",
+					selector,
+				});
+				continue;
+			}
+			rules.push({ selector, declarations, order });
+			order += 1;
+		}
+	}
+	return rules;
+}
+
+function resolveCssStyles(nodes: DesignNode[], rules: CssRule[]): DesignNode[] {
+	return nodes.map((node) => {
+		if (node.kind !== "element") {
+			return node;
+		}
+		const matchedDeclarations = rules
+			.filter((rule) => {
+				const selector = parseSelector(rule.selector);
+				return selector ? matchesSelector(node, selector) : false;
+			})
+			.sort((left, right) => left.order - right.order);
+		const stylesFromCss: Record<string, string> = {};
+		for (const rule of matchedDeclarations) {
+			Object.assign(stylesFromCss, rule.declarations);
+		}
+		return {
+			...node,
+			styles: { ...stylesFromCss, ...(node.styles ?? {}) },
+			children: resolveCssStyles(node.children ?? [], rules),
+		};
+	});
+}
+
+function mapStyleNodes(
+	nodes: DesignNode[],
+	mapper: (node: DesignNode) => DesignNode,
+): DesignNode[] {
+	return nodes.map((node) => {
+		if (node.kind !== "element") {
+			return node;
+		}
+		return mapper({
+			...node,
+			children: mapStyleNodes(node.children ?? [], mapper),
+		});
+	});
+}
+
+function snapStyleValues(
+	styles: Record<string, string>,
+	config: DesignEmbedConfig | undefined,
+	diagnostics: Diagnostic[],
+	node: DesignNode,
+): Record<string, string> {
+	const snapped: Record<string, string> = {};
+	for (const [property, value] of sortedEntries(styles)) {
+		const match = matchToken(property, value, config, diagnostics, node);
+		snapped[property] = match?.value ?? value;
+	}
+	return snapped;
+}
+
+function matchToken(
+	property: string,
+	value: string,
+	config: DesignEmbedConfig | undefined,
+	diagnostics: Diagnostic[],
+	node: DesignNode,
+): TokenMatch | undefined {
+	const group = tokenGroupForProperty(property);
+	if (!group) {
+		diagnostics.push({
+			code: "STYLE_UNSUPPORTED_PROPERTY",
+			message: "No token group is configured for CSS property \"" + property + "\".",
+			severity: "info",
+			source: node.source,
+			property,
+		});
+		return undefined;
+	}
+	if (group === "colors") {
+		return matchColorToken(property, value, config, diagnostics, node);
+	}
+	if (group === "shadow") {
+		return matchStringToken(property, value, config?.tokens?.shadow, group);
+	}
+	const tokenValues =
+		group === "spacing"
+			? config?.tokens?.spacing?.values
+			: group === "sizing"
+				? config?.tokens?.sizing?.values
+				: group === "typography"
+					? config?.tokens?.typography?.values
+					: group === "radius"
+						? config?.tokens?.radius
+						: config?.tokens?.borderWidth;
+	const unit =
+		group === "spacing"
+			? (config?.tokens?.spacing?.unit ?? "px")
+			: group === "sizing"
+				? (config?.tokens?.sizing?.unit ?? "px")
+				: group === "typography"
+					? (config?.tokens?.typography?.unit ?? "px")
+					: "px";
+	const threshold =
+		group === "spacing"
+			? (config?.tokens?.spacing?.threshold ?? 0)
+			: group === "sizing"
+				? (config?.tokens?.sizing?.threshold ?? 0)
+				: group === "typography"
+					? (config?.tokens?.typography?.threshold ?? 0)
+					: 0;
+	return matchNumericToken(
+		property,
+		value,
+		tokenValues,
+		group,
+		unit,
+		threshold,
+		diagnostics,
+		node,
+	);
+}
+
+function tokenGroupForProperty(property: string): string | undefined {
+	if (/^(margin|padding)(-|$)|^gap$|^row-gap$|^column-gap$/.test(property)) {
+		return "spacing";
+	}
+	if (
+		/^(width|height|min-width|min-height|max-width|max-height)$/.test(property)
+	) {
+		return "sizing";
+	}
+	if (/^(font-size|line-height|font-weight)$/.test(property)) {
+		return "typography";
+	}
+	if (property === "border-radius") {
+		return "radius";
+	}
+	if (property === "border-width") {
+		return "borderWidth";
+	}
+	if (property === "box-shadow") {
+		return "shadow";
+	}
+	if (
+		property === "color" ||
+		property === "background" ||
+		property === "background-color" ||
+		property === "border-color"
+	) {
+		return "colors";
+	}
+	return undefined;
+}
+
+function matchNumericToken(
+	property: string,
+	value: string,
+	tokens: Record<string, number> | undefined,
+	group: string,
+	unit: "px" | "rem",
+	threshold: number,
+	diagnostics: Diagnostic[],
+	node: DesignNode,
+): TokenMatch | undefined {
+	if (!tokens) {
+		return undefined;
+	}
+	const parsed = value.match(/^(-?\d+(?:\.\d+)?)(px|rem)?$/);
+	if (!parsed?.[1]) {
+		return undefined;
+	}
+	const numericValue = Number(parsed[1]);
+	const candidates = sortedEntries(tokens)
+		.map(([name, tokenValue]) => ({
+			name,
+			tokenValue,
+			distance: Math.abs(tokenValue - numericValue),
+		}))
+		.filter(({ distance }) => distance <= threshold)
+		.sort(
+			(left, right) =>
+				left.distance - right.distance || left.name.localeCompare(right.name),
+		);
+	if (candidates.length === 0) {
+		diagnostics.push({
+			code: "TOKEN_NO_MATCH",
+			message: property + ": " + value + " did not match a " + group + " token.",
+			severity: "info",
+			source: node.source,
+			property,
+		});
+		return undefined;
+	}
+	if (
+		candidates.length > 1 &&
+		candidates[0]?.distance === candidates[1]?.distance
+	) {
+		diagnostics.push({
+			code: "TOKEN_AMBIGUOUS_MATCH",
+			message: property + ": " + value + " matches multiple " + group + " tokens.",
+			severity: "error",
+			source: node.source,
+			property,
+		});
+		return undefined;
+	}
+	const candidate = candidates[0];
+	if (!candidate) {
+		return undefined;
+	}
+	return {
+		group,
+		name: candidate.name,
+		value: formatNumber(candidate.tokenValue) + unit,
+	};
+}
+
+function matchColorToken(
+	property: string,
+	value: string,
+	config: DesignEmbedConfig | undefined,
+	diagnostics: Diagnostic[],
+	node: DesignNode,
+): TokenMatch | undefined {
+	const tokens = config?.tokens?.colors;
+	if (!tokens) {
+		return undefined;
+	}
+	const color = parseColor(value);
+	if (!color) {
+		diagnostics.push({
+			code: "COLOR_PARSE_FAILED",
+			message: "Could not parse color value: " + value,
+			severity: "warning",
+			source: node.source,
+			property,
+		});
+		return undefined;
+	}
+	const threshold = config?.tokens?.colorThreshold ?? 0;
+	const candidates = sortedEntries(tokens)
+		.map(([name, tokenValue]) => {
+			const tokenColor = parseColor(tokenValue);
+			return tokenColor
+				? { name, tokenValue, distance: colorDistance(color, tokenColor) }
+				: undefined;
+		})
+		.filter(
+			(
+				candidate,
+			): candidate is {
+				name: string;
+				tokenValue: string;
+				distance: number;
+			} => Boolean(candidate && candidate.distance <= threshold),
+		)
+		.sort(
+			(left, right) =>
+				left.distance - right.distance || left.name.localeCompare(right.name),
+		);
+	if (candidates.length === 0) {
+		diagnostics.push({
+			code: "TOKEN_NO_MATCH",
+			message: property + ": " + value + " did not match a color token.",
+			severity: "info",
+			source: node.source,
+			property,
+		});
+		return undefined;
+	}
+	if (
+		candidates.length > 1 &&
+		candidates[0]?.distance === candidates[1]?.distance
+	) {
+		diagnostics.push({
+			code: "TOKEN_AMBIGUOUS_MATCH",
+			message: property + ": " + value + " matches multiple color tokens.",
+			severity: "error",
+			source: node.source,
+			property,
+		});
+		return undefined;
+	}
+	const candidate = candidates[0];
+	if (!candidate) {
+		return undefined;
+	}
+	return {
+		group: "colors",
+		name: candidate.name,
+		value: normalizeHex(candidate.tokenValue),
+	};
+}
+
+function matchStringToken(
+	_property: string,
+	value: string,
+	tokens: Record<string, string> | undefined,
+	group: string,
+): TokenMatch | undefined {
+	const match = sortedEntries(tokens ?? {}).find(
+		([, tokenValue]) => tokenValue === value,
+	);
+	if (!match) {
+		return undefined;
+	}
+	return { group, name: match[0], value: match[1] };
+}
+
+function parseColor(value: string): [number, number, number] | undefined {
+	const trimmed = value.trim();
+	const hex = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+	if (hex?.[1]) {
+		const expanded =
+			hex[1].length === 3
+				? hex[1]
+						.split("")
+						.map((part) => part + part)
+						.join("")
+				: hex[1];
+		return [
+			Number.parseInt(expanded.slice(0, 2), 16),
+			Number.parseInt(expanded.slice(2, 4), 16),
+			Number.parseInt(expanded.slice(4, 6), 16),
+		];
+	}
+	const rgb = trimmed.match(
+		/^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i,
+	);
+	if (rgb?.[1] && rgb[2] && rgb[3]) {
+		return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+	}
+	return undefined;
+}
+
+function colorDistance(
+	left: [number, number, number],
+	right: [number, number, number],
+): number {
+	return Math.sqrt(
+		(left[0] - right[0]) ** 2 +
+			(left[1] - right[1]) ** 2 +
+			(left[2] - right[2]) ** 2,
+	);
+}
+
+function normalizeHex(value: string): string {
+	const color = parseColor(value);
+	if (!color) {
+		return value;
+	}
+	return "#" + color.map((channel) => channel.toString(16).padStart(2, "0")).join("");
+}
+
+function applyTailwindStyles(
+	node: DesignNode,
+	config: DesignEmbedConfig | undefined,
+	diagnostics: Diagnostic[],
+): DesignNode {
+	const remaining: Record<string, string> = {};
+	const generatedClassNames = [...(node.generatedClassNames ?? [])];
+	for (const [property, value] of sortedEntries(node.styles ?? {})) {
+		const match = matchToken(property, value, config, diagnostics, node);
+		if (!match) {
+			remaining[property] = value;
+			continue;
+		}
+		const className =
+			config?.styleMappings?.[match.group]?.[
+				property + ":" + match.group + "." + match.name
+			];
+		if (className) {
+			generatedClassNames.push(className);
+		} else {
+			remaining[property] = match.value;
+			diagnostics.push({
+				code: "TOKEN_NO_MATCH",
+				message: "No Tailwind mapping for " + property + ":" + match.group + "." + match.name + ".",
+				severity: "info",
+				source: node.source,
+				property,
+			});
+		}
+	}
+	return { ...node, styles: remaining, generatedClassNames };
+}
+
+function emitCssModuleRule(className: string, styles: Record<string, string>): string {
+	const declarations = sortedEntries(styles)
+		.map(([property, value]) => "\t" + property + ": " + value + ";")
+		.join("\n");
+	return "." + className + " {\n" + declarations + "\n}";
+}
+
+function sortedEntries<T>(record: Record<string, T>): Array<[string, T]> {
+	return Object.entries(record).sort(([left], [right]) => left.localeCompare(right));
+}
+
+function formatNumber(value: number): string {
+	return Number.isInteger(value)
+		? String(value)
+		: String(Number(value.toFixed(4)));
+}
+
+function collectImports(nodes: DesignNode[]): Array<{ importName: string; importPath: string }> {
+	const imports = new Map<string, { importName: string; importPath: string }>();
+	function visit(node: DesignNode) {
+		if (node.kind === "component" && node.importName && node.importPath) {
+			imports.set(node.importPath + ":" + node.importName, {
+				importName: node.importName,
+				importPath: node.importPath,
+			});
+		}
+		for (const child of node.children ?? []) visit(child);
+		for (const prop of Object.values(node.props ?? {})) {
+			if (prop.kind === "children") for (const child of prop.value) visit(child);
+		}
+	}
+	for (const node of nodes) visit(node);
+	return [...imports.values()].sort((a, b) => a.importPath.localeCompare(b.importPath));
+}

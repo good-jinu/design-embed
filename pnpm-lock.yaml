@@ -139,6 +139,12 @@ importers:
         specifier: workspace:*
         version: link:../design-embed
 
+  packages/target-vue:
+    devDependencies:
+      design-embed:
+        specifier: workspace:*
+        version: link:../design-embed
+
   website:
     dependencies:
       '@docusaurus/core':
