@@ -35,7 +35,7 @@ export class VueTarget implements TargetEmitter, TargetTestGenerator {
 		});
 
 		const files: Array<{ path: string; contents: string }> = [
-			{ path: `${viewsDir}/${viewName}.vue`, contents },
+			{ path: viewsDir + "/" + viewName + ".vue", contents },
 		];
 
 		for (const split of emitComponentSplitViews(
@@ -65,7 +65,7 @@ export const vueTestGenerator: TargetTestGenerator = {
 		if (tests?.runner && tests.runner !== "playwright") {
 			diagnostics.push({
 				code: "TEST_RUNNER_UNSUPPORTED",
-				message: `Unsupported test runner: ${tests.runner}`,
+				message: "Unsupported test runner: " + tests.runner,
 				severity: "error",
 			});
 			return { files: [], diagnostics };
@@ -73,10 +73,10 @@ export const vueTestGenerator: TargetTestGenerator = {
 
 		const viewsDir = String(config.output?.viewsDir ?? "src/generated/views");
 		const viewName = config.output?.viewName ?? "DesignView";
-		const outputDir = tests?.outputDir ?? `${viewsDir}/tests`;
-		const fixturePath = `${outputDir}/${viewName}.reference.html`;
-		const specPath = `${outputDir}/${viewName}.visual.spec.ts`;
-		const referenceHtml = `${css?.trim() ? "<style>\n" + css + "\n</style>\n" : ""}${html}`;
+		const outputDir = tests?.outputDir ?? viewsDir + "/tests";
+		const fixturePath = outputDir + "/" + viewName + ".reference.html";
+		const specPath = outputDir + "/" + viewName + ".visual.spec.ts";
+		const referenceHtml = (css?.trim() ? "<style>\n" + css + "\n</style>\n" : "") + html;
 
 		const assertionDefaults = {
 			screenshot: tests?.assertions?.screenshot ?? true,
@@ -91,7 +91,7 @@ export const vueTestGenerator: TargetTestGenerator = {
 			{ name: "default", width: 1440, height: 900 },
 		];
 		const stateDefaults = tests?.states ?? [{ name: "default" }];
-		const referenceHtmlFileName = `${viewName}.reference.html`;
+		const referenceHtmlFileName = viewName + ".reference.html";
 
 		const files: Array<{ path: string; contents: string }> = [
 			{
@@ -122,7 +122,7 @@ export const vueTestGenerator: TargetTestGenerator = {
 
 		for (const mapping of config.components ?? []) {
 			const componentName = mapping.component;
-			const componentSpecPath = `${outputDir}/${componentName}.visual.spec.ts`;
+			const componentSpecPath = outputDir + "/" + componentName + ".visual.spec.ts";
 			const mountNode = componentNodes.get(componentName);
 			files.push({
 				path: componentSpecPath,
@@ -536,7 +536,7 @@ export function emitVueView(
 		const importLines = imports
 			.map(
 				({ importName, importPath }) =>
-					'import ' + importName + ' from "' + importPath.replace(/\.tsx$/, ".vue") + '";',
+					'import ' + importName + ' from "' + importPath.replace(/\.(view|tsx)$/, ".vue") + '";',
 			)
 			.join("\n");
 
@@ -554,7 +554,7 @@ export function emitVueView(
 		const importLines = imports
 			.map(
 				({ importName, importPath }) =>
-					'import ' + importName + ' from "' + importPath.replace(/\.tsx$/, ".vue") + '";',
+					'import ' + importName + ' from "' + importPath.replace(/\.(view|tsx)$/, ".vue") + '";',
 			)
 			.join("\n");
 

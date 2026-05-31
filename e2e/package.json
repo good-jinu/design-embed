@@ -8,6 +8,7 @@
 	"dependencies": {
 		"@design-embed/plugin-figma-html": "workspace:*",
 		"@design-embed/target-react": "workspace:*",
+		"@design-embed/target-vue": "workspace:*",
 		"design-embed": "workspace:*"
 	},
 	"devDependencies": {
