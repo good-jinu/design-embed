@@ -179,11 +179,7 @@ importers:
         specifier: workspace:*
         version: link:../design-embed
 
-  packages/target-vue:
-    dependencies:
-      vue:
-        specifier: ^3.0.0
-        version: 3.5.35(typescript@5.9.3)
+  packages/target-vanjs:
     devDependencies:
       design-embed:
         specifier: workspace:*

@@ -2,6 +2,7 @@ import { defineConfig } from "tsdown";
 
 const unbundledPackages = [
 	"packages/target-react",
+	"packages/target-vanjs",
 	"packages/plugin-figma-html",
 ];
 
