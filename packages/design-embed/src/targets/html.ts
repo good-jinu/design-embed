@@ -114,6 +114,10 @@ const htmlTestGenerator: TargetTestGenerator = {
 							layout: tests?.assertions?.layout ?? true,
 							layoutTolerance: tests?.assertions?.layoutTolerance ?? 0,
 							selectors: tests?.assertions?.selectors ?? [":scope", ":scope *"],
+							screenshotThreshold:
+								tests?.assertions?.screenshotThreshold ?? 0.1,
+							screenshotMaxDiffPixels:
+								tests?.assertions?.screenshotMaxDiffPixels ?? 0,
 						},
 					}),
 				},
@@ -447,6 +451,8 @@ interface HtmlVisualSpecInput {
 		layout: boolean;
 		layoutTolerance: number;
 		selectors: string[];
+		screenshotThreshold: number;
+		screenshotMaxDiffPixels: number;
 	};
 }
 
@@ -457,11 +463,19 @@ function emitHtmlVisualSpec(input: HtmlVisualSpecInput): string {
 	const screenshotEnabled = JSON.stringify(input.assertions.screenshot);
 	const layoutEnabled = JSON.stringify(input.assertions.layout);
 	const layoutTolerance = JSON.stringify(input.assertions.layoutTolerance);
+	const screenshotThreshold = JSON.stringify(
+		input.assertions.screenshotThreshold,
+	);
+	const screenshotMaxDiffPixels = JSON.stringify(
+		input.assertions.screenshotMaxDiffPixels,
+	);
 
 	return `import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const referenceHtml = readFileSync(resolve(currentDir, "./${input.fixtureFileName}"), "utf-8");
@@ -472,6 +486,8 @@ const selectors = ${selectors};
 const screenshotEnabled = ${screenshotEnabled};
 const layoutEnabled = ${layoutEnabled};
 const layoutTolerance = ${layoutTolerance};
+const screenshotThreshold = ${screenshotThreshold};
+const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
 
 for (const viewport of viewports) {
 \tfor (const state of states) {
@@ -491,7 +507,13 @@ for (const viewport of viewports) {
 \t\t\tconst actualLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
 
 \t\t\tif (screenshotEnabled) {
-\t\t\t\texpect(actualScreenshot).toEqual(expectedScreenshot);
+\t\t\t\tconst expectedPng = PNG.sync.read(expectedScreenshot);
+\t\t\t\tconst actualPng = PNG.sync.read(actualScreenshot);
+\t\t\t\texpect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+\t\t\t\texpect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+\t\t\t\tconst diff = new PNG({ width: expectedPng.width, height: expectedPng.height });
+\t\t\t\tconst diffPixelCount = pixelmatch(expectedPng.data, actualPng.data, diff.data, expectedPng.width, expectedPng.height, { threshold: screenshotThreshold });
+\t\t\t\texpect(diffPixelCount, "screenshot diff pixels").toBeLessThanOrEqual(screenshotMaxDiffPixels);
 \t\t\t}
 \t\t\tif (layoutEnabled) {
 \t\t\t\texpectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
