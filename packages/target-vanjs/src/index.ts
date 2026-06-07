@@ -98,15 +98,15 @@ export const vanJsTestGenerator: TargetTestGenerator = {
 				path: specPath,
 				contents: emitVanJsVisualSpec({
 					viewName,
-					viewImportPath: toRelativeImport(
-						specPath,
-						`${viewsDir}/${viewName}.view`,
-					),
 					fixtureFileName: referenceHtmlFileName,
 					viewports: viewportDefaults,
 					states: stateDefaults,
 					assertions: assertionDefaults,
 				}),
+			},
+			{
+				path: `${viewsDir}/${viewName}.mount.entry.ts`,
+				contents: `import van from "vanjs-core";\nimport { ${viewName} } from "./${viewName}.view";\nvan.add(document.body, ${viewName}());\n`,
 			},
 		];
 
@@ -118,21 +118,21 @@ export const vanJsTestGenerator: TargetTestGenerator = {
 			const componentName = mapping.component;
 			const componentSpecPath = `${outputDir}/${componentName}.visual.spec.ts`;
 			const mountNode = componentNodes.get(componentName);
+			const mountExpression = emitComponentMount(componentName, mountNode);
 			files.push({
 				path: componentSpecPath,
 				contents: emitComponentVisualSpec({
 					componentName,
 					selector: mapping.selector,
-					mountExpression: emitComponentMount(componentName, mountNode),
-					componentImportPath: toRelativeImport(
-						componentSpecPath,
-						`${viewsDir}/${componentName}.view`,
-					),
 					referenceHtmlFileName,
 					viewports: viewportDefaults,
 					states: stateDefaults,
 					assertions: assertionDefaults,
 				}),
+			});
+			files.push({
+				path: `${viewsDir}/${componentName}.mount.entry.ts`,
+				contents: `import van from "vanjs-core";\nimport { ${componentName} } from "./${componentName}.view";\nvan.add(document.body, ${mountExpression});\n`,
 			});
 		}
 
@@ -142,7 +142,6 @@ export const vanJsTestGenerator: TargetTestGenerator = {
 
 interface VanJsVisualSpecInput {
 	viewName: string;
-	viewImportPath: string;
 	fixtureFileName: string;
 	viewports: Array<{ name?: string; width: number; height: number }>;
 	states: Array<{
@@ -185,6 +184,7 @@ import { PNG } from "pngjs";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const referenceHtml = readFileSync(resolve(currentDir, "./${input.fixtureFileName}"), "utf-8");
+const mountHtmlPath = resolve(currentDir, "../${input.viewName}.mount.html");
 const viewports = ${viewports};
 const states = ${states};
 const selectors = ${selectors};
@@ -194,15 +194,6 @@ const layoutTolerance = ${layoutTolerance};
 const screenshotThreshold = ${screenshotThreshold};
 const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
 
-// Helper to inject VanJS and the component into the page
-async function mountVanJs(page, importPath, componentName) {
-  await page.addScriptTag({ content: \`
-    import van from 'https://cdn.jsdelivr.net/gh/vanjs-org/van/public/van-1.5.0.min.js';
-    import { \${componentName} } from '\${importPath}';
-    van.add(document.body, \${componentName}());
-  \`, type: 'module' });
-}
-
 for (const viewport of viewports) {
 \tfor (const state of states) {
 \t\tconst viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
@@ -210,18 +201,184 @@ for (const viewport of viewports) {
 \t\t\tawait page.setViewportSize({ width: viewport.width, height: viewport.height });
 
 \t\t\tawait page.setContent(referenceHtml);
+\t\t\tawait stripWhitespaceTextNodes(page);
 \t\t\tawait applyState(page, state);
 \t\t\tconst expectedScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
 \t\t\tconst expectedLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
 
-\t\t\tawait page.setContent("<!DOCTYPE html><html><body></body></html>");
-      // In a real environment, you'd use a bundler. For tests, we assume the file is accessible or served.
-      // This is a simplified mount for demonstration.
-      await mountVanJs(page, "${input.viewImportPath}", "${input.viewName}");
+\t\t\tawait page.goto("file://" + mountHtmlPath);
+\t\t\tawait page.waitForSelector("body > *");
+\t\t\tawait applyState(page, state);
+\t\t\tconst actualScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
+\t\t\tconst actualLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
 
+\t\t\tif (screenshotEnabled) {
+\t\t\t\tcompareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
+\t\t\t}
+\t\t\tif (layoutEnabled) {
+\t\t\t\texpectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
+\t\t\t}
+\t\t});
+\t}
+}
+
+async function stripWhitespaceTextNodes(page) {
+\tawait page.evaluate(() => {
+\t\tfunction strip(node) {
+\t\t\tfor (const child of [...node.childNodes]) {
+\t\t\t\tif (child.nodeType === Node.TEXT_NODE && (child.textContent ?? "").trim() === "") {
+\t\t\t\t\tchild.parentNode?.removeChild(child);
+\t\t\t\t} else {
+\t\t\t\t\tstrip(child);
+\t\t\t\t}
+\t\t\t}
+\t\t}
+\t\tstrip(document.body);
+\t});
+}
+
+async function applyState(page, state) {
+\tif (state.waitFor) {
+\t\tawait page.waitForSelector(state.waitFor);
+\t}
+\tif (state.hover) {
+\t\tawait page.hover(state.hover);
+\t}
+\tif (state.focus) {
+\t\tawait page.focus(state.focus);
+\t}
+\tif (state.click) {
+\t\tawait page.click(state.click);
+\t}
+}
+
+async function readLayout(root, selectorsToRead) {
+\treturn root.evaluate((element, values) => {
+\t\tconst origin = element.getBoundingClientRect();
+\t\treturn values.flatMap((selector) => {
+\t\t\tconst matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
+\t\t\treturn matches.map((matchedElement, index) => {
+\t\t\t\tconst rect = matchedElement.getBoundingClientRect();
+\t\t\t\treturn {
+\t\t\t\t\tselector,
+\t\t\t\t\tindex,
+\t\t\t\t\ttagName: matchedElement.tagName.toLowerCase(),
+\t\t\t\t\tx: rect.x - origin.x,
+\t\t\t\t\ty: rect.y - origin.y,
+\t\t\t\t\twidth: rect.width,
+\t\t\t\t\theight: rect.height,
+\t\t\t\t};
+\t\t\t});
+\t\t});
+\t}, selectorsToRead);
+}
+
+function compareScreenshots(actual, expected, threshold, maxDiffPixels) {
+\tif (!actual || !expected) {
+\t\texpect(actual).toEqual(expected);
+\t\treturn;
+\t}
+\tconst actualPng = PNG.sync.read(actual);
+\tconst expectedPng = PNG.sync.read(expected);
+\texpect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+\texpect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+\tconst diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
+\texpect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
+}
+
+function expectLayoutToMatch(actual, expected, tolerance) {
+\texpect(actual.length).toBe(expected.length);
+\tfor (let index = 0; index < expected.length; index += 1) {
+\t\tconst actualRect = actual[index];
+\t\tconst expectedRect = expected[index];
+\t\texpect(actualRect.selector).toBe(expectedRect.selector);
+\t\texpect(actualRect.index).toBe(expectedRect.index);
+\t\texpect(actualRect.tagName).toBe(expectedRect.tagName);
+\t\tfor (const key of ["x", "y", "width", "height"]) {
+\t\t\tconst drift = Math.abs(actualRect[key] - expectedRect[key]);
+\t\t\texpect(drift, \`\${expectedRect.selector}[\${expectedRect.index}] \${key} drift\`).toBeLessThanOrEqual(tolerance);
+\t\t}
+\t}
+}
+`;
+}
+
+interface ComponentVisualSpecInput {
+	componentName: string;
+	selector: string;
+	referenceHtmlFileName: string;
+	viewports: Array<{ name?: string; width: number; height: number }>;
+	states: Array<{
+		name: string;
+		hover?: string;
+		focus?: string;
+		click?: string;
+		waitFor?: string;
+	}>;
+	assertions: {
+		screenshot: boolean;
+		layout: boolean;
+		layoutTolerance: number;
+		selectors: string[];
+		screenshotThreshold: number;
+		screenshotMaxDiffPixels: number;
+	};
+}
+
+function emitComponentVisualSpec(input: ComponentVisualSpecInput): string {
+	const viewports = JSON.stringify(input.viewports, null, 2);
+	const states = JSON.stringify(input.states, null, 2);
+	const selectors = JSON.stringify(input.assertions.selectors, null, 2);
+	const screenshotEnabled = JSON.stringify(input.assertions.screenshot);
+	const layoutEnabled = JSON.stringify(input.assertions.layout);
+	const layoutTolerance = JSON.stringify(input.assertions.layoutTolerance);
+	const screenshotThreshold = JSON.stringify(
+		input.assertions.screenshotThreshold,
+	);
+	const screenshotMaxDiffPixels = JSON.stringify(
+		input.assertions.screenshotMaxDiffPixels,
+	);
+	const selector = JSON.stringify(input.selector);
+
+	return `import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { expect, test } from "@playwright/test";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
+
+const currentDir = dirname(fileURLToPath(import.meta.url));
+const referenceHtml = readFileSync(resolve(currentDir, "./${input.referenceHtmlFileName}"), "utf-8");
+const mountHtmlPath = resolve(currentDir, "../${input.componentName}.mount.html");
+const selector = ${selector};
+const viewports = ${viewports};
+const states = ${states};
+const selectors = ${selectors};
+const screenshotEnabled = ${screenshotEnabled};
+const layoutEnabled = ${layoutEnabled};
+const layoutTolerance = ${layoutTolerance};
+const screenshotThreshold = ${screenshotThreshold};
+const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
+
+for (const viewport of viewports) {
+\tfor (const state of states) {
+\t\tconst viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
+\t\ttest("${input.componentName} matches source at " + viewportName + " / " + state.name, async ({ page }) => {
+\t\t\tawait page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+\t\t\tawait page.setContent(referenceHtml);
+\t\t\tconst isolatedHtml = await page.locator(selector).first().evaluate((node) => node.outerHTML);
+\t\t\tawait page.setContent(isolatedHtml);
+\t\t\tawait applyState(page, state);
+\t\t\tconst expectedEl = page.locator(selector).first();
+\t\t\tconst expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
+\t\t\tconst expectedLayout = layoutEnabled ? await readLayout(expectedEl, selectors) : [];
+
+\t\t\tawait page.goto("file://" + mountHtmlPath);
+\t\t\tawait page.waitForSelector("body > *");
 \t\t\tawait applyState(page, state);
 \t\t\tconst component = page.locator("body > *").first();
-\t\t\tconst actualScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
+\t\t\tconst actualScreenshot = screenshotEnabled ? await component.screenshot() : undefined;
 \t\t\tconst actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
 
 \t\t\tif (screenshotEnabled) {
@@ -300,169 +457,6 @@ function expectLayoutToMatch(actual, expected, tolerance) {
 `;
 }
 
-interface ComponentVisualSpecInput {
-	componentName: string;
-	selector: string;
-	mountExpression: string;
-	componentImportPath: string;
-	referenceHtmlFileName: string;
-	viewports: Array<{ name?: string; width: number; height: number }>;
-	states: Array<{
-		name: string;
-		hover?: string;
-		focus?: string;
-		click?: string;
-		waitFor?: string;
-	}>;
-	assertions: {
-		screenshot: boolean;
-		layout: boolean;
-		layoutTolerance: number;
-		selectors: string[];
-		screenshotThreshold: number;
-		screenshotMaxDiffPixels: number;
-	};
-}
-
-function emitComponentVisualSpec(input: ComponentVisualSpecInput): string {
-	const viewports = JSON.stringify(input.viewports, null, 2);
-	const states = JSON.stringify(input.states, null, 2);
-	const selectors = JSON.stringify(input.assertions.selectors, null, 2);
-	const screenshotEnabled = JSON.stringify(input.assertions.screenshot);
-	const layoutEnabled = JSON.stringify(input.assertions.layout);
-	const layoutTolerance = JSON.stringify(input.assertions.layoutTolerance);
-	const screenshotThreshold = JSON.stringify(
-		input.assertions.screenshotThreshold,
-	);
-	const screenshotMaxDiffPixels = JSON.stringify(
-		input.assertions.screenshotMaxDiffPixels,
-	);
-	const selector = JSON.stringify(input.selector);
-
-	return `import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/test";
-import pixelmatch from "pixelmatch";
-import { PNG } from "pngjs";
-
-const currentDir = dirname(fileURLToPath(import.meta.url));
-const referenceHtml = readFileSync(resolve(currentDir, "./${input.referenceHtmlFileName}"), "utf-8");
-const selector = ${selector};
-const viewports = ${viewports};
-const states = ${states};
-const selectors = ${selectors};
-const screenshotEnabled = ${screenshotEnabled};
-const layoutEnabled = ${layoutEnabled};
-const layoutTolerance = ${layoutTolerance};
-const screenshotThreshold = ${screenshotThreshold};
-const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
-
-async function mountVanJs(page, importPath, componentName, mountExpr) {
-  await page.addScriptTag({ content: \`
-    import van from 'https://cdn.jsdelivr.net/gh/vanjs-org/van/public/van-1.5.0.min.js';
-    import { \${componentName} } from '\${importPath}';
-    van.add(document.body, \${mountExpr});
-  \`, type: 'module' });
-}
-
-for (const viewport of viewports) {
-\tfor (const state of states) {
-\t\tconst viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
-\t\ttest("${input.componentName} matches source at " + viewportName + " / " + state.name, async ({ page }) => {
-\t\t\tawait page.setViewportSize({ width: viewport.width, height: viewport.height });
-
-\t\t\tawait page.setContent(referenceHtml);
-\t\t\tconst isolatedHtml = await page.locator(selector).first().evaluate((node) => node.outerHTML);
-\t\t\tawait page.setContent(isolatedHtml);
-\t\t\tawait applyState(page, state);
-\t\t\tconst expectedEl = page.locator(selector).first();
-\t\t\tconst expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
-\t\t\tconst expectedLayout = layoutEnabled ? await readLayout(expectedEl, selectors) : [];
-
-\t\t\tawait page.setContent("<!DOCTYPE html><html><body></body></html>");
-      await mountVanJs(page, "${input.componentImportPath}", "${input.componentName}", \`${input.mountExpression}\`);
-\t\t\tawait applyState(page, state);
-      const component = page.locator("body > *").first();
-\t\t\tconst actualScreenshot = screenshotEnabled ? await component.screenshot() : undefined;
-\t\t\tconst actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
-
-\t\t\tif (screenshotEnabled) {
-\t\t\t\tcompareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
-\t\t\t}
-\t\t\tif (layoutEnabled) {
-\t\t\t\texpectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
-\t\t\t}
-\t\t});
-\t}
-}
-
-async function applyState(page, state) {
-\tif (state.waitFor) {
-\t\tawait page.waitForSelector(state.waitFor);
-\t}
-\tif (state.hover) {
-\t\tawait page.hover(state.hover);
-\t}
-\tif (state.focus) {
-\t\tawait page.focus(state.focus);
-\t}
-\tif (state.click) {
-\t\tawait page.click(state.click);
-\t}
-}
-
-async function readLayout(root, selectorsToRead) {
-\treturn root.evaluate((element, values) => {
-\t\tconst origin = element.getBoundingClientRect();
-\t\treturn values.flatMap((selector) => {
-\t\t\tconst matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
-\t\t\treturn matches.map((matchedElement, index) => {
-\t\t\t\tconst rect = matchedElement.getBoundingClientRect();
-\t\t\t\treturn {
-\t\t\t\t\tselector,
-\t\t\t\t\tindex,
-\t\t\t\t\ttagName: matchedElement.tagName.toLowerCase(),
-\t\t\t\t\tx: rect.x - origin.x,
-\t\t\t\t\ty: rect.y - origin.y,
-\t\t\t\t\twidth: rect.width,
-\t\t\t\t\theight: rect.height,
-\t\t\t\t};
-\t\t\t});
-\t\t});
-\t}, selectorsToRead);
-}
-
-function compareScreenshots(actual, expected, threshold, maxDiffPixels) {
-\tif (!actual || !expected) {
-\t\texpect(actual).toEqual(expected);
-\t\treturn;
-\t}
-\tconst actualPng = PNG.sync.read(actual);
-\tconst expectedPng = PNG.sync.read(expected);
-\texpect(actualPng.width, "screenshot width").toBe(expectedPng.width);
-\texpect(actualPng.height, "screenshot height").toBe(expectedPng.height);
-	const diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
-\texpect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
-}
-
-function expectLayoutToMatch(actual, expected, tolerance) {
-\texpect(actual.length).toBe(expected.length);
-\tfor (let index = 0; index < expected.length; index += 1) {
-\t\tconst actualRect = actual[index];
-\t\tconst expectedRect = expected[index];
-\t\texpect(actualRect.selector).toBe(expectedRect.selector);
-\t\texpect(actualRect.index).toBe(expectedRect.index);
-\t\texpect(actualRect.tagName).toBe(expectedRect.tagName);
-\t\tfor (const key of ["x", "y", "width", "height"]) {
-\t\t\tconst drift = Math.abs(actualRect[key] - expectedRect[key]);
-\t\t\texpect(drift, \`\${expectedRect.selector}[\${expectedRect.index}] \${key} drift\`).toBeLessThanOrEqual(tolerance);
-\t\t}
-\t}
-}
-`;
-}
-
 function emitComponentSplitViews(
 	nodes: DesignNode[],
 	viewsDir: string,
@@ -521,15 +515,17 @@ function emitComponentView(
 
 	for (const [propName, prop] of propEntries) {
 		if (prop.kind === "text" || prop.kind === "children") {
+			// Children are passed as a second argument (VanJS calling convention),
+			// not as part of the props object, so exclude them from the interface.
 			childrenPropName = propName;
-			interfaceLines.push(`\t${propName}?: any;`);
-			destructured.push(propName);
 			continue;
 		}
 		interfaceLines.push(`\t${propName}?: string;`);
-		if (prop.kind === "literal" && prop.attribute) {
-			attributeBindings.set(prop.attribute, propName);
+		if (prop.kind === "literal") {
 			destructured.push(propName);
+			if (prop.attribute) {
+				attributeBindings.set(prop.attribute, propName);
+			}
 		}
 	}
 
@@ -552,25 +548,32 @@ function emitComponentView(
 		? `import styles from "./${options.cssModulePath}";`
 		: "";
 
-  const tagNames = collectTagNames([node.sourceElement].filter(Boolean) as DesignNode[]);
-  const tagsImport = tagNames.size > 0 ? `const { ${Array.from(tagNames).sort().join(", ")} } = van.tags;` : "";
+	const tagNames = collectTagNames(
+		[node.sourceElement].filter(Boolean) as DesignNode[],
+	);
+	const tagsImport =
+		tagNames.size > 0
+			? `const { ${Array.from(tagNames).sort().join(", ")} } = van.tags;`
+			: "";
 
 	const allImports = [
-    `import van from "vanjs-core";`,
-    componentImports,
-    cssModuleImport
-  ]
+		`import van from "vanjs-core";`,
+		componentImports,
+		cssModuleImport,
+	]
 		.filter(Boolean)
 		.join("\n");
 
-	const hasProps = propEntries.length > 0;
+	const hasProps = interfaceLines.length > 0;
 	const interfaceBlock = hasProps
 		? `interface ${funcName}Props {\n${interfaceLines.join("\n")}\n}\n\n`
 		: "";
-	const params =
+	const propsParam =
 		destructured.length > 0
 			? `{ ${destructured.join(", ")} }: ${funcName}Props`
 			: "";
+	const childrenParam = childrenPropName ? `${childrenPropName}?: any` : "";
+	const params = [propsParam, childrenParam].filter(Boolean).join(", ");
 
 	return `${allImports}\n\n${tagsImport ? `${tagsImport}\n\n` : ""}${interfaceBlock}export function ${funcName}(${params}) {\n\treturn (\n${body}\t);\n}\n`;
 }
@@ -586,8 +589,8 @@ function emitComponentBody(
 
 	if (!source) {
 		const children = node.children ?? [];
-    if (children.length === 0) return `${indent}null\n`;
-    if (children.length === 1) return emitVanJsNode(children[0], depth);
+		if (children.length === 0) return `${indent}null\n`;
+		if (children.length === 1) return emitVanJsNode(children[0], depth);
 		return `${indent}[\n${children
 			.map((child) => emitVanJsNode(child, depth + 1))
 			.join("")}${indent}]\n`;
@@ -663,7 +666,7 @@ function emitComponentMount(
 	const attributes =
 		attributeParts.length > 0 ? `{ ${attributeParts.join(", ")} }` : "";
 
-  const args = [attributes, ...childrenParts].filter(Boolean);
+	const args = [attributes, ...childrenParts].filter(Boolean);
 	return `${componentName}(${args.join(", ")})`;
 }
 
@@ -686,7 +689,7 @@ function emitInlineVanJs(node: DesignNode): string {
 	const children = (node.children ?? [])
 		.map((child) => emitInlineVanJs(child))
 		.join(", ");
-  const args = [attributes, children].filter(Boolean);
+	const args = [attributes, children].filter(Boolean);
 	return `${tagName}(${args.join(", ")})`;
 }
 
@@ -695,22 +698,6 @@ function toPascalCase(value: string): string {
 		.split(/[-_\s]+/)
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 		.join("");
-}
-
-function toRelativeImport(fromFile: string, toFile: string): string {
-	const fromParts = fromFile.split("/").slice(0, -1);
-	const toParts = toFile.split("/");
-	while (
-		fromParts.length > 0 &&
-		toParts.length > 0 &&
-		fromParts[0] === toParts[0]
-	) {
-		fromParts.shift();
-		toParts.shift();
-	}
-	const prefix = fromParts.map(() => "..");
-	const relative = [...prefix, ...toParts].join("/");
-	return relative.startsWith(".") ? relative : `./${relative}`;
 }
 
 export function emitVanJsView(
@@ -750,29 +737,29 @@ export function emitVanJsView(
 }
 
 function collectTagNames(nodes: DesignNode[]): Set<string> {
-  const tags = new Set<string>();
-  function visit(node: DesignNode) {
-    if (node.kind === "element" && node.tagName) {
-      tags.add(node.tagName);
-    }
-    for (const child of node.children ?? []) {
-      visit(child);
-    }
-    if (node.sourceElement) {
-      visit(node.sourceElement);
-    }
-    for (const prop of Object.values(node.props ?? {})) {
-      if (prop.kind === "children") {
-        for (const child of prop.value) {
-          visit(child);
-        }
-      }
-    }
-  }
-  for (const node of nodes) {
-    visit(node);
-  }
-  return tags;
+	const tags = new Set<string>();
+	function visit(node: DesignNode) {
+		if (node.kind === "element" && node.tagName) {
+			tags.add(node.tagName);
+		}
+		for (const child of node.children ?? []) {
+			visit(child);
+		}
+		if (node.sourceElement) {
+			visit(node.sourceElement);
+		}
+		for (const prop of Object.values(node.props ?? {})) {
+			if (prop.kind === "children") {
+				for (const child of prop.value) {
+					visit(child);
+				}
+			}
+		}
+	}
+	for (const node of nodes) {
+		visit(node);
+	}
+	return tags;
 }
 
 interface StyleTransformResult {
@@ -1503,7 +1490,7 @@ function emitProp(name: string, prop: PropValue): string {
 	if (prop.kind === "children") {
 		return "";
 	}
-  return `${name}: ${JSON.stringify(prop.value)}`;
+	return `${name}: ${JSON.stringify(prop.value)}`;
 }
 
 function emitVanJsAttributes(
@@ -1539,14 +1526,14 @@ function emitVanJsAttributes(
 		});
 
 	const styleAttr = emitStyleAttribute(styles);
-  if (styleAttr) {
-    entries.push(`style: ${styleAttr}`);
-  }
+	if (styleAttr) {
+		entries.push(`style: ${styleAttr}`);
+	}
 
 	if (entries.length === 0) {
-    return "";
-  }
-  return `{ ${entries.join(", ")} }`;
+		return "";
+	}
+	return `{ ${entries.join(", ")} }`;
 }
 
 function emitClassNameExpression(classNames: string[]): string {
@@ -1563,12 +1550,16 @@ function isCssModuleReference(className: string): boolean {
 	return className.startsWith("module:");
 }
 
-function emitStyleAttribute(styles: Record<string, string>): string | undefined {
+function emitStyleAttribute(
+	styles: Record<string, string>,
+): string | undefined {
 	const entries = Object.entries(styles).sort(([left], [right]) =>
 		left.localeCompare(right),
 	);
 	if (entries.length === 0) {
 		return undefined;
 	}
-	return JSON.stringify(entries.map(([property, value]) => `${property}: ${value};`).join(" "));
+	return JSON.stringify(
+		entries.map(([property, value]) => `${property}: ${value};`).join(" "),
+	);
 }

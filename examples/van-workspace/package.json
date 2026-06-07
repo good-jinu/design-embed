@@ -1,0 +1,21 @@
+{
+	"name": "@design-embed/example-vanjs",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"generate": "node --conditions=development ../../packages/design-embed/src/cli.ts",
+		"test": "pnpm generate && playwright test"
+	},
+	"dependencies": {
+		"vanjs-core": "^1.6.0"
+	},
+	"devDependencies": {
+		"@design-embed/target-vanjs": "workspace:*",
+		"@playwright/test": "^1.52.0",
+		"design-embed": "workspace:*",
+		"esbuild": "^0.25.0",
+		"pixelmatch": "^7.2.0",
+		"pngjs": "^7.0.0",
+		"typescript": "catalog:"
+	}
+}

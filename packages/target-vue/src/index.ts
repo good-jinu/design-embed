@@ -314,7 +314,7 @@ function expectLayoutToMatch(actual, expected, tolerance) {
 interface ComponentVisualSpecInput {
 	componentName: string;
 	selector: string;
-	mountInfo: { props: Record<string, any>; slots: Record<string, string> };
+	mountInfo: { props: Record<string, unknown>; slots: Record<string, string> };
 	componentImportPath: string;
 	referenceHtmlFileName: string;
 	viewports: Array<{ name?: string; width: number; height: number }>;
@@ -1003,8 +1003,8 @@ function collectComponentNodes(nodes: DesignNode[]): Map<string, DesignNode> {
 function emitComponentMountInfo(
 	_componentName: string,
 	node: DesignNode | undefined,
-): { props: Record<string, any>; slots: Record<string, string> } {
-	const props: Record<string, any> = {};
+): { props: Record<string, unknown>; slots: Record<string, string> } {
+	const props: Record<string, unknown> = {};
 	const slots: Record<string, string> = {};
 	for (const [propName, prop] of Object.entries(node?.props ?? {})) {
 		if (prop.kind === "text") {
@@ -1029,7 +1029,7 @@ function emitInlineVue(node: DesignNode): string {
 	if (node.kind === "component") {
 		const info = emitComponentMountInfo(node.component ?? "Component", node);
 		const propsStr = Object.entries(info.props)
-			.map(([k, v]) => `${k}="${v}"`)
+			.map(([k, v]) => `${k}="${String(v)}"`)
 			.join(" ");
 		const slotsStr = Object.entries(info.slots)
 			.map(([k, v]) => `<template #${k}>${v}</template>`)

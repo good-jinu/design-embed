@@ -61,6 +61,7 @@ export function HeroView() {
 			[
 				"tests/generated/GeneratedCard.reference.html",
 				"tests/generated/GeneratedCard.visual.spec.ts",
+				"src/generated/views/GeneratedCard.mount.entry.ts",
 			],
 		);
 		assert.equal(
@@ -69,12 +70,16 @@ export function HeroView() {
 		);
 		assert.match(
 			result.files[1]?.contents ?? "",
-			/await mountVanJs\(page, "..\/..\/src\/generated\/views\/GeneratedCard.view", "GeneratedCard"\);/,
+			/await page\.goto\("file:\/\/" \+ mountHtmlPath\);/,
 		);
 		assert.match(result.files[1]?.contents ?? "", /const layoutTolerance = 1;/);
 		assert.match(
 			result.files[1]?.contents ?? "",
-			/await page.hover\(state.hover\);/,
+			/await page\.hover\(state\.hover\);/,
+		);
+		assert.equal(
+			result.files[2]?.contents,
+			'import van from "vanjs-core";\nimport { GeneratedCard } from "./GeneratedCard.view";\nvan.add(document.body, GeneratedCard());\n',
 		);
 	});
 
