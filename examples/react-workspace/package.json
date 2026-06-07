@@ -4,8 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"generate": "node --conditions=development ../../packages/design-embed/src/cli.ts",
-		"test": "playwright test -c playwright-ct.config.ts",
-		"run": "pnpm generate && pnpm test"
+		"test": "pnpm generate && playwright test -c playwright-ct.config.ts"
 	},
 	"dependencies": {
 		"react": "^18.3.1",

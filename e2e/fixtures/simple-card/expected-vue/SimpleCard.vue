@@ -11,7 +11,7 @@ import Button from "./Button.vue";
 			Local HTML compile path.
 		</p>
 		<Button variant="primary">
-			<template #default>Continue</template>
+			<template #children>Continue</template>
 		</Button>
 	</article>
 </template>

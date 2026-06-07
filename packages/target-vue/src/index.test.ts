@@ -23,7 +23,7 @@ describe("Vue target", () => {
 \t\tHello
 \t</section>
 </template>
-`
+`,
 		);
 	});
 
@@ -52,7 +52,47 @@ export default defineComponent({
 \t\tHello
 \t</section>
 </template>
-`
+`,
+		);
+	});
+
+	test("emits mapped text children through the children slot", () => {
+		const nodes: DesignNode[] = [
+			{
+				kind: "element",
+				tagName: "section",
+				attributes: {},
+				styles: {},
+				children: [
+					{
+						kind: "component",
+						component: "Button",
+						importName: "Button",
+						importPath: "./Button.vue",
+						props: {
+							variant: { kind: "literal", value: "primary" },
+							children: { kind: "text", value: "Continue" },
+						},
+						children: [],
+					},
+				],
+			},
+		];
+
+		assert.equal(
+			emitVueView(nodes, "HeroView", { api: "composition" }),
+			`<script setup lang="ts">
+import Button from "./Button.vue";
+</script>
+
+<template>
+\t<section>
+\t\t<Button variant="primary">
+\t\t\t<template #children>Continue</template>
+\t\t</Button>
+\t</section>
+</template>
+`,
 		);
 	});
 
