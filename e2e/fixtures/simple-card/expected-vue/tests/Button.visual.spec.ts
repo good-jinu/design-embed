@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/experimental-ct-react";
+import { expect, test } from "@playwright/experimental-ct-vue";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
-import { Button } from "../Button.view";
+import Button from "../Button.vue";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const referenceHtml = readFileSync(resolve(currentDir, "./Button.reference.html"), "utf-8");
@@ -43,7 +43,14 @@ for (const viewport of viewports) {
 			const expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
 			const expectedLayout = layoutEnabled ? await readLayout(expectedEl, selectors) : [];
 
-			const component = await mount(<Button variant="primary">Continue</Button>);
+			const component = await mount(Button, {
+				props: {
+  "variant": "primary"
+},
+				slots: {
+  "children": "Continue"
+},
+			});
 			await applyState(page, state);
 			const actualScreenshot = screenshotEnabled ? await component.screenshot() : undefined;
 			const actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
@@ -117,7 +124,7 @@ function expectLayoutToMatch(actual, expected, tolerance) {
 		expect(actualRect.tagName).toBe(expectedRect.tagName);
 		for (const key of ["x", "y", "width", "height"]) {
 			const drift = Math.abs(actualRect[key] - expectedRect[key]);
-			expect(drift, `${expectedRect.selector}[${expectedRect.index}] ${key} drift`).toBeLessThanOrEqual(tolerance);
+			expect(drift, expectedRect.selector + "[" + expectedRect.index + "] " + key + " drift").toBeLessThanOrEqual(tolerance);
 		}
 	}
 }

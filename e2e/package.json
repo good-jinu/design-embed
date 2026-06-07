@@ -8,14 +8,17 @@
 	"dependencies": {
 		"@design-embed/plugin-figma-html": "workspace:*",
 		"@design-embed/target-react": "workspace:*",
+		"@design-embed/target-vue": "workspace:*",
 		"design-embed": "workspace:*"
 	},
 	"devDependencies": {
 		"@playwright/experimental-ct-react": "^1.52.0",
+		"@playwright/experimental-ct-vue": "^1.52.0",
 		"@playwright/test": "^1.52.0",
 		"pixelmatch": "^7.2.0",
 		"pngjs": "^7.0.0",
 		"react": "^18.3.1",
-		"react-dom": "^18.3.1"
+		"react-dom": "^18.3.1",
+		"vue": "^3.5.0"
 	}
 }

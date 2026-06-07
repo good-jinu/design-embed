@@ -13,29 +13,35 @@ import {
 	type TargetTestGenerator,
 } from "design-embed";
 
-export class ReactTarget implements TargetEmitter, TargetTestGenerator {
+export interface VueTargetOptions {
+	api?: "composition" | "options";
+}
+
+export class VueTarget implements TargetEmitter, TargetTestGenerator {
+	private options: VueTargetOptions;
+
+	constructor(options: VueTargetOptions = { api: "composition" }) {
+		this.options = options;
+	}
+
 	emit({ nodes, css, config, diagnostics }: TargetEmitInput): TargetEmitResult {
 		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "DesignView";
 
 		const styleResult = transformStyles(nodes, css, config, diagnostics);
-		const contents = emitReactView(styleResult.nodes, viewName, {
-			cssModulePath: styleResult.cssModulePath,
+		const contents = emitVueView(styleResult.nodes, viewName, {
+			cssModule: styleResult.cssModule,
+			api: this.options.api,
 		});
 
 		const files: Array<{ path: string; contents: string }> = [
-			{ path: `${viewsDir}/${viewName}.view.tsx`, contents },
+			{ path: `${viewsDir}/${viewName}.vue`, contents },
 		];
-		if (styleResult.cssModule && styleResult.cssModulePath) {
-			files.push({
-				path: `${viewsDir}/${styleResult.cssModulePath}`,
-				contents: styleResult.cssModule,
-			});
-		}
+
 		for (const split of emitComponentSplitViews(
 			styleResult.nodes,
 			viewsDir,
-			styleResult.cssModulePath,
+			this.options.api,
 		)) {
 			files.push(split);
 		}
@@ -44,11 +50,11 @@ export class ReactTarget implements TargetEmitter, TargetTestGenerator {
 	}
 
 	generateTests(input: TargetTestGenerateInput): TargetTestGenerateResult {
-		return reactTestGenerator.generateTests(input);
+		return vueTestGenerator.generateTests(input);
 	}
 }
 
-export const reactTestGenerator: TargetTestGenerator = {
+export const vueTestGenerator: TargetTestGenerator = {
 	generateTests({
 		html,
 		css,
@@ -69,8 +75,9 @@ export const reactTestGenerator: TargetTestGenerator = {
 		const viewName = config.output?.viewName ?? "DesignView";
 		const outputDir = tests?.outputDir ?? `${viewsDir}/tests`;
 		const fixturePath = `${outputDir}/${viewName}.reference.html`;
-		const specPath = `${outputDir}/${viewName}.visual.spec.tsx`;
-		const referenceHtml = `${css?.trim() ? `<style>\n${css}\n</style>\n` : ""}${html}`;
+		const specPath = `${outputDir}/${viewName}.visual.spec.ts`;
+		const referenceHtml =
+			(css?.trim() ? `<style>\n${css}\n</style>\n` : "") + html;
 
 		const assertionDefaults = {
 			screenshot: tests?.assertions?.screenshot ?? true,
@@ -96,11 +103,11 @@ export const reactTestGenerator: TargetTestGenerator = {
 			},
 			{
 				path: specPath,
-				contents: emitReactVisualSpec({
+				contents: emitVueVisualSpec({
 					viewName,
 					viewImportPath: toRelativeImport(
 						specPath,
-						`${viewsDir}/${viewName}.view`,
+						`${viewsDir}/${viewName}.vue`,
 					),
 					fixtureFileName: referenceHtmlFileName,
 					viewports: viewportDefaults,
@@ -117,7 +124,7 @@ export const reactTestGenerator: TargetTestGenerator = {
 
 		for (const mapping of config.components ?? []) {
 			const componentName = mapping.component;
-			const componentSpecPath = `${outputDir}/${componentName}.visual.spec.tsx`;
+			const componentSpecPath = `${outputDir}/${componentName}.visual.spec.ts`;
 			const componentReferenceHtmlFileName = `${componentName}.reference.html`;
 			const componentFixturePath = `${outputDir}/${componentReferenceHtmlFileName}`;
 			const matchingNode = findNodeBySelector(
@@ -125,7 +132,8 @@ export const reactTestGenerator: TargetTestGenerator = {
 				mapping.selector,
 			);
 			const elementHtml = matchingNode ? serializeNodeToHtml(matchingNode) : "";
-			const componentReferenceHtml = `${css?.trim() ? `<style>\n${css}\n</style>\n` : ""}${elementHtml}`;
+			const componentReferenceHtml =
+				(css?.trim() ? `<style>\n${css}\n</style>\n` : "") + elementHtml;
 			const mountNode = componentNodes.get(componentName);
 			files.push({
 				path: componentFixturePath,
@@ -138,10 +146,10 @@ export const reactTestGenerator: TargetTestGenerator = {
 				contents: emitComponentVisualSpec({
 					componentName,
 					selector: mapping.selector,
-					mountJsx: emitComponentMount(componentName, mountNode),
+					mountInfo: emitComponentMountInfo(componentName, mountNode),
 					componentImportPath: toRelativeImport(
 						componentSpecPath,
-						`${viewsDir}/${componentName}.view`,
+						`${viewsDir}/${componentName}.vue`,
 					),
 					referenceHtmlFileName: componentReferenceHtmlFileName,
 					viewports: viewportDefaults,
@@ -155,7 +163,7 @@ export const reactTestGenerator: TargetTestGenerator = {
 	},
 };
 
-interface ReactVisualSpecInput {
+interface VueVisualSpecInput {
 	viewName: string;
 	viewImportPath: string;
 	fixtureFileName: string;
@@ -177,7 +185,7 @@ interface ReactVisualSpecInput {
 	};
 }
 
-function emitReactVisualSpec(input: ReactVisualSpecInput): string {
+function emitVueVisualSpec(input: VueVisualSpecInput): string {
 	const viewports = JSON.stringify(input.viewports, null, 2);
 	const states = JSON.stringify(input.states, null, 2);
 	const selectors = JSON.stringify(input.assertions.selectors, null, 2);
@@ -194,10 +202,10 @@ function emitReactVisualSpec(input: ReactVisualSpecInput): string {
 	return `import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/experimental-ct-react";
+import { expect, test } from "@playwright/experimental-ct-vue";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
-import { ${input.viewName} } from "${input.viewImportPath}";
+import ${input.viewName} from "${input.viewImportPath}";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const referenceHtml = readFileSync(resolve(currentDir, "./${input.fixtureFileName}"), "utf-8");
@@ -211,94 +219,94 @@ const screenshotThreshold = ${screenshotThreshold};
 const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
 
 for (const viewport of viewports) {
-\tfor (const state of states) {
-\t\tconst viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
-\t\ttest("${input.viewName} matches source at " + viewportName + " / " + state.name, async ({ mount, page }) => {
-\t\t\tawait page.setViewportSize({ width: viewport.width, height: viewport.height });
+	for (const state of states) {
+		const viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
+		test("${input.viewName} matches source at " + viewportName + " / " + state.name, async ({ mount, page }) => {
+			await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
-\t\t\tawait page.setContent(referenceHtml);
-\t\t\tawait applyState(page, state);
-\t\t\tconst expectedScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
-\t\t\tconst expectedLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
+			await page.setContent(referenceHtml);
+			await applyState(page, state);
+			const expectedScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
+			const expectedLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
 
-\t\t\tawait page.setContent("");
-\t\t\tconst component = await mount(<${input.viewName} />);
-\t\t\tawait applyState(page, state);
-\t\t\tconst actualScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
-\t\t\tconst actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
+			await page.setContent("");
+			const component = await mount(${input.viewName});
+			await applyState(page, state);
+			const actualScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
+			const actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
 
-\t\t\tif (screenshotEnabled) {
-\t\t\t\tcompareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
-\t\t\t}
-\t\t\tif (layoutEnabled) {
-\t\t\t\texpectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
-\t\t\t}
-\t\t});
-\t}
+			if (screenshotEnabled) {
+				compareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
+			}
+			if (layoutEnabled) {
+				expectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
+			}
+		});
+	}
 }
 
 async function applyState(page, state) {
-\tif (state.waitFor) {
-\t\tawait page.waitForSelector(state.waitFor);
-\t}
-\tif (state.hover) {
-\t\tawait page.hover(state.hover);
-\t}
-\tif (state.focus) {
-\t\tawait page.focus(state.focus);
-\t}
-\tif (state.click) {
-\t\tawait page.click(state.click);
-\t}
+	if (state.waitFor) {
+		await page.waitForSelector(state.waitFor);
+	}
+	if (state.hover) {
+		await page.hover(state.hover);
+	}
+	if (state.focus) {
+		await page.focus(state.focus);
+	}
+	if (state.click) {
+		await page.click(state.click);
+	}
 }
 
 async function readLayout(root, selectorsToRead) {
-\treturn root.evaluate((element, values) => {
-\t\tconst origin = element.getBoundingClientRect();
-\t\treturn values.flatMap((selector) => {
-\t\t\tconst matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
-\t\t\treturn matches.map((matchedElement, index) => {
-\t\t\t\tconst rect = matchedElement.getBoundingClientRect();
-\t\t\t\treturn {
-\t\t\t\t\tselector,
-\t\t\t\t\tindex,
-\t\t\t\t\ttagName: matchedElement.tagName.toLowerCase(),
-\t\t\t\t\tx: rect.x - origin.x,
-\t\t\t\t\ty: rect.y - origin.y,
-\t\t\t\t\twidth: rect.width,
-\t\t\t\t\theight: rect.height,
-\t\t\t\t};
-\t\t\t});
-\t\t});
-\t}, selectorsToRead);
+	return root.evaluate((element, values) => {
+		const origin = element.getBoundingClientRect();
+		return values.flatMap((selector) => {
+			const matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
+			return matches.map((matchedElement, index) => {
+				const rect = matchedElement.getBoundingClientRect();
+				return {
+					selector,
+					index,
+					tagName: matchedElement.tagName.toLowerCase(),
+					x: rect.x - origin.x,
+					y: rect.y - origin.y,
+					width: rect.width,
+					height: rect.height,
+				};
+			});
+		});
+	}, selectorsToRead);
 }
 
 function compareScreenshots(actual, expected, threshold, maxDiffPixels) {
-\tif (!actual || !expected) {
-\t\texpect(actual).toEqual(expected);
-\t\treturn;
-\t}
-\tconst actualPng = PNG.sync.read(actual);
-\tconst expectedPng = PNG.sync.read(expected);
-\texpect(actualPng.width, "screenshot width").toBe(expectedPng.width);
-\texpect(actualPng.height, "screenshot height").toBe(expectedPng.height);
-\tconst diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
-\texpect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
+	if (!actual || !expected) {
+		expect(actual).toEqual(expected);
+		return;
+	}
+	const actualPng = PNG.sync.read(actual);
+	const expectedPng = PNG.sync.read(expected);
+	expect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+	expect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+	const diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
+	expect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
 }
 
 function expectLayoutToMatch(actual, expected, tolerance) {
-\texpect(actual.length).toBe(expected.length);
-\tfor (let index = 0; index < expected.length; index += 1) {
-\t\tconst actualRect = actual[index];
-\t\tconst expectedRect = expected[index];
-\t\texpect(actualRect.selector).toBe(expectedRect.selector);
-\t\texpect(actualRect.index).toBe(expectedRect.index);
-\t\texpect(actualRect.tagName).toBe(expectedRect.tagName);
-\t\tfor (const key of ["x", "y", "width", "height"]) {
-\t\t\tconst drift = Math.abs(actualRect[key] - expectedRect[key]);
-\t\t\texpect(drift, \`\${expectedRect.selector}[\${expectedRect.index}] \${key} drift\`).toBeLessThanOrEqual(tolerance);
-\t\t}
-\t}
+	expect(actual.length).toBe(expected.length);
+	for (let index = 0; index < expected.length; index += 1) {
+		const actualRect = actual[index];
+		const expectedRect = expected[index];
+		expect(actualRect.selector).toBe(expectedRect.selector);
+		expect(actualRect.index).toBe(expectedRect.index);
+		expect(actualRect.tagName).toBe(expectedRect.tagName);
+		for (const key of ["x", "y", "width", "height"]) {
+			const drift = Math.abs(actualRect[key] - expectedRect[key]);
+			expect(drift, expectedRect.selector + "[" + expectedRect.index + "] " + key + " drift").toBeLessThanOrEqual(tolerance);
+		}
+	}
 }
 `;
 }
@@ -306,7 +314,7 @@ function expectLayoutToMatch(actual, expected, tolerance) {
 interface ComponentVisualSpecInput {
 	componentName: string;
 	selector: string;
-	mountJsx: string;
+	mountInfo: { props: Record<string, any>; slots: Record<string, string> };
 	componentImportPath: string;
 	referenceHtmlFileName: string;
 	viewports: Array<{ name?: string; width: number; height: number }>;
@@ -341,14 +349,16 @@ function emitComponentVisualSpec(input: ComponentVisualSpecInput): string {
 		input.assertions.screenshotMaxDiffPixels,
 	);
 	const selector = JSON.stringify(input.selector);
+	const mountProps = JSON.stringify(input.mountInfo.props, null, 2);
+	const mountSlots = JSON.stringify(input.mountInfo.slots, null, 2);
 
 	return `import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/experimental-ct-react";
+import { expect, test } from "@playwright/experimental-ct-vue";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
-import { ${input.componentName} } from "${input.componentImportPath}";
+import ${input.componentName} from "${input.componentImportPath}";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const referenceHtml = readFileSync(resolve(currentDir, "./${input.referenceHtmlFileName}"), "utf-8");
@@ -363,94 +373,97 @@ const screenshotThreshold = ${screenshotThreshold};
 const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
 
 for (const viewport of viewports) {
-\tfor (const state of states) {
-\t\tconst viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
-\t\ttest("${input.componentName} matches source at " + viewportName + " / " + state.name, async ({ mount, page }) => {
-\t\t\tawait page.setViewportSize({ width: viewport.width, height: viewport.height });
+	for (const state of states) {
+		const viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
+		test("${input.componentName} matches source at " + viewportName + " / " + state.name, async ({ mount, page }) => {
+			await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
-\t\t\tawait page.setContent(referenceHtml);
-\t\t\tawait applyState(page, state);
-\t\t\tconst expectedEl = page.locator(selector).first();
-\t\t\tconst expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
-\t\t\tconst expectedLayout = layoutEnabled ? await readLayout(expectedEl, selectors) : [];
+			await page.setContent(referenceHtml);
+			await applyState(page, state);
+			const expectedEl = page.locator(selector).first();
+			const expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
+			const expectedLayout = layoutEnabled ? await readLayout(expectedEl, selectors) : [];
 
-\t\t\tconst component = await mount(${input.mountJsx});
-\t\t\tawait applyState(page, state);
-\t\t\tconst actualScreenshot = screenshotEnabled ? await component.screenshot() : undefined;
-\t\t\tconst actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
+			const component = await mount(${input.componentName}, {
+				props: ${mountProps},
+				slots: ${mountSlots},
+			});
+			await applyState(page, state);
+			const actualScreenshot = screenshotEnabled ? await component.screenshot() : undefined;
+			const actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
 
-\t\t\tif (screenshotEnabled) {
-\t\t\t\tcompareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
-\t\t\t}
-\t\t\tif (layoutEnabled) {
-\t\t\t\texpectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
-\t\t\t}
-\t\t});
-\t}
+			if (screenshotEnabled) {
+				compareScreenshots(actualScreenshot, expectedScreenshot, screenshotThreshold, screenshotMaxDiffPixels);
+			}
+			if (layoutEnabled) {
+				expectLayoutToMatch(actualLayout, expectedLayout, layoutTolerance);
+			}
+		});
+	}
 }
 
 async function applyState(page, state) {
-\tif (state.waitFor) {
-\t\tawait page.waitForSelector(state.waitFor);
-\t}
-\tif (state.hover) {
-\t\tawait page.hover(state.hover);
-\t}
-\tif (state.focus) {
-\t\tawait page.focus(state.focus);
-\t}
-\tif (state.click) {
-\t\tawait page.click(state.click);
-\t}
+	if (state.waitFor) {
+		await page.waitForSelector(state.waitFor);
+	}
+	if (state.hover) {
+		await page.hover(state.hover);
+	}
+	if (state.focus) {
+		await page.focus(state.focus);
+	}
+	if (state.click) {
+		await page.click(state.click);
+	}
 }
 
 async function readLayout(root, selectorsToRead) {
-\treturn root.evaluate((element, values) => {
-\t\tconst origin = element.getBoundingClientRect();
-\t\treturn values.flatMap((selector) => {
-\t\t\tconst matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
-\t\t\treturn matches.map((matchedElement, index) => {
-\t\t\t\tconst rect = matchedElement.getBoundingClientRect();
-\t\t\t\treturn {
-\t\t\t\t\tselector,
-\t\t\t\t\tindex,
-\t\t\t\t\ttagName: matchedElement.tagName.toLowerCase(),
-\t\t\t\t\tx: rect.x - origin.x,
-\t\t\t\t\ty: rect.y - origin.y,
-\t\t\t\t\twidth: rect.width,
-\t\t\t\t\theight: rect.height,
-\t\t\t\t};
-\t\t\t});
-\t\t});
-\t}, selectorsToRead);
+	return root.evaluate((element, values) => {
+		const origin = element.getBoundingClientRect();
+		return values.flatMap((selector) => {
+			const matches = selector === ":scope" ? [element] : Array.from(element.querySelectorAll(selector));
+			return matches.map((matchedElement, index) => {
+				const rect = matchedElement.getBoundingClientRect();
+				return {
+					selector,
+					index,
+					tagName: matchedElement.tagName.toLowerCase(),
+					x: rect.x - origin.x,
+					y: rect.y - origin.y,
+					width: rect.width,
+					height: rect.height,
+				};
+			});
+		});
+	}, selectorsToRead);
 }
 
 function compareScreenshots(actual, expected, threshold, maxDiffPixels) {
-\tif (!actual || !expected) {
-\t\texpect(actual).toEqual(expected);
-\t\treturn;
-\t}
-\tconst actualPng = PNG.sync.read(actual);
-\tconst expectedPng = PNG.sync.read(expected);
-\texpect(actualPng.width, "screenshot width").toBe(expectedPng.width);
-\texpect(actualPng.height, "screenshot height").toBe(expectedPng.height);
-\tconst diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
-\texpect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
+	if (!actual || !expected) {
+		expect(actual).toEqual(expected);
+		return;
+	}
+	const actualPng = PNG.sync.read(actual);
+	const expectedPng = PNG.sync.read(expected);
+	expect(actualPng.width, "screenshot width").toBe(expectedPng.width);
+	expect(actualPng.height, "screenshot height").toBe(expectedPng.height);
+	const diffPixels = pixelmatch(actualPng.data, expectedPng.data, null, actualPng.width, actualPng.height, { threshold });
+	expect(diffPixels, "screenshot pixels differing beyond threshold").toBeLessThanOrEqual(maxDiffPixels);
 }
 
 function expectLayoutToMatch(actual, expected, tolerance) {
-\texpect(actual.length).toBe(expected.length);
-\tfor (let index = 0; index < expected.length; index += 1) {
-\t\tconst actualRect = actual[index];
-\t\tconst expectedRect = expected[index];
-\t\texpect(actualRect.selector).toBe(expectedRect.selector);
-\t\texpect(actualRect.index).toBe(expectedRect.index);
-\t\texpect(actualRect.tagName).toBe(expectedRect.tagName);
-\t\tfor (const key of ["x", "y", "width", "height"]) {
-\t\t\tconst drift = Math.abs(actualRect[key] - expectedRect[key]);
-\t\t\texpect(drift, \`\${expectedRect.selector}[\${expectedRect.index}] \${key} drift\`).toBeLessThanOrEqual(tolerance);
-\t\t}
-\t}
+	expect(actual.length).toBe(expected.length);
+	for (let index = 0; index < expected.length; index += 1) {
+		const actualRect = actual[index];
+		const expectedRect = expected[index];
+		expect(actualRect.selector).toBe(expectedRect.selector);
+		expect(actualRect.index).toBe(expectedRect.index);
+		expect(actualRect.tagName).toBe(expectedRect.tagName);
+		for (const key of ["x", "y", "width", "height"]) {
+			const drift = Math.abs(actualRect[key] - expectedRect[key]);
+			expect(drift, expectedRect.selector + "[" + expectedRect.index + "] " + key + " drift").toBeLessThanOrEqual(tolerance);
+		}
+	}
 }
 `;
 }
@@ -458,7 +471,7 @@ function expectLayoutToMatch(actual, expected, tolerance) {
 function emitComponentSplitViews(
 	nodes: DesignNode[],
 	viewsDir: string,
-	cssModulePath: string | undefined,
+	api: "composition" | "options" | undefined,
 ): Array<{ path: string; contents: string }> {
 	const seen = new Set<string>();
 	const files: Array<{ path: string; contents: string }> = [];
@@ -476,8 +489,8 @@ function emitComponentSplitViews(
 				seen.add(importName);
 				const funcName = toPascalCase(importName);
 				files.push({
-					path: `${viewsDir}/${importName}.view.tsx`,
-					contents: emitComponentView(node, funcName, { cssModulePath }),
+					path: `${viewsDir}/${importName}.vue`,
+					contents: emitVueView([node], funcName, { api }),
 				});
 			}
 
@@ -497,82 +510,134 @@ function emitComponentSplitViews(
 	return files;
 }
 
-/**
- * Emits the implementation of a mapped component. The component reconstructs
- * the original element (tag, attributes, styles) captured in `sourceElement`,
- * exposes the mapping's props as a typed interface, and wires `children` and
- * `$attr.*` props into the rendered element.
- */
-function emitComponentView(
-	node: DesignNode,
-	funcName: string,
-	options: { cssModulePath?: string } = {},
+export function emitVueView(
+	nodes: DesignNode[],
+	_viewName: string,
+	options: {
+		cssModule?: string;
+		api?: "composition" | "options";
+	} = {},
 ): string {
-	const props = node.props ?? {};
-	const source = node.sourceElement;
-	const propEntries = Object.entries(props);
+	const api = options.api ?? "composition";
+	const isComponentImplementation =
+		nodes.length === 1 && nodes[0]?.kind === "component";
+	const componentNode = isComponentImplementation ? nodes[0] : undefined;
 
-	// Classify props into an attribute binding (attr name -> prop name), the
-	// children prop, and the destructured parameter list (props referenced by
-	// the body). Plain literal props are documented in the interface but are
-	// not destructured because they are not rendered.
-	const attributeBindings = new Map<string, string>();
-	const interfaceLines: string[] = [];
-	const destructured: string[] = [];
-	let childrenPropName: string | undefined;
+	let script = "";
+	let template = "";
 
-	for (const [propName, prop] of propEntries) {
-		if (prop.kind === "text" || prop.kind === "children") {
-			childrenPropName = propName;
-			interfaceLines.push(`\t${propName}?: ReactNode;`);
-			destructured.push(propName);
-			continue;
+	if (componentNode) {
+		const props = componentNode.props ?? {};
+		const source = componentNode.sourceElement;
+		const propEntries = Object.entries(props);
+
+		const attributeBindings = new Map<string, string>();
+		const propsDefinitions: string[] = [];
+		let childrenPropName: string | undefined;
+
+		for (const [propName, prop] of propEntries) {
+			if (prop.kind === "text" || prop.kind === "children") {
+				childrenPropName = propName;
+				propsDefinitions.push(`${propName}: {}`);
+				continue;
+			}
+			propsDefinitions.push(`${propName}: String`);
+			if (prop.kind === "literal" && prop.attribute) {
+				attributeBindings.set(prop.attribute, propName);
+			}
 		}
-		interfaceLines.push(`\t${propName}?: string;`);
-		if (prop.kind === "literal" && prop.attribute) {
-			attributeBindings.set(prop.attribute, propName);
-			destructured.push(propName);
+
+		const imports = collectImports(
+			childrenPropName ? [] : (componentNode.children ?? []),
+		);
+		const importLines = imports
+			.map(
+				({ importName, importPath }) =>
+					"import " +
+					importName +
+					' from "' +
+					importPath.replace(/\.(view|tsx)$/, ".vue") +
+					'";',
+			)
+			.join("\n");
+
+		if (api === "composition") {
+			script =
+				'<script setup lang="ts">\n' +
+				importLines +
+				(importLines ? "\n" : "") +
+				"defineProps<{\n" +
+				Object.keys(props)
+					.map((p) => `\t${p}?: any;`)
+					.join("\n") +
+				"\n}>();\n</script>\n";
+		} else {
+			script =
+				'<script lang="ts">\nimport { defineComponent } from "vue";\n' +
+				importLines +
+				(importLines ? "\n" : "") +
+				"export default defineComponent({\n\tcomponents: { " +
+				imports.map((i) => i.importName).join(", ") +
+				" },\n\tprops: {\n\t\t" +
+				propsDefinitions.join(",\n\t\t") +
+				"\n\t}\n});\n</script>\n";
 		}
+
+		template =
+			"<template>\n" +
+			emitVueComponentBody(
+				componentNode,
+				source,
+				attributeBindings,
+				childrenPropName,
+				1,
+			) +
+			"</template>\n";
+	} else {
+		const imports = collectImports(nodes);
+		const importLines = imports
+			.map(
+				({ importName, importPath }) =>
+					"import " +
+					importName +
+					' from "' +
+					importPath.replace(/\.(view|tsx)$/, ".vue") +
+					'";',
+			)
+			.join("\n");
+
+		if (api === "composition") {
+			script = importLines
+				? `<script setup lang="ts">\n${importLines}\n</script>\n`
+				: "";
+		} else {
+			script =
+				'<script lang="ts">\nimport { defineComponent } from "vue";\n' +
+				importLines +
+				(importLines ? "\n" : "") +
+				"export default defineComponent({\n\tcomponents: { " +
+				imports.map((i) => i.importName).join(", ") +
+				" }\n});\n</script>\n";
+		}
+
+		const body =
+			nodes.length === 1 && nodes[0]?.kind !== "text"
+				? emitVueNode(nodes[0], 1)
+				: '\t<template v-if="true">\n' +
+					nodes.map((node) => emitVueNode(node, 2)).join("") +
+					"\t</template>\n";
+
+		template = `<template>\n${body}</template>\n`;
 	}
 
-	const body = emitComponentBody(
-		node,
-		source,
-		attributeBindings,
-		childrenPropName,
-		2,
-	);
-
-	const importNodes = childrenPropName ? [] : (node.children ?? []);
-	const componentImports = collectImports(importNodes)
-		.map(
-			({ importName, importPath }) =>
-				`import { ${importName} } from "${importPath}";`,
-		)
-		.join("\n");
-	const reactImport = childrenPropName
-		? `import type { ReactNode } from "react";`
+	const style = options.cssModule
+		? `\n<style module>\n${options.cssModule}</style>\n`
 		: "";
-	const cssModuleImport = options.cssModulePath
-		? `import styles from "./${options.cssModulePath}";`
-		: "";
-	const allImports = [reactImport, componentImports, cssModuleImport]
-		.filter(Boolean)
-		.join("\n");
 
-	const hasProps = propEntries.length > 0;
-	const interfaceBlock = hasProps
-		? `interface ${funcName}Props {\n${interfaceLines.join("\n")}\n}\n\n`
-		: "";
-	const params =
-		destructured.length > 0
-			? `{ ${destructured.join(", ")} }: ${funcName}Props`
-			: "";
-
-	return `${allImports ? `${allImports}\n\n` : ""}${interfaceBlock}export function ${funcName}(${params}) {\n\treturn (\n${body}\t);\n}\n`;
+	return `${script}\n${template}${style}`;
 }
 
-function emitComponentBody(
+function emitVueComponentBody(
 	node: DesignNode,
 	source: DesignNode | undefined,
 	attributeBindings: Map<string, string>,
@@ -582,16 +647,18 @@ function emitComponentBody(
 	const indent = "\t".repeat(depth);
 
 	if (!source) {
-		// Fall back to rendering the mapped children as a fragment when the
-		// original element was not captured.
 		const children = node.children ?? [];
-		return `${indent}<>\n${children
-			.map((child) => emitJsxNode(child, depth + 1))
-			.join("")}${indent}</>\n`;
+		return (
+			indent +
+			'<template v-if="true">\n' +
+			children.map((child) => emitVueNode(child, depth + 1)).join("") +
+			indent +
+			"</template>\n"
+		);
 	}
 
 	const tagName = source.tagName ?? "div";
-	const attributes = emitJsxAttributes(
+	const attributes = emitVueAttributes(
 		source.attributes ?? {},
 		source.styles ?? {},
 		source.generatedClassNames ?? [],
@@ -600,103 +667,214 @@ function emitComponentBody(
 	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
 
 	if (childrenPropName) {
-		const inner = `${"\t".repeat(depth + 1)}{${childrenPropName}}\n`;
-		return `${indent}${openTag}\n${inner}${indent}</${tagName}>\n`;
+		const inner =
+			"\t".repeat(depth + 1) +
+			'<slot name="' +
+			childrenPropName +
+			'">{{ ' +
+			childrenPropName +
+			" }}</slot>\n";
+		return `${indent + openTag}\n${inner}${indent}</${tagName}>\n`;
 	}
 
 	const children = node.children ?? [];
 	if (children.length === 0) {
-		return `${indent}${attributes ? `<${tagName} ${attributes} />` : `<${tagName} />`}\n`;
+		return `${indent + openTag}</${tagName}>\n`;
 	}
 
-	return `${indent}${openTag}\n${children
-		.map((child) => emitJsxNode(child, depth + 1))
-		.join("")}${indent}</${tagName}>\n`;
+	return (
+		indent +
+		openTag +
+		"\n" +
+		children.map((child) => emitVueNode(child, depth + 1)).join("") +
+		indent +
+		"</" +
+		tagName +
+		">\n"
+	);
 }
 
-/**
- * Walks a mapped AST and returns the first component node seen for each
- * component name, so the test generator can mount components with the same
- * props the design supplies.
- */
-function collectComponentNodes(nodes: DesignNode[]): Map<string, DesignNode> {
-	const map = new Map<string, DesignNode>();
-	function visit(list: DesignNode[]): void {
-		for (const node of list) {
-			if (node.kind === "component") {
-				const name = node.component ?? node.importName;
-				if (name && !map.has(name)) {
-					map.set(name, node);
-				}
-				const childrenProp = node.props?.children;
-				visit(
-					childrenProp?.kind === "children"
-						? childrenProp.value
-						: (node.children ?? []),
-				);
-			} else if (node.kind === "element") {
-				visit(node.children ?? []);
-			}
-		}
+function emitVueNode(node: DesignNode | undefined, depth: number): string {
+	if (!node) {
+		return "";
 	}
-	visit(nodes);
-	return map;
-}
-
-/**
- * Emits the JSX used to mount a component in its visual test, forwarding the
- * literal/attribute props as attributes and the text/children prop as the
- * element body so the rendered component matches the source design.
- */
-function emitComponentMount(
-	componentName: string,
-	node: DesignNode | undefined,
-): string {
-	const attributeParts: string[] = [];
-	let childrenJsx = "";
-	for (const [propName, prop] of Object.entries(node?.props ?? {})) {
-		if (prop.kind === "text") {
-			childrenJsx = escapeJsxText(prop.value);
-			continue;
-		}
-		if (prop.kind === "children") {
-			childrenJsx = prop.value.map((child) => emitInlineJsx(child)).join("");
-			continue;
-		}
-		const attribute = emitProp(propName, prop);
-		if (attribute) {
-			attributeParts.push(attribute);
-		}
-	}
-	const attributes =
-		attributeParts.length > 0 ? ` ${attributeParts.join(" ")}` : "";
-	return childrenJsx
-		? `<${componentName}${attributes}>${childrenJsx}</${componentName}>`
-		: `<${componentName}${attributes} />`;
-}
-
-/** Renders a node as single-line JSX for use inside a mount expression. */
-function emitInlineJsx(node: DesignNode): string {
+	const indent = "\t".repeat(depth);
 	if (node.kind === "text") {
-		return escapeJsxText(node.text ?? "");
+		return `${indent + escapeHtml(node.text ?? "")}\n`;
 	}
 	if (node.kind === "component") {
-		return emitComponentMount(
-			node.component ?? node.importName ?? "Component",
-			node,
-		);
+		return emitVueComponentJsx(node, depth);
 	}
+
 	const tagName = node.tagName ?? "div";
-	const attributes = emitJsxAttributes(
+	const attributes = emitVueAttributes(
 		node.attributes ?? {},
 		node.styles ?? {},
 		node.generatedClassNames ?? [],
 	);
+	const children = node.children ?? [];
 	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
-	const children = (node.children ?? [])
-		.map((child) => emitInlineJsx(child))
-		.join("");
-	return `${openTag}${children}</${tagName}>`;
+	if (children.length === 0) {
+		return `${indent + openTag}</${tagName}>\n`;
+	}
+
+	return (
+		indent +
+		openTag +
+		"\n" +
+		children.map((child) => emitVueNode(child, depth + 1)).join("") +
+		indent +
+		"</" +
+		tagName +
+		">\n"
+	);
+}
+
+function emitVueComponentJsx(node: DesignNode, depth: number): string {
+	const indent = "\t".repeat(depth);
+	const component = node.component ?? node.importName ?? "Component";
+	const childrenProp = node.props?.children;
+	const attributes = Object.entries(node.props ?? {})
+		.filter(([name]) => name !== "children")
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([name, prop]) => emitVueProp(name, prop))
+		.join(" ");
+	const openTag = attributes
+		? `<${component} ${attributes}>`
+		: `<${component}>`;
+
+	if (childrenProp?.kind === "text") {
+		return (
+			indent +
+			openTag +
+			"\n" +
+			"\t".repeat(depth + 1) +
+			"<template #children>" +
+			escapeHtml(childrenProp.value) +
+			"</template>\n" +
+			indent +
+			"</" +
+			component +
+			">\n"
+		);
+	}
+	if (childrenProp?.kind === "children") {
+		return (
+			indent +
+			openTag +
+			"\n" +
+			"\t".repeat(depth + 1) +
+			"<template #children>\n" +
+			childrenProp.value
+				.map((child) => emitVueNode(child, depth + 2))
+				.join("") +
+			"\t".repeat(depth + 1) +
+			"</template>\n" +
+			indent +
+			"</" +
+			component +
+			">\n"
+		);
+	}
+	const children = node.children ?? [];
+	if (children.length === 0) {
+		return `${indent + openTag}</${component}>\n`;
+	}
+	return (
+		indent +
+		openTag +
+		"\n" +
+		children.map((child) => emitVueNode(child, depth + 1)).join("") +
+		indent +
+		"</" +
+		component +
+		">\n"
+	);
+}
+
+function emitVueProp(name: string, prop: PropValue): string {
+	if (prop.kind === "children") {
+		return "";
+	}
+	if (typeof prop.value === "boolean" || typeof prop.value === "number") {
+		return `:${name}="${JSON.stringify(prop.value).replace(/"/g, "'")}"`;
+	}
+	return `${name}="${escapeAttribute(prop.value)}"`;
+}
+
+function emitVueAttributes(
+	attributes: Record<string, string>,
+	styles: Record<string, string>,
+	generatedClassNames: string[] = [],
+	attributeBindings: Map<string, string> = new Map(),
+): string {
+	const mergedAttributes = { ...attributes };
+	const classNames = [
+		...(attributes.class ?? "").split(/\s+/).filter(Boolean),
+		...generatedClassNames,
+	];
+	if (classNames.length > 0) {
+		mergedAttributes.class = classNames.join(" ");
+	}
+
+	const result = Object.entries(mergedAttributes)
+		.filter(([name]) => name !== "style")
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([name, value]) => {
+			const binding = attributeBindings.get(name);
+			if (binding) {
+				return `:${name}="${binding}"`;
+			}
+			if (value === "") {
+				return name;
+			}
+			if (name === "class" && generatedClassNames.some(isCssModuleReference)) {
+				return `:class="${emitVueClassNameExpression(classNames)}"`;
+			}
+			return `${name}="${escapeAttribute(value)}"`;
+		});
+
+	const styleAttr = emitVueStyleAttribute(styles);
+	if (styleAttr) {
+		result.push(styleAttr);
+	}
+
+	return result.join(" ");
+}
+
+function emitVueClassNameExpression(classNames: string[]): string {
+	return (
+		"[" +
+		classNames
+			.map((className) =>
+				isCssModuleReference(className)
+					? `$style.${className.slice(7)}`
+					: JSON.stringify(className),
+			)
+			.join(", ") +
+		"].filter(Boolean).join(' ')"
+	);
+}
+
+function emitVueStyleAttribute(
+	styles: Record<string, string>,
+): string | undefined {
+	const entries = Object.entries(styles).sort(([left], [right]) =>
+		left.localeCompare(right),
+	);
+	if (entries.length === 0) {
+		return undefined;
+	}
+	const styleObject = entries
+		.map(
+			([property, value]) =>
+				"'" +
+				toCamelCase(property) +
+				"': " +
+				JSON.stringify(value).replace(/"/g, "'"),
+		)
+		.join(", ");
+	return `:style="{ ${styleObject} }"`;
 }
 
 function findNodeBySelector(
@@ -756,6 +934,12 @@ function toPascalCase(value: string): string {
 		.join("");
 }
 
+function toCamelCase(value: string): string {
+	return value.replace(/-([a-z])/g, (_, letter: string) =>
+		letter.toUpperCase(),
+	);
+}
+
 function toRelativeImport(fromFile: string, toFile: string): string {
 	const fromParts = fromFile.split("/").slice(0, -1);
 	const toParts = toFile.split("/");
@@ -768,44 +952,119 @@ function toRelativeImport(fromFile: string, toFile: string): string {
 		toParts.shift();
 	}
 	const prefix = fromParts.map(() => "..");
-	const relative = [...prefix, ...toParts].join("/");
+	const relative = prefix.concat(toParts).join("/");
 	return relative.startsWith(".") ? relative : `./${relative}`;
 }
 
-export function emitReactView(
-	nodes: DesignNode[],
-	viewName: string,
-	options: { cssModulePath?: string } = {},
-): string {
-	const imports = collectImports(nodes);
-	const importLines = imports
-		.map(
-			({ importName, importPath }) =>
-				`import { ${importName} } from "${importPath}";`,
-		)
-		.join("\n");
-	const cssModuleImport = options.cssModulePath
-		? `import styles from "./${options.cssModulePath}";`
-		: "";
-	const allImports = [importLines, cssModuleImport].filter(Boolean).join("\n");
-	const body =
-		nodes.length === 1 && nodes[0]?.kind !== "text"
-			? emitJsxNode(nodes[0], 2)
-			: `${"\t".repeat(2)}<>\n${nodes.map((node) => emitJsxNode(node, 3)).join("")}${"\t".repeat(2)}</>\n`;
-
-	return `${allImports ? `${allImports}\n\n` : ""}export function ${viewName}() {\n\treturn (\n${body}\t);\n}\n`;
+function isCssModuleReference(className: string): boolean {
+	return className.startsWith("module:");
 }
+
+function escapeHtml(value: string): string {
+	return value
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;");
+}
+
+function escapeAttribute(value: string): string {
+	return escapeHtml(value).replace(/"/g, "&quot;");
+}
+
+/**
+ * Walks a mapped AST and returns the first component node seen for each
+ * component name, so the test generator can mount components with the same
+ * props the design supplies.
+ */
+function collectComponentNodes(nodes: DesignNode[]): Map<string, DesignNode> {
+	const map = new Map<string, DesignNode>();
+	function visit(list: DesignNode[]): void {
+		for (const node of list) {
+			if (node.kind === "component") {
+				const name = node.component ?? node.importName;
+				if (name && !map.has(name)) {
+					map.set(name, node);
+				}
+				const childrenProp = node.props?.children;
+				visit(
+					childrenProp?.kind === "children"
+						? childrenProp.value
+						: (node.children ?? []),
+				);
+			} else if (node.kind === "element") {
+				visit(node.children ?? []);
+			}
+		}
+	}
+	visit(nodes);
+	return map;
+}
+
+function emitComponentMountInfo(
+	_componentName: string,
+	node: DesignNode | undefined,
+): { props: Record<string, any>; slots: Record<string, string> } {
+	const props: Record<string, any> = {};
+	const slots: Record<string, string> = {};
+	for (const [propName, prop] of Object.entries(node?.props ?? {})) {
+		if (prop.kind === "text") {
+			slots[propName] = prop.value;
+			continue;
+		}
+		if (prop.kind === "children") {
+			slots[propName] = prop.value
+				.map((child) => emitInlineVue(child))
+				.join("");
+			continue;
+		}
+		props[propName] = prop.value;
+	}
+	return { props, slots };
+}
+
+function emitInlineVue(node: DesignNode): string {
+	if (node.kind === "text") {
+		return escapeHtml(node.text ?? "");
+	}
+	if (node.kind === "component") {
+		const info = emitComponentMountInfo(node.component ?? "Component", node);
+		const propsStr = Object.entries(info.props)
+			.map(([k, v]) => `${k}="${v}"`)
+			.join(" ");
+		const slotsStr = Object.entries(info.slots)
+			.map(([k, v]) => `<template #${k}>${v}</template>`)
+			.join("");
+		return (
+			"<" +
+			node.component +
+			" " +
+			propsStr +
+			">" +
+			slotsStr +
+			"</" +
+			node.component +
+			">"
+		);
+	}
+	const tagName = node.tagName ?? "div";
+	const attributes = emitVueAttributes(
+		node.attributes ?? {},
+		node.styles ?? {},
+		node.generatedClassNames ?? [],
+	);
+	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
+	const children = (node.children ?? [])
+		.map((child) => emitInlineVue(child))
+		.join("");
+	return `${openTag + children}</${tagName}>`;
+}
+
+// Reuse logic from target-react where applicable or implement similar
+// The following functions are copied and adapted from target-react
 
 interface StyleTransformResult {
 	nodes: DesignNode[];
 	cssModule?: string;
-	cssModulePath?: string;
-}
-
-interface CssRule {
-	selector: string;
-	declarations: Record<string, string>;
-	order: number;
 }
 
 interface TokenMatch {
@@ -866,11 +1125,9 @@ function transformStyles(
 				],
 			};
 		});
-		const viewName = config?.output?.viewName ?? "DesignView";
 		return {
 			nodes: moduleNodes,
 			cssModule: rules.length > 0 ? `${rules.join("\n\n")}\n` : undefined,
-			cssModulePath: rules.length > 0 ? `${viewName}.module.css` : undefined,
 		};
 	}
 
@@ -882,13 +1139,7 @@ function transformStyles(
 	return { nodes: resolvedNodes };
 }
 
-interface ParsedSelector {
-	tagName?: string;
-	id?: string;
-	classes: string[];
-	attributes: Record<string, string>;
-}
-
+// Parser and resolver functions (same as React target)
 function parseInlineStyle(style: string | undefined): Record<string, string> {
 	const styles: Record<string, string> = {};
 	if (!style) {
@@ -903,6 +1154,13 @@ function parseInlineStyle(style: string | undefined): Record<string, string> {
 		styles[property.trim().toLowerCase()] = value;
 	}
 	return styles;
+}
+
+interface ParsedSelector {
+	tagName?: string;
+	id?: string;
+	classes: string[];
+	attributes: Record<string, string>;
 }
 
 function parseSelector(selector: string): ParsedSelector | undefined {
@@ -982,6 +1240,12 @@ function matchesSelector(node: DesignNode, selector: ParsedSelector): boolean {
 	return true;
 }
 
+interface CssRule {
+	selector: string;
+	declarations: Record<string, string>;
+	order: number;
+}
+
 function parseCssRules(
 	css: string | undefined,
 	diagnostics: Diagnostic[],
@@ -1010,14 +1274,6 @@ function parseCssRules(
 			rules.push({ selector, declarations, order });
 			order += 1;
 		}
-	}
-	const unsupported = css.replace(/([^{}]+)\{([^{}]*)\}/g, "").trim();
-	if (unsupported) {
-		diagnostics.push({
-			code: "CSS_SELECTOR_UNSUPPORTED",
-			message: "Unsupported CSS was ignored.",
-			severity: "warning",
-		});
 	}
 	return rules;
 }
@@ -1058,43 +1314,6 @@ function mapStyleNodes(
 			children: mapStyleNodes(node.children ?? [], mapper),
 		});
 	});
-}
-
-function applyTailwindStyles(
-	node: DesignNode,
-	config: DesignEmbedConfig | undefined,
-	diagnostics: Diagnostic[],
-): DesignNode {
-	const remaining: Record<string, string> = {};
-	const generatedClassNames = [...(node.generatedClassNames ?? [])];
-	for (const [property, value] of sortedEntries(node.styles ?? {})) {
-		const match = matchToken(property, value, config, diagnostics, node);
-		if (!match) {
-			remaining[property] = value;
-			continue;
-		}
-		const className =
-			config?.styleMappings?.[match.group]?.[
-				`${property}:${match.group}.${match.name}`
-			];
-		if (className) {
-			generatedClassNames.push(className);
-		} else {
-			remaining[property] = match.value;
-			diagnostics.push({
-				code: "TOKEN_NO_MATCH",
-				message: `No Tailwind mapping for ${property}:${match.group}.${match.name}.`,
-				severity: "info",
-				source: node.source,
-				property,
-			});
-		}
-	}
-	return {
-		...node,
-		styles: remaining,
-		generatedClassNames,
-	};
 }
 
 function snapStyleValues(
@@ -1264,7 +1483,7 @@ function matchNumericToken(
 	return {
 		group,
 		name: candidate.name,
-		value: `${formatNumber(candidate.tokenValue)}${unit}`,
+		value: formatNumber(candidate.tokenValue) + unit,
 	};
 }
 
@@ -1368,7 +1587,7 @@ function parseColor(value: string): [number, number, number] | undefined {
 			hex[1].length === 3
 				? hex[1]
 						.split("")
-						.map((part) => `${part}${part}`)
+						.map((part) => part + part)
 						.join("")
 				: hex[1];
 		return [
@@ -1405,6 +1624,46 @@ function normalizeHex(value: string): string {
 	return `#${color.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
 }
 
+function applyTailwindStyles(
+	node: DesignNode,
+	config: DesignEmbedConfig | undefined,
+	diagnostics: Diagnostic[],
+): DesignNode {
+	const remaining: Record<string, string> = {};
+	const generatedClassNames = [...(node.generatedClassNames ?? [])];
+	for (const [property, value] of sortedEntries(node.styles ?? {})) {
+		const match = matchToken(property, value, config, diagnostics, node);
+		if (!match) {
+			remaining[property] = value;
+			continue;
+		}
+		const className =
+			config?.styleMappings?.[match.group]?.[
+				`${property}:${match.group}.${match.name}`
+			];
+		if (className) {
+			generatedClassNames.push(className);
+		} else {
+			remaining[property] = match.value;
+			diagnostics.push({
+				code: "TOKEN_NO_MATCH",
+				message:
+					"No Tailwind mapping for " +
+					property +
+					":" +
+					match.group +
+					"." +
+					match.name +
+					".",
+				severity: "info",
+				source: node.source,
+				property,
+			});
+		}
+	}
+	return { ...node, styles: remaining, generatedClassNames };
+}
+
 function emitCssModuleRule(
 	className: string,
 	styles: Record<string, string>,
@@ -1427,10 +1686,9 @@ function formatNumber(value: number): string {
 		: String(Number(value.toFixed(4)));
 }
 
-function collectImports(nodes: DesignNode[]): Array<{
-	importName: string;
-	importPath: string;
-}> {
+function collectImports(
+	nodes: DesignNode[],
+): Array<{ importName: string; importPath: string }> {
 	const imports = new Map<string, { importName: string; importPath: string }>();
 	function visit(node: DesignNode) {
 		if (node.kind === "component" && node.importName && node.importPath) {
@@ -1439,195 +1697,14 @@ function collectImports(nodes: DesignNode[]): Array<{
 				importPath: node.importPath,
 			});
 		}
-		for (const child of node.children ?? []) {
-			visit(child);
-		}
+		for (const child of node.children ?? []) visit(child);
 		for (const prop of Object.values(node.props ?? {})) {
-			if (prop.kind === "children") {
-				for (const child of prop.value) {
-					visit(child);
-				}
-			}
+			if (prop.kind === "children")
+				for (const child of prop.value) visit(child);
 		}
 	}
-	for (const node of nodes) {
-		visit(node);
-	}
-	return [...imports.values()].sort(
-		(left, right) =>
-			left.importPath.localeCompare(right.importPath) ||
-			left.importName.localeCompare(right.importName),
+	for (const node of nodes) visit(node);
+	return [...imports.values()].sort((a, b) =>
+		a.importPath.localeCompare(b.importPath),
 	);
-}
-
-function emitJsxNode(node: DesignNode | undefined, depth: number): string {
-	if (!node) {
-		return "";
-	}
-	const indent = "\t".repeat(depth);
-	if (node.kind === "text") {
-		return `${indent}${escapeJsxText(node.text ?? "")}\n`;
-	}
-	if (node.kind === "component") {
-		return emitComponentJsx(node, depth);
-	}
-
-	const tagName = node.tagName ?? "div";
-	const attributes = emitJsxAttributes(
-		node.attributes ?? {},
-		node.styles ?? {},
-		node.generatedClassNames ?? [],
-	);
-	const children = node.children ?? [];
-	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
-	if (children.length === 0) {
-		return `${indent}${openTag}</${tagName}>\n`;
-	}
-
-	return `${indent}${openTag}\n${children
-		.map((child) => emitJsxNode(child, depth + 1))
-		.join("")}${indent}</${tagName}>\n`;
-}
-
-function emitComponentJsx(node: DesignNode, depth: number): string {
-	const indent = "\t".repeat(depth);
-	const component = node.component ?? node.importName ?? "Component";
-	const childrenProp = node.props?.children;
-	const attributes = Object.entries(node.props ?? {})
-		.filter(([name]) => name !== "children")
-		.sort(([left], [right]) => left.localeCompare(right))
-		.map(([name, prop]) => emitProp(name, prop))
-		.join(" ");
-	const openTag = attributes
-		? `<${component} ${attributes}>`
-		: `<${component}>`;
-
-	if (childrenProp?.kind === "text") {
-		return `${indent}${openTag}${escapeJsxText(childrenProp.value)}</${component}>\n`;
-	}
-	if (childrenProp?.kind === "children") {
-		return `${indent}${openTag}\n${childrenProp.value
-			.map((child) => emitJsxNode(child, depth + 1))
-			.join("")}${indent}</${component}>\n`;
-	}
-	const children = node.children ?? [];
-	if (children.length === 0) {
-		return `${indent}${openTag}</${component}>\n`;
-	}
-	return `${indent}${openTag}\n${children
-		.map((child) => emitJsxNode(child, depth + 1))
-		.join("")}${indent}</${component}>\n`;
-}
-
-function emitProp(name: string, prop: PropValue): string {
-	if (prop.kind === "children") {
-		return "";
-	}
-	if (typeof prop.value === "boolean" || typeof prop.value === "number") {
-		return `${name}={${JSON.stringify(prop.value)}}`;
-	}
-	return `${name}="${escapeAttribute(prop.value)}"`;
-}
-
-function emitJsxAttributes(
-	attributes: Record<string, string>,
-	styles: Record<string, string>,
-	generatedClassNames: string[] = [],
-	attributeBindings: Map<string, string> = new Map(),
-): string {
-	const mergedAttributes = { ...attributes };
-	const classNames = [
-		...(attributes.class ?? "").split(/\s+/).filter(Boolean),
-		...generatedClassNames,
-	];
-	if (classNames.length > 0) {
-		mergedAttributes.class = classNames.join(" ");
-	}
-
-	return Object.entries(mergedAttributes)
-		.filter(([name]) => name !== "style")
-		.sort(([left], [right]) => left.localeCompare(right))
-		.map(([name, value]) => {
-			const jsxName = toJsxAttributeName(name);
-			const binding = attributeBindings.get(name);
-			if (binding) {
-				return `${jsxName}={${binding}}`;
-			}
-			if (value === "") {
-				return jsxName;
-			}
-			if (name === "class" && generatedClassNames.some(isCssModuleReference)) {
-				return `${jsxName}={${emitClassNameExpression(classNames)}}`;
-			}
-			return `${jsxName}="${escapeAttribute(value)}"`;
-		})
-		.concat(emitStyleAttribute(styles))
-		.filter(Boolean)
-		.join(" ");
-}
-
-function emitClassNameExpression(classNames: string[]): string {
-	return `[${classNames
-		.map((className) =>
-			isCssModuleReference(className)
-				? `styles.${className.slice("module:".length)}`
-				: JSON.stringify(className),
-		)
-		.join(", ")}].filter(Boolean).join(" ")`;
-}
-
-function isCssModuleReference(className: string): boolean {
-	return className.startsWith("module:");
-}
-
-function emitStyleAttribute(styles: Record<string, string>): string[] {
-	const entries = Object.entries(styles).sort(([left], [right]) =>
-		left.localeCompare(right),
-	);
-	if (entries.length === 0) {
-		return [];
-	}
-	const styleObject = entries
-		.map(
-			([property, value]) =>
-				`${toCamelCase(property)}: ${JSON.stringify(value)}`,
-		)
-		.join(", ");
-	return [`style={{ ${styleObject} }}`];
-}
-
-function toJsxAttributeName(name: string): string {
-	if (name === "class") {
-		return "className";
-	}
-	if (name === "for") {
-		return "htmlFor";
-	}
-	return name;
-}
-
-function toCamelCase(value: string): string {
-	return value.replace(/-([a-z])/g, (_, letter: string) =>
-		letter.toUpperCase(),
-	);
-}
-
-function escapeJsxText(value: string): string {
-	return value
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/{/g, "&#123;")
-		.replace(/}/g, "&#125;");
-}
-
-function escapeHtml(value: string): string {
-	return value
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;");
-}
-
-function escapeAttribute(value: string): string {
-	return escapeHtml(value).replace(/"/g, "&quot;");
 }

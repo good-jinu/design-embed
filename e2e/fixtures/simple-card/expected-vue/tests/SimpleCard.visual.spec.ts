@@ -1,14 +1,13 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/experimental-ct-react";
+import { expect, test } from "@playwright/experimental-ct-vue";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
-import { Button } from "../Button.view";
+import SimpleCard from "../SimpleCard.vue";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
-const referenceHtml = readFileSync(resolve(currentDir, "./Button.reference.html"), "utf-8");
-const selector = "button[data-role='primary']";
+const referenceHtml = readFileSync(resolve(currentDir, "./SimpleCard.reference.html"), "utf-8");
 const viewports = [
   {
     "name": "default",
@@ -34,18 +33,18 @@ const screenshotMaxDiffPixels = 500;
 for (const viewport of viewports) {
 	for (const state of states) {
 		const viewportName = viewport.name ?? String(viewport.width) + "x" + String(viewport.height);
-		test("Button matches source at " + viewportName + " / " + state.name, async ({ mount, page }) => {
+		test("SimpleCard matches source at " + viewportName + " / " + state.name, async ({ mount, page }) => {
 			await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
 			await page.setContent(referenceHtml);
 			await applyState(page, state);
-			const expectedEl = page.locator(selector).first();
-			const expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
-			const expectedLayout = layoutEnabled ? await readLayout(expectedEl, selectors) : [];
+			const expectedScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
+			const expectedLayout = layoutEnabled ? await readLayout(page.locator("body > *").first(), selectors) : [];
 
-			const component = await mount(<Button variant="primary">Continue</Button>);
+			await page.setContent("");
+			const component = await mount(SimpleCard);
 			await applyState(page, state);
-			const actualScreenshot = screenshotEnabled ? await component.screenshot() : undefined;
+			const actualScreenshot = screenshotEnabled ? await page.screenshot({ fullPage: true }) : undefined;
 			const actualLayout = layoutEnabled ? await readLayout(component, selectors) : [];
 
 			if (screenshotEnabled) {
@@ -117,7 +116,7 @@ function expectLayoutToMatch(actual, expected, tolerance) {
 		expect(actualRect.tagName).toBe(expectedRect.tagName);
 		for (const key of ["x", "y", "width", "height"]) {
 			const drift = Math.abs(actualRect[key] - expectedRect[key]);
-			expect(drift, `${expectedRect.selector}[${expectedRect.index}] ${key} drift`).toBeLessThanOrEqual(tolerance);
+			expect(drift, expectedRect.selector + "[" + expectedRect.index + "] " + key + " drift").toBeLessThanOrEqual(tolerance);
 		}
 	}
 }
