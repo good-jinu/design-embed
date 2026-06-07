@@ -12,7 +12,7 @@
 		"test:packages": "pnpm --filter './packages/**' test",
 		"test:e2e": "pnpm --filter '@design-embed/e2e' test",
 		"test:examples": "pnpm --filter './examples/**' test",
-		"test:install-browsers": "pnpm --filter '@design-embed/example-react' exec playwright install chromium && pnpm --filter '@design-embed/example-html' exec playwright install chromium",
+		"test:install-browsers": "pnpm --filter '@design-embed/example-react' exec playwright install chromium && pnpm --filter '@design-embed/example-html' exec playwright install chromium && pnpm --filter '@design-embed/example-vue' exec playwright install chromium && pnpm --filter '@design-embed/example-vanjs' exec playwright install chromium",
 		"build:packages": "tsdown",
 		"design-embed": "node packages/design-embed/src/cli.ts",
 		"check": "biome check",
