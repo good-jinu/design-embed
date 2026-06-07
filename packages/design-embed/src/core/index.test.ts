@@ -35,6 +35,13 @@ const htmlEmitter: TargetEmitter = {
 };
 
 describe("core", () => {
+	test("skips <!DOCTYPE> and <!...> declarations without emitting text nodes", () => {
+		const ast = parseHtml(`<!DOCTYPE html><div>Hello</div>`);
+		assert.equal(ast.length, 1);
+		assert.equal(ast[0]?.kind, "element");
+		assert.equal((ast[0] as { tagName: string }).tagName, "div");
+	});
+
 	test("parses HTML into a stable AST shape", () => {
 		const ast = parseHtml(
 			`<div class="x" style="padding: 4px;"><span>Hello</span></div>`,

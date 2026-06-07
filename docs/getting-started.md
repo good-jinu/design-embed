@@ -95,7 +95,7 @@ If you are using Figma, install the Figma source plugin and add it to
 `design-embed.config.ts`:
 
 ```bash npm2yarn
-npm install --save-dev @design-embed/plugin-figma-html
+npm install --save-dev @design-embed/plugin-figma-html @design-embed/target-react
 ```
 
 ```typescript

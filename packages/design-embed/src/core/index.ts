@@ -367,14 +367,16 @@ export function parseHtml(html: string): DesignNode[] {
 		children: [],
 	};
 	const stack = [root];
-	const tokens = html.matchAll(/<!--[\s\S]*?-->|<\/?[a-zA-Z][^>]*>|[^<]+/g);
+	const tokens = html.matchAll(
+		/<!--[\s\S]*?-->|<![A-Za-z][^>]*>|<\/?[a-zA-Z][^>]*>|[^<]+/g,
+	);
 
 	for (const token of tokens) {
 		const value = token[0];
 		const offset = token.index;
 		const source = getSourceLocation(html, offset);
 
-		if (value.startsWith("<!--")) {
+		if (value.startsWith("<!--") || value.startsWith("<!")) {
 			continue;
 		}
 
