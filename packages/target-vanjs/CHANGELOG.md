@@ -1,5 +1,13 @@
 # @design-embed/target-vanjs
 
+## 1.0.1
+
+### Patch Changes
+
+- cb6ea08: Fix package exports pointing to `dist/index.js` instead of the actual `dist/index.mjs` output from tsdown.
+- Updated dependencies [cb6ea08]
+  - design-embed@0.2.1
+
 ## 1.0.0
 
 ### Patch Changes
