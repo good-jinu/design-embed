@@ -1,5 +1,11 @@
 # design-embed
 
+## 0.2.1
+
+### Patch Changes
+
+- cb6ea08: Fix HTML parser dropping `<!DOCTYPE ...>` and other `<!...>` declarations instead of skipping them cleanly.
+
 ## 0.2.0
 
 ### Minor Changes
