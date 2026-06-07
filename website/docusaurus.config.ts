@@ -73,6 +73,8 @@ const config: Config = {
           '../packages/design-embed',
           '../packages/plugin-figma-html',
           '../packages/target-react',
+          '../packages/target-vue',
+          '../packages/target-vanjs',
         ],
         sortEntryPoints: false,
         entryPointStrategy: 'packages',
