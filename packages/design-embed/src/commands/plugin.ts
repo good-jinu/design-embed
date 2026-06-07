@@ -38,7 +38,7 @@ export async function runPluginCommand(
 		return 2;
 	}
 
-	const result = await plugin.run({ cwd, args: {} });
+	const result = await plugin.run({ cwd });
 
 	for (const diagnostic of result.diagnostics) {
 		const output = `${diagnostic.severity}: ${diagnostic.code}: ${diagnostic.message}`;

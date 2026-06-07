@@ -47,7 +47,6 @@ export type {
 	TargetEmitResult,
 	TargetTestGenerateResult,
 } from "./plugins/pluginApi.ts";
-export { PluginRegistry } from "./plugins/pluginRegistry.ts";
 export type {
 	ComponentMapping,
 	DesignEmbedConfig,
@@ -120,7 +119,7 @@ export async function embed(
 		};
 	}
 
-	const sourceResult = await input.config.source.run({ cwd, args: {} });
+	const sourceResult = await input.config.source.run({ cwd });
 	const diagnostics = [...sourceResult.diagnostics];
 
 	if (diagnostics.some((d) => d.severity === "error")) {
