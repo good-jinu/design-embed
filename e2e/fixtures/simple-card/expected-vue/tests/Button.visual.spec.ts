@@ -7,7 +7,7 @@ import { PNG } from "pngjs";
 import Button from "../Button.vue";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
-const referenceHtml = readFileSync(resolve(currentDir, "./SimpleCard.reference.html"), "utf-8");
+const referenceHtml = readFileSync(resolve(currentDir, "./Button.reference.html"), "utf-8");
 const selector = "button[data-role='primary']";
 const viewports = [
   {
@@ -38,8 +38,6 @@ for (const viewport of viewports) {
 			await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
 			await page.setContent(referenceHtml);
-			const isolatedHtml = await page.locator(selector).first().evaluate((node) => node.outerHTML);
-			await page.setContent(isolatedHtml);
 			await applyState(page, state);
 			const expectedEl = page.locator(selector).first();
 			const expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;

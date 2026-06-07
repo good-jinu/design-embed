@@ -24,7 +24,12 @@ function readExpectedDir(dir: string, prefix = ""): Map<string, string> {
 	return files;
 }
 
-const FIXTURES = [
+const FIXTURES: Array<{
+	name: string;
+	config: (typeof simpleCardConfig);
+	generateTests: boolean;
+	expectedDiagnosticCodes?: string[];
+}> = [
 	{ name: "simple-card", config: simpleCardConfig, generateTests: true },
 ];
 

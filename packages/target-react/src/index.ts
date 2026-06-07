@@ -110,14 +110,29 @@ export const reactTestGenerator: TargetTestGenerator = {
 			},
 		];
 
+		const parsedHtmlNodes = parseHtml(html);
 		const componentNodes = collectComponentNodes(
-			applyComponentMappings(parseHtml(html), config.components ?? []),
+			applyComponentMappings(parsedHtmlNodes, config.components ?? []),
 		);
 
 		for (const mapping of config.components ?? []) {
 			const componentName = mapping.component;
 			const componentSpecPath = `${outputDir}/${componentName}.visual.spec.tsx`;
+			const componentReferenceHtmlFileName = `${componentName}.reference.html`;
+			const componentFixturePath = `${outputDir}/${componentReferenceHtmlFileName}`;
+			const matchingNode = findNodeBySelector(
+				parsedHtmlNodes,
+				mapping.selector,
+			);
+			const elementHtml = matchingNode ? serializeNodeToHtml(matchingNode) : "";
+			const componentReferenceHtml = `${css?.trim() ? `<style>\n${css}\n</style>\n` : ""}${elementHtml}`;
 			const mountNode = componentNodes.get(componentName);
+			files.push({
+				path: componentFixturePath,
+				contents: componentReferenceHtml.endsWith("\n")
+					? componentReferenceHtml
+					: `${componentReferenceHtml}\n`,
+			});
 			files.push({
 				path: componentSpecPath,
 				contents: emitComponentVisualSpec({
@@ -128,7 +143,7 @@ export const reactTestGenerator: TargetTestGenerator = {
 						componentSpecPath,
 						`${viewsDir}/${componentName}.view`,
 					),
-					referenceHtmlFileName,
+					referenceHtmlFileName: componentReferenceHtmlFileName,
 					viewports: viewportDefaults,
 					states: stateDefaults,
 					assertions: assertionDefaults,
@@ -354,8 +369,6 @@ for (const viewport of viewports) {
 \t\t\tawait page.setViewportSize({ width: viewport.width, height: viewport.height });
 
 \t\t\tawait page.setContent(referenceHtml);
-\t\t\tconst isolatedHtml = await page.locator(selector).first().evaluate((node) => node.outerHTML);
-\t\t\tawait page.setContent(isolatedHtml);
 \t\t\tawait applyState(page, state);
 \t\t\tconst expectedEl = page.locator(selector).first();
 \t\t\tconst expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
@@ -683,6 +696,56 @@ function emitInlineJsx(node: DesignNode): string {
 	const children = (node.children ?? [])
 		.map((child) => emitInlineJsx(child))
 		.join("");
+	return `${openTag}${children}</${tagName}>`;
+}
+
+function findNodeBySelector(
+	nodes: DesignNode[],
+	selector: string,
+): DesignNode | undefined {
+	const parsedSelector = parseSelector(selector);
+	if (!parsedSelector) return undefined;
+	const ps = parsedSelector;
+	function search(list: DesignNode[]): DesignNode | undefined {
+		for (const node of list) {
+			if (matchesSelector(node, ps)) return node;
+			const found = search(node.children ?? []);
+			if (found) return found;
+		}
+		return undefined;
+	}
+	return search(nodes);
+}
+
+const VOID_ELEMENTS = new Set([
+	"area",
+	"base",
+	"br",
+	"col",
+	"embed",
+	"hr",
+	"img",
+	"input",
+	"link",
+	"meta",
+	"param",
+	"source",
+	"track",
+	"wbr",
+]);
+
+function serializeNodeToHtml(node: DesignNode): string {
+	if (node.kind === "text") return node.text ?? "";
+	if (node.kind !== "element") return "";
+	const tagName = node.tagName ?? "div";
+	const attrs = Object.entries(node.attributes ?? {})
+		.map(([name, value]) =>
+			value === "" ? name : `${name}="${value.replace(/"/g, "&quot;")}"`,
+		)
+		.join(" ");
+	const openTag = attrs ? `<${tagName} ${attrs}>` : `<${tagName}>`;
+	if (VOID_ELEMENTS.has(tagName)) return openTag;
+	const children = (node.children ?? []).map(serializeNodeToHtml).join("");
 	return `${openTag}${children}</${tagName}>`;
 }
 

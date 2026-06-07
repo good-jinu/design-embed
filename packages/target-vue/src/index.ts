@@ -35,7 +35,7 @@ export class VueTarget implements TargetEmitter, TargetTestGenerator {
 		});
 
 		const files: Array<{ path: string; contents: string }> = [
-			{ path: viewsDir + "/" + viewName + ".vue", contents },
+			{ path: `${viewsDir}/${viewName}.vue`, contents },
 		];
 
 		for (const split of emitComponentSplitViews(
@@ -65,7 +65,7 @@ export const vueTestGenerator: TargetTestGenerator = {
 		if (tests?.runner && tests.runner !== "playwright") {
 			diagnostics.push({
 				code: "TEST_RUNNER_UNSUPPORTED",
-				message: "Unsupported test runner: " + tests.runner,
+				message: `Unsupported test runner: ${tests.runner}`,
 				severity: "error",
 			});
 			return { files: [], diagnostics };
@@ -73,10 +73,11 @@ export const vueTestGenerator: TargetTestGenerator = {
 
 		const viewsDir = String(config.output?.viewsDir ?? "src/generated/views");
 		const viewName = config.output?.viewName ?? "DesignView";
-		const outputDir = tests?.outputDir ?? viewsDir + "/tests";
-		const fixturePath = outputDir + "/" + viewName + ".reference.html";
-		const specPath = outputDir + "/" + viewName + ".visual.spec.ts";
-		const referenceHtml = (css?.trim() ? "<style>\n" + css + "\n</style>\n" : "") + html;
+		const outputDir = tests?.outputDir ?? `${viewsDir}/tests`;
+		const fixturePath = `${outputDir}/${viewName}.reference.html`;
+		const specPath = `${outputDir}/${viewName}.visual.spec.ts`;
+		const referenceHtml =
+			(css?.trim() ? `<style>\n${css}\n</style>\n` : "") + html;
 
 		const assertionDefaults = {
 			screenshot: tests?.assertions?.screenshot ?? true,
@@ -91,14 +92,14 @@ export const vueTestGenerator: TargetTestGenerator = {
 			{ name: "default", width: 1440, height: 900 },
 		];
 		const stateDefaults = tests?.states ?? [{ name: "default" }];
-		const referenceHtmlFileName = viewName + ".reference.html";
+		const referenceHtmlFileName = `${viewName}.reference.html`;
 
 		const files: Array<{ path: string; contents: string }> = [
 			{
 				path: fixturePath,
 				contents: referenceHtml.endsWith("\n")
 					? referenceHtml
-					: referenceHtml + "\n",
+					: `${referenceHtml}\n`,
 			},
 			{
 				path: specPath,
@@ -106,7 +107,7 @@ export const vueTestGenerator: TargetTestGenerator = {
 					viewName,
 					viewImportPath: toRelativeImport(
 						specPath,
-						viewsDir + "/" + viewName + ".vue",
+						`${viewsDir}/${viewName}.vue`,
 					),
 					fixtureFileName: referenceHtmlFileName,
 					viewports: viewportDefaults,
@@ -116,14 +117,30 @@ export const vueTestGenerator: TargetTestGenerator = {
 			},
 		];
 
+		const parsedHtmlNodes = parseHtml(html);
 		const componentNodes = collectComponentNodes(
-			applyComponentMappings(parseHtml(html), config.components ?? []),
+			applyComponentMappings(parsedHtmlNodes, config.components ?? []),
 		);
 
 		for (const mapping of config.components ?? []) {
 			const componentName = mapping.component;
-			const componentSpecPath = outputDir + "/" + componentName + ".visual.spec.ts";
+			const componentSpecPath = `${outputDir}/${componentName}.visual.spec.ts`;
+			const componentReferenceHtmlFileName = `${componentName}.reference.html`;
+			const componentFixturePath = `${outputDir}/${componentReferenceHtmlFileName}`;
+			const matchingNode = findNodeBySelector(
+				parsedHtmlNodes,
+				mapping.selector,
+			);
+			const elementHtml = matchingNode ? serializeNodeToHtml(matchingNode) : "";
+			const componentReferenceHtml =
+				(css?.trim() ? `<style>\n${css}\n</style>\n` : "") + elementHtml;
 			const mountNode = componentNodes.get(componentName);
+			files.push({
+				path: componentFixturePath,
+				contents: componentReferenceHtml.endsWith("\n")
+					? componentReferenceHtml
+					: `${componentReferenceHtml}\n`,
+			});
 			files.push({
 				path: componentSpecPath,
 				contents: emitComponentVisualSpec({
@@ -132,9 +149,9 @@ export const vueTestGenerator: TargetTestGenerator = {
 					mountInfo: emitComponentMountInfo(componentName, mountNode),
 					componentImportPath: toRelativeImport(
 						componentSpecPath,
-						viewsDir + "/" + componentName + ".vue",
+						`${viewsDir}/${componentName}.vue`,
 					),
-					referenceHtmlFileName,
+					referenceHtmlFileName: componentReferenceHtmlFileName,
 					viewports: viewportDefaults,
 					states: stateDefaults,
 					assertions: assertionDefaults,
@@ -362,8 +379,6 @@ for (const viewport of viewports) {
 			await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
 			await page.setContent(referenceHtml);
-			const isolatedHtml = await page.locator(selector).first().evaluate((node) => node.outerHTML);
-			await page.setContent(isolatedHtml);
 			await applyState(page, state);
 			const expectedEl = page.locator(selector).first();
 			const expectedScreenshot = screenshotEnabled ? await expectedEl.screenshot() : undefined;
@@ -474,7 +489,7 @@ function emitComponentSplitViews(
 				seen.add(importName);
 				const funcName = toPascalCase(importName);
 				files.push({
-					path: viewsDir + "/" + importName + ".vue",
+					path: `${viewsDir}/${importName}.vue`,
 					contents: emitVueView([node], funcName, { api }),
 				});
 			}
@@ -497,7 +512,7 @@ function emitComponentSplitViews(
 
 export function emitVueView(
 	nodes: DesignNode[],
-	viewName: string,
+	_viewName: string,
 	options: {
 		cssModule?: string;
 		api?: "composition" | "options";
@@ -523,60 +538,103 @@ export function emitVueView(
 		for (const [propName, prop] of propEntries) {
 			if (prop.kind === "text" || prop.kind === "children") {
 				childrenPropName = propName;
-				propsDefinitions.push(propName + ": {}");
+				propsDefinitions.push(`${propName}: {}`);
 				continue;
 			}
-			propsDefinitions.push(propName + ": String");
+			propsDefinitions.push(`${propName}: String`);
 			if (prop.kind === "literal" && prop.attribute) {
 				attributeBindings.set(prop.attribute, propName);
 			}
 		}
 
-		const imports = collectImports(childrenPropName ? [] : (componentNode.children ?? []));
+		const imports = collectImports(
+			childrenPropName ? [] : (componentNode.children ?? []),
+		);
 		const importLines = imports
 			.map(
 				({ importName, importPath }) =>
-					'import ' + importName + ' from "' + importPath.replace(/\.(view|tsx)$/, ".vue") + '";',
+					"import " +
+					importName +
+					' from "' +
+					importPath.replace(/\.(view|tsx)$/, ".vue") +
+					'";',
 			)
 			.join("\n");
 
 		if (api === "composition") {
-			script = '<script setup lang="ts">\n' + importLines + (importLines ? "\n" : "") + 'defineProps<{\n' + Object.keys(props)
-				.map((p) => "\t" + p + "?: any;")
-				.join("\n") + "\n}>();\n</script>\n";
+			script =
+				'<script setup lang="ts">\n' +
+				importLines +
+				(importLines ? "\n" : "") +
+				"defineProps<{\n" +
+				Object.keys(props)
+					.map((p) => `\t${p}?: any;`)
+					.join("\n") +
+				"\n}>();\n</script>\n";
 		} else {
-			script = '<script lang="ts">\nimport { defineComponent } from "vue";\n' + importLines + (importLines ? "\n" : "") + 'export default defineComponent({\n\tcomponents: { ' + imports.map((i) => i.importName).join(", ") + ' },\n\tprops: {\n\t\t' + propsDefinitions.join(",\n\t\t") + "\n\t}\n});\n</script>\n";
+			script =
+				'<script lang="ts">\nimport { defineComponent } from "vue";\n' +
+				importLines +
+				(importLines ? "\n" : "") +
+				"export default defineComponent({\n\tcomponents: { " +
+				imports.map((i) => i.importName).join(", ") +
+				" },\n\tprops: {\n\t\t" +
+				propsDefinitions.join(",\n\t\t") +
+				"\n\t}\n});\n</script>\n";
 		}
 
-		template = "<template>\n" + emitVueComponentBody(componentNode, source, attributeBindings, childrenPropName, 1) + "</template>\n";
+		template =
+			"<template>\n" +
+			emitVueComponentBody(
+				componentNode,
+				source,
+				attributeBindings,
+				childrenPropName,
+				1,
+			) +
+			"</template>\n";
 	} else {
 		const imports = collectImports(nodes);
 		const importLines = imports
 			.map(
 				({ importName, importPath }) =>
-					'import ' + importName + ' from "' + importPath.replace(/\.(view|tsx)$/, ".vue") + '";',
+					"import " +
+					importName +
+					' from "' +
+					importPath.replace(/\.(view|tsx)$/, ".vue") +
+					'";',
 			)
 			.join("\n");
 
 		if (api === "composition") {
-			script = importLines ? '<script setup lang="ts">\n' + importLines + "\n</script>\n" : "";
+			script = importLines
+				? `<script setup lang="ts">\n${importLines}\n</script>\n`
+				: "";
 		} else {
-			script = '<script lang="ts">\nimport { defineComponent } from "vue";\n' + importLines + (importLines ? "\n" : "") + 'export default defineComponent({\n\tcomponents: { ' + imports.map((i) => i.importName).join(", ") + " }\n});\n</script>\n";
+			script =
+				'<script lang="ts">\nimport { defineComponent } from "vue";\n' +
+				importLines +
+				(importLines ? "\n" : "") +
+				"export default defineComponent({\n\tcomponents: { " +
+				imports.map((i) => i.importName).join(", ") +
+				" }\n});\n</script>\n";
 		}
 
 		const body =
 			nodes.length === 1 && nodes[0]?.kind !== "text"
 				? emitVueNode(nodes[0], 1)
-				: '\t<template v-if="true">\n' + nodes.map((node) => emitVueNode(node, 2)).join("") + "\t</template>\n";
+				: '\t<template v-if="true">\n' +
+					nodes.map((node) => emitVueNode(node, 2)).join("") +
+					"\t</template>\n";
 
-		template = "<template>\n" + body + "</template>\n";
+		template = `<template>\n${body}</template>\n`;
 	}
 
 	const style = options.cssModule
-		? "\n<style module>\n" + options.cssModule + "</style>\n"
+		? `\n<style module>\n${options.cssModule}</style>\n`
 		: "";
 
-	return script + "\n" + template + style;
+	return `${script}\n${template}${style}`;
 }
 
 function emitVueComponentBody(
@@ -590,9 +648,13 @@ function emitVueComponentBody(
 
 	if (!source) {
 		const children = node.children ?? [];
-		return indent + '<template v-if="true">\n' + children
-			.map((child) => emitVueNode(child, depth + 1))
-			.join("") + indent + "</template>\n";
+		return (
+			indent +
+			'<template v-if="true">\n' +
+			children.map((child) => emitVueNode(child, depth + 1)).join("") +
+			indent +
+			"</template>\n"
+		);
 	}
 
 	const tagName = source.tagName ?? "div";
@@ -602,21 +664,34 @@ function emitVueComponentBody(
 		source.generatedClassNames ?? [],
 		attributeBindings,
 	);
-	const openTag = attributes ? "<" + tagName + " " + attributes + ">" : "<" + tagName + ">";
+	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
 
 	if (childrenPropName) {
-		const inner = "\t".repeat(depth + 1) + '<slot name="' + childrenPropName + '">{{ ' + childrenPropName + " }}</slot>\n";
-		return indent + openTag + "\n" + inner + indent + "</" + tagName + ">\n";
+		const inner =
+			"\t".repeat(depth + 1) +
+			'<slot name="' +
+			childrenPropName +
+			'">{{ ' +
+			childrenPropName +
+			" }}</slot>\n";
+		return `${indent + openTag}\n${inner}${indent}</${tagName}>\n`;
 	}
 
 	const children = node.children ?? [];
 	if (children.length === 0) {
-		return indent + openTag + "</" + tagName + ">\n";
+		return `${indent + openTag}</${tagName}>\n`;
 	}
 
-	return indent + openTag + "\n" + children
-		.map((child) => emitVueNode(child, depth + 1))
-		.join("") + indent + "</" + tagName + ">\n";
+	return (
+		indent +
+		openTag +
+		"\n" +
+		children.map((child) => emitVueNode(child, depth + 1)).join("") +
+		indent +
+		"</" +
+		tagName +
+		">\n"
+	);
 }
 
 function emitVueNode(node: DesignNode | undefined, depth: number): string {
@@ -625,7 +700,7 @@ function emitVueNode(node: DesignNode | undefined, depth: number): string {
 	}
 	const indent = "\t".repeat(depth);
 	if (node.kind === "text") {
-		return indent + escapeHtml(node.text ?? "") + "\n";
+		return `${indent + escapeHtml(node.text ?? "")}\n`;
 	}
 	if (node.kind === "component") {
 		return emitVueComponentJsx(node, depth);
@@ -638,14 +713,21 @@ function emitVueNode(node: DesignNode | undefined, depth: number): string {
 		node.generatedClassNames ?? [],
 	);
 	const children = node.children ?? [];
-	const openTag = attributes ? "<" + tagName + " " + attributes + ">" : "<" + tagName + ">";
+	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
 	if (children.length === 0) {
-		return indent + openTag + "</" + tagName + ">\n";
+		return `${indent + openTag}</${tagName}>\n`;
 	}
 
-	return indent + openTag + "\n" + children
-		.map((child) => emitVueNode(child, depth + 1))
-		.join("") + indent + "</" + tagName + ">\n";
+	return (
+		indent +
+		openTag +
+		"\n" +
+		children.map((child) => emitVueNode(child, depth + 1)).join("") +
+		indent +
+		"</" +
+		tagName +
+		">\n"
+	);
 }
 
 function emitVueComponentJsx(node: DesignNode, depth: number): string {
@@ -658,24 +740,56 @@ function emitVueComponentJsx(node: DesignNode, depth: number): string {
 		.map(([name, prop]) => emitVueProp(name, prop))
 		.join(" ");
 	const openTag = attributes
-		? "<" + component + " " + attributes + ">"
-		: "<" + component + ">";
+		? `<${component} ${attributes}>`
+		: `<${component}>`;
 
 	if (childrenProp?.kind === "text") {
-		return indent + openTag + "\n" + "\t".repeat(depth + 1) + '<template #' + (childrenProp.kind === "children" ? "children" : "default") + ">" + escapeHtml(childrenProp.value) + "</template>\n" + indent + "</" + component + ">\n";
+		return (
+			indent +
+			openTag +
+			"\n" +
+			"\t".repeat(depth + 1) +
+			"<template #children>" +
+			escapeHtml(childrenProp.value) +
+			"</template>\n" +
+			indent +
+			"</" +
+			component +
+			">\n"
+		);
 	}
 	if (childrenProp?.kind === "children") {
-		return indent + openTag + "\n" + "\t".repeat(depth + 1) + "<template #children>\n" + childrenProp.value
-			.map((child) => emitVueNode(child, depth + 2))
-			.join("") + "\t".repeat(depth + 1) + "</template>\n" + indent + "</" + component + ">\n";
+		return (
+			indent +
+			openTag +
+			"\n" +
+			"\t".repeat(depth + 1) +
+			"<template #children>\n" +
+			childrenProp.value
+				.map((child) => emitVueNode(child, depth + 2))
+				.join("") +
+			"\t".repeat(depth + 1) +
+			"</template>\n" +
+			indent +
+			"</" +
+			component +
+			">\n"
+		);
 	}
 	const children = node.children ?? [];
 	if (children.length === 0) {
-		return indent + openTag + "</" + component + ">\n";
+		return `${indent + openTag}</${component}>\n`;
 	}
-	return indent + openTag + "\n" + children
-		.map((child) => emitVueNode(child, depth + 1))
-		.join("") + indent + "</" + component + ">\n";
+	return (
+		indent +
+		openTag +
+		"\n" +
+		children.map((child) => emitVueNode(child, depth + 1)).join("") +
+		indent +
+		"</" +
+		component +
+		">\n"
+	);
 }
 
 function emitVueProp(name: string, prop: PropValue): string {
@@ -683,9 +797,9 @@ function emitVueProp(name: string, prop: PropValue): string {
 		return "";
 	}
 	if (typeof prop.value === "boolean" || typeof prop.value === "number") {
-		return ":" + name + "=\"" + JSON.stringify(prop.value).replace(/"/g, "'") + "\"";
+		return `:${name}="${JSON.stringify(prop.value).replace(/"/g, "'")}"`;
 	}
-	return name + "=\"" + escapeAttribute(prop.value) + "\"";
+	return `${name}="${escapeAttribute(prop.value)}"`;
 }
 
 function emitVueAttributes(
@@ -709,15 +823,15 @@ function emitVueAttributes(
 		.map(([name, value]) => {
 			const binding = attributeBindings.get(name);
 			if (binding) {
-				return ":" + name + "=\"" + binding + "\"";
+				return `:${name}="${binding}"`;
 			}
 			if (value === "") {
 				return name;
 			}
 			if (name === "class" && generatedClassNames.some(isCssModuleReference)) {
-				return ":class=\"" + emitVueClassNameExpression(classNames) + "\"";
+				return `:class="${emitVueClassNameExpression(classNames)}"`;
 			}
-			return name + "=\"" + escapeAttribute(value) + "\"";
+			return `${name}="${escapeAttribute(value)}"`;
 		});
 
 	const styleAttr = emitVueStyleAttribute(styles);
@@ -729,16 +843,22 @@ function emitVueAttributes(
 }
 
 function emitVueClassNameExpression(classNames: string[]): string {
-	return "[" + classNames
-		.map((className) =>
-			isCssModuleReference(className)
-				? "$style." + className.slice(7)
-				: JSON.stringify(className),
-		)
-		.join(", ") + "].filter(Boolean).join(' ')";
+	return (
+		"[" +
+		classNames
+			.map((className) =>
+				isCssModuleReference(className)
+					? `$style.${className.slice(7)}`
+					: JSON.stringify(className),
+			)
+			.join(", ") +
+		"].filter(Boolean).join(' ')"
+	);
 }
 
-function emitVueStyleAttribute(styles: Record<string, string>): string | undefined {
+function emitVueStyleAttribute(
+	styles: Record<string, string>,
+): string | undefined {
 	const entries = Object.entries(styles).sort(([left], [right]) =>
 		left.localeCompare(right),
 	);
@@ -748,10 +868,63 @@ function emitVueStyleAttribute(styles: Record<string, string>): string | undefin
 	const styleObject = entries
 		.map(
 			([property, value]) =>
-				"'" + toCamelCase(property) + "': " + JSON.stringify(value).replace(/"/g, "'"),
+				"'" +
+				toCamelCase(property) +
+				"': " +
+				JSON.stringify(value).replace(/"/g, "'"),
 		)
 		.join(", ");
-	return ":style=\"{ " + styleObject + " }\"";
+	return `:style="{ ${styleObject} }"`;
+}
+
+function findNodeBySelector(
+	nodes: DesignNode[],
+	selector: string,
+): DesignNode | undefined {
+	const parsedSelector = parseSelector(selector);
+	if (!parsedSelector) return undefined;
+	const ps = parsedSelector;
+	function search(list: DesignNode[]): DesignNode | undefined {
+		for (const node of list) {
+			if (matchesSelector(node, ps)) return node;
+			const found = search(node.children ?? []);
+			if (found) return found;
+		}
+		return undefined;
+	}
+	return search(nodes);
+}
+
+const VOID_ELEMENTS = new Set([
+	"area",
+	"base",
+	"br",
+	"col",
+	"embed",
+	"hr",
+	"img",
+	"input",
+	"link",
+	"meta",
+	"param",
+	"source",
+	"track",
+	"wbr",
+]);
+
+function serializeNodeToHtml(node: DesignNode): string {
+	if (node.kind === "text") return node.text ?? "";
+	if (node.kind !== "element") return "";
+	const tagName = node.tagName ?? "div";
+	const attrs = Object.entries(node.attributes ?? {})
+		.map(([name, value]) =>
+			value === "" ? name : `${name}="${value.replace(/"/g, "&quot;")}"`,
+		)
+		.join(" ");
+	const openTag = attrs ? `<${tagName} ${attrs}>` : `<${tagName}>`;
+	if (VOID_ELEMENTS.has(tagName)) return openTag;
+	const children = (node.children ?? []).map(serializeNodeToHtml).join("");
+	return `${openTag}${children}</${tagName}>`;
 }
 
 function toPascalCase(value: string): string {
@@ -780,7 +953,7 @@ function toRelativeImport(fromFile: string, toFile: string): string {
 	}
 	const prefix = fromParts.map(() => "..");
 	const relative = prefix.concat(toParts).join("/");
-	return relative.startsWith(".") ? relative : "./" + relative;
+	return relative.startsWith(".") ? relative : `./${relative}`;
 }
 
 function isCssModuleReference(className: string): boolean {
@@ -839,7 +1012,9 @@ function emitComponentMountInfo(
 			continue;
 		}
 		if (prop.kind === "children") {
-			slots[propName] = prop.value.map((child) => emitInlineVue(child)).join("");
+			slots[propName] = prop.value
+				.map((child) => emitInlineVue(child))
+				.join("");
 			continue;
 		}
 		props[propName] = prop.value;
@@ -854,12 +1029,22 @@ function emitInlineVue(node: DesignNode): string {
 	if (node.kind === "component") {
 		const info = emitComponentMountInfo(node.component ?? "Component", node);
 		const propsStr = Object.entries(info.props)
-			.map(([k, v]) => k + "=\"" + v + "\"")
+			.map(([k, v]) => `${k}="${v}"`)
 			.join(" ");
 		const slotsStr = Object.entries(info.slots)
-			.map(([k, v]) => "<template #" + k + ">" + v + "</template>")
+			.map(([k, v]) => `<template #${k}>${v}</template>`)
 			.join("");
-		return "<" + node.component + " " + propsStr + ">" + slotsStr + "</" + node.component + ">";
+		return (
+			"<" +
+			node.component +
+			" " +
+			propsStr +
+			">" +
+			slotsStr +
+			"</" +
+			node.component +
+			">"
+		);
 	}
 	const tagName = node.tagName ?? "div";
 	const attributes = emitVueAttributes(
@@ -867,11 +1052,11 @@ function emitInlineVue(node: DesignNode): string {
 		node.styles ?? {},
 		node.generatedClassNames ?? [],
 	);
-	const openTag = attributes ? "<" + tagName + " " + attributes + ">" : "<" + tagName + ">";
+	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
 	const children = (node.children ?? [])
 		.map((child) => emitInlineVue(child))
 		.join("");
-	return openTag + children + "</" + tagName + ">";
+	return `${openTag + children}</${tagName}>`;
 }
 
 // Reuse logic from target-react where applicable or implement similar
@@ -929,26 +1114,26 @@ function transformStyles(
 				return { ...node, styles: snapped };
 			}
 			index += 1;
-			const className = "style" + index;
+			const className = `style${index}`;
 			rules.push(emitCssModuleRule(className, snapped));
 			return {
 				...node,
 				styles: {},
 				generatedClassNames: [
 					...(node.generatedClassNames ?? []),
-					"module:" + className,
+					`module:${className}`,
 				],
 			};
 		});
 		return {
 			nodes: moduleNodes,
-			cssModule: rules.length > 0 ? rules.join("\n\n") + "\n" : undefined,
+			cssModule: rules.length > 0 ? `${rules.join("\n\n")}\n` : undefined,
 		};
 	}
 
 	diagnostics.push({
 		code: "STYLE_MODE_UNSUPPORTED",
-		message: "Unsupported style mode: " + styleMode,
+		message: `Unsupported style mode: ${styleMode}`,
 		severity: "error",
 	});
 	return { nodes: resolvedNodes };
@@ -1080,7 +1265,7 @@ function parseCssRules(
 			if (!parseSelector(selector)) {
 				diagnostics.push({
 					code: "CSS_SELECTOR_UNSUPPORTED",
-					message: "Unsupported CSS selector: " + selector,
+					message: `Unsupported CSS selector: ${selector}`,
 					severity: "warning",
 					selector,
 				});
@@ -1156,7 +1341,7 @@ function matchToken(
 	if (!group) {
 		diagnostics.push({
 			code: "STYLE_UNSUPPORTED_PROPERTY",
-			message: "No token group is configured for CSS property \"" + property + "\".",
+			message: `No token group is configured for CSS property "${property}".`,
 			severity: "info",
 			source: node.source,
 			property,
@@ -1271,7 +1456,7 @@ function matchNumericToken(
 	if (candidates.length === 0) {
 		diagnostics.push({
 			code: "TOKEN_NO_MATCH",
-			message: property + ": " + value + " did not match a " + group + " token.",
+			message: `${property}: ${value} did not match a ${group} token.`,
 			severity: "info",
 			source: node.source,
 			property,
@@ -1284,7 +1469,7 @@ function matchNumericToken(
 	) {
 		diagnostics.push({
 			code: "TOKEN_AMBIGUOUS_MATCH",
-			message: property + ": " + value + " matches multiple " + group + " tokens.",
+			message: `${property}: ${value} matches multiple ${group} tokens.`,
 			severity: "error",
 			source: node.source,
 			property,
@@ -1317,7 +1502,7 @@ function matchColorToken(
 	if (!color) {
 		diagnostics.push({
 			code: "COLOR_PARSE_FAILED",
-			message: "Could not parse color value: " + value,
+			message: `Could not parse color value: ${value}`,
 			severity: "warning",
 			source: node.source,
 			property,
@@ -1348,7 +1533,7 @@ function matchColorToken(
 	if (candidates.length === 0) {
 		diagnostics.push({
 			code: "TOKEN_NO_MATCH",
-			message: property + ": " + value + " did not match a color token.",
+			message: `${property}: ${value} did not match a color token.`,
 			severity: "info",
 			source: node.source,
 			property,
@@ -1361,7 +1546,7 @@ function matchColorToken(
 	) {
 		diagnostics.push({
 			code: "TOKEN_AMBIGUOUS_MATCH",
-			message: property + ": " + value + " matches multiple color tokens.",
+			message: `${property}: ${value} matches multiple color tokens.`,
 			severity: "error",
 			source: node.source,
 			property,
@@ -1436,7 +1621,7 @@ function normalizeHex(value: string): string {
 	if (!color) {
 		return value;
 	}
-	return "#" + color.map((channel) => channel.toString(16).padStart(2, "0")).join("");
+	return `#${color.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
 }
 
 function applyTailwindStyles(
@@ -1454,7 +1639,7 @@ function applyTailwindStyles(
 		}
 		const className =
 			config?.styleMappings?.[match.group]?.[
-				property + ":" + match.group + "." + match.name
+				`${property}:${match.group}.${match.name}`
 			];
 		if (className) {
 			generatedClassNames.push(className);
@@ -1462,7 +1647,14 @@ function applyTailwindStyles(
 			remaining[property] = match.value;
 			diagnostics.push({
 				code: "TOKEN_NO_MATCH",
-				message: "No Tailwind mapping for " + property + ":" + match.group + "." + match.name + ".",
+				message:
+					"No Tailwind mapping for " +
+					property +
+					":" +
+					match.group +
+					"." +
+					match.name +
+					".",
 				severity: "info",
 				source: node.source,
 				property,
@@ -1472,15 +1664,20 @@ function applyTailwindStyles(
 	return { ...node, styles: remaining, generatedClassNames };
 }
 
-function emitCssModuleRule(className: string, styles: Record<string, string>): string {
+function emitCssModuleRule(
+	className: string,
+	styles: Record<string, string>,
+): string {
 	const declarations = sortedEntries(styles)
-		.map(([property, value]) => "\t" + property + ": " + value + ";")
+		.map(([property, value]) => `\t${property}: ${value};`)
 		.join("\n");
-	return "." + className + " {\n" + declarations + "\n}";
+	return `.${className} {\n${declarations}\n}`;
 }
 
 function sortedEntries<T>(record: Record<string, T>): Array<[string, T]> {
-	return Object.entries(record).sort(([left], [right]) => left.localeCompare(right));
+	return Object.entries(record).sort(([left], [right]) =>
+		left.localeCompare(right),
+	);
 }
 
 function formatNumber(value: number): string {
@@ -1489,20 +1686,25 @@ function formatNumber(value: number): string {
 		: String(Number(value.toFixed(4)));
 }
 
-function collectImports(nodes: DesignNode[]): Array<{ importName: string; importPath: string }> {
+function collectImports(
+	nodes: DesignNode[],
+): Array<{ importName: string; importPath: string }> {
 	const imports = new Map<string, { importName: string; importPath: string }>();
 	function visit(node: DesignNode) {
 		if (node.kind === "component" && node.importName && node.importPath) {
-			imports.set(node.importPath + ":" + node.importName, {
+			imports.set(`${node.importPath}:${node.importName}`, {
 				importName: node.importName,
 				importPath: node.importPath,
 			});
 		}
 		for (const child of node.children ?? []) visit(child);
 		for (const prop of Object.values(node.props ?? {})) {
-			if (prop.kind === "children") for (const child of prop.value) visit(child);
+			if (prop.kind === "children")
+				for (const child of prop.value) visit(child);
 		}
 	}
 	for (const node of nodes) visit(node);
-	return [...imports.values()].sort((a, b) => a.importPath.localeCompare(b.importPath));
+	return [...imports.values()].sort((a, b) =>
+		a.importPath.localeCompare(b.importPath),
+	);
 }
