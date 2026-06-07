@@ -134,6 +134,34 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  examples/van-workspace:
+    dependencies:
+      vanjs-core:
+        specifier: ^1.6.0
+        version: 1.6.0
+    devDependencies:
+      '@design-embed/target-vanjs':
+        specifier: workspace:*
+        version: link:../../packages/target-vanjs
+      '@playwright/test':
+        specifier: ^1.52.0
+        version: 1.60.0
+      design-embed:
+        specifier: workspace:*
+        version: link:../../packages/design-embed
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+      pixelmatch:
+        specifier: ^7.2.0
+        version: 7.2.0
+      pngjs:
+        specifier: ^7.0.0
+        version: 7.0.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   examples/vue-workspace:
     dependencies:
       vue:
@@ -174,6 +202,12 @@ importers:
         version: link:../design-embed
 
   packages/target-react:
+    devDependencies:
+      design-embed:
+        specifier: workspace:*
+        version: link:../design-embed
+
+  packages/target-vanjs:
     devDependencies:
       design-embed:
         specifier: workspace:*
@@ -6713,6 +6747,9 @@ packages:
 
   value-equal@1.0.1:
     resolution: {integrity: sha512-NOJ6JZCAWr0zlxZt+xqCHNTEKOsrks2HQd4MqhP1qy4z1SkbEP467eNx6TgDKXMvUOb+OENfJCZwM+16n7fRfw==}
+
+  vanjs-core@1.6.0:
+    resolution: {integrity: sha512-4KM9mKEji7woioytMNKQ2XrqD31ykG9vde3N1F/gyJJ0oaOSohdeaN2o4UC4Ndu3Raj1SEXWvW7k4etZI8Ovjw==}
 
   vary@1.1.2:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
@@ -15127,6 +15164,8 @@ snapshots:
   validator@13.15.35: {}
 
   value-equal@1.0.1: {}
+
+  vanjs-core@1.6.0: {}
 
   vary@1.1.2: {}
 
