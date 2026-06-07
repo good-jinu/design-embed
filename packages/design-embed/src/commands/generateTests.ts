@@ -1,7 +1,8 @@
 import { resolve } from "node:path";
 import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
-import { type DesignEmbedConfig, loadConfig } from "../config/index.ts";
+import { loadConfig } from "../config/index.ts";
 import { type Diagnostic, embed } from "../core/index.ts";
+import type { DesignEmbedConfig } from "../core/types.ts";
 import { printDiagnostics } from "./compile.ts";
 
 export async function runGenerateTestsCommand(

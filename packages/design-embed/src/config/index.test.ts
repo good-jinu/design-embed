@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { describe, test } from "node:test";
-import { type DesignEmbedConfig, loadConfig, validateConfig } from "./index.ts";
+import type { DesignEmbedConfig } from "../core/types.ts";
+import { loadConfig, validateConfig } from "./index.ts";
 
 const root = join(import.meta.dirname, "../../../..");
 

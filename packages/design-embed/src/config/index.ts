@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import type { Diagnostic } from "../core/diagnostics/diagnostic.ts";
 import type {
 	SourcePlugin,
 	SourcePluginInput,
@@ -8,38 +9,12 @@ import type {
 } from "../core/plugins/pluginApi.ts";
 import type { DesignEmbedConfig, TestGenerationConfig } from "../core/types.ts";
 
-export type {
-	SourcePlugin,
-	SourcePluginInput,
-	SourcePluginResult,
-} from "../core/plugins/pluginApi.ts";
-export type {
-	ComponentMapping,
-	DesignEmbedConfig,
-	NumericTokenGroup,
-	StyleMappings,
-	StyleMode,
-	TargetEmitInput,
-	TargetEmitter,
-	TargetTestGenerateInput,
-	TargetTestGenerator,
-	TestAssertions,
-	TestGenerationConfig,
-	TestState,
-	TestViewport,
-	TokenConfig,
-} from "../core/types.ts";
-
-export interface ConfigDiagnostic {
-	code: string;
-	message: string;
-	severity: "error" | "warning" | "info";
-}
+export type { Diagnostic } from "../core/diagnostics/diagnostic.ts";
 
 export interface LoadConfigResult {
 	config?: DesignEmbedConfig;
 	configPath?: string;
-	diagnostics: ConfigDiagnostic[];
+	diagnostics: Diagnostic[];
 }
 
 export function defineConfig(config: DesignEmbedConfig): DesignEmbedConfig {
@@ -75,7 +50,7 @@ export async function loadConfig(
 	configPath: string,
 	cwd = process.cwd(),
 ): Promise<LoadConfigResult> {
-	const diagnostics: ConfigDiagnostic[] = [];
+	const diagnostics: Diagnostic[] = [];
 	const resolvedPath = isAbsolute(configPath)
 		? configPath
 		: resolve(cwd, configPath);
@@ -136,8 +111,8 @@ export async function loadConfig(
 	}
 }
 
-export function validateConfig(config: DesignEmbedConfig): ConfigDiagnostic[] {
-	const diagnostics: ConfigDiagnostic[] = [];
+export function validateConfig(config: DesignEmbedConfig): Diagnostic[] {
+	const diagnostics: Diagnostic[] = [];
 	const target = config.output?.target;
 	const styleMode = config.output?.styleMode;
 
@@ -271,7 +246,7 @@ export function validateConfig(config: DesignEmbedConfig): ConfigDiagnostic[] {
 
 function validateTestGeneration(
 	tests: TestGenerationConfig | undefined,
-	diagnostics: ConfigDiagnostic[],
+	diagnostics: Diagnostic[],
 ): void {
 	if (!tests) {
 		return;

@@ -23,7 +23,6 @@ export interface SourcePlugin {
 
 export interface SourcePluginInput {
 	cwd: string;
-	args: Record<string, string | boolean>;
 	config?: unknown;
 }
 
