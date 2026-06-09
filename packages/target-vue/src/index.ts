@@ -11,6 +11,7 @@ import {
 	type TargetTestGenerateInput,
 	type TargetTestGenerateResult,
 	type TargetTestGenerator,
+	unwrapDocument,
 } from "design-embed";
 
 export interface VueTargetOptions {
@@ -28,7 +29,13 @@ export class VueTarget implements TargetEmitter, TargetTestGenerator {
 		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "DesignView";
 
-		const styleResult = transformStyles(nodes, css, config, diagnostics);
+		const documentNodes = unwrapDocument(nodes);
+		const styleResult = transformStyles(
+			documentNodes,
+			css,
+			config,
+			diagnostics,
+		);
 		const contents = emitVueView(styleResult.nodes, viewName, {
 			cssModule: styleResult.cssModule,
 			api: this.options.api,

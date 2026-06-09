@@ -11,6 +11,7 @@ import {
 	type TargetTestGenerateInput,
 	type TargetTestGenerateResult,
 	type TargetTestGenerator,
+	unwrapDocument,
 } from "design-embed";
 
 export class VanJsTarget implements TargetEmitter, TargetTestGenerator {
@@ -18,7 +19,13 @@ export class VanJsTarget implements TargetEmitter, TargetTestGenerator {
 		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "DesignView";
 
-		const styleResult = transformStyles(nodes, css, config, diagnostics);
+		const documentNodes = unwrapDocument(nodes);
+		const styleResult = transformStyles(
+			documentNodes,
+			css,
+			config,
+			diagnostics,
+		);
 		const contents = emitVanJsView(styleResult.nodes, viewName, {
 			cssModulePath: styleResult.cssModulePath,
 		});

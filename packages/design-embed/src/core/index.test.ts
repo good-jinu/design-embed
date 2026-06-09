@@ -8,6 +8,7 @@ import {
 	parseSelector,
 	type TargetEmitter,
 	toJsonDiagnostics,
+	unwrapDocument,
 } from "./index.ts";
 
 const htmlEmitter: TargetEmitter = {
@@ -35,6 +36,26 @@ const htmlEmitter: TargetEmitter = {
 };
 
 describe("core", () => {
+	test("unwraps a full document to the body's direct children", () => {
+		const nodes = parseHtml(
+			`<!DOCTYPE html><html lang="en"><head><title>Figma</title></head><body><div data-layer="hero">Hello</div></body></html>`,
+		);
+		const unwrapped = unwrapDocument(nodes);
+		assert.equal(unwrapped.length, 1);
+		assert.equal((unwrapped[0] as { tagName: string }).tagName, "div");
+		assert.equal(
+			(unwrapped[0] as { attributes: Record<string, string> }).attributes[
+				"data-layer"
+			],
+			"hero",
+		);
+	});
+
+	test("returns fragment input unchanged when there is no document wrapper", () => {
+		const nodes = parseHtml(`<section>Hello</section>`);
+		assert.equal(unwrapDocument(nodes), nodes);
+	});
+
 	test("skips <!DOCTYPE> and <!...> declarations without emitting text nodes", () => {
 		const ast = parseHtml(`<!DOCTYPE html><div>Hello</div>`);
 		assert.equal(ast.length, 1);

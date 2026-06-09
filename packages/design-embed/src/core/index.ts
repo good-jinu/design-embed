@@ -413,6 +413,41 @@ export function parseHtml(html: string): DesignNode[] {
 	return root.children ?? [];
 }
 
+/**
+ * Figma exports are full HTML documents, but `<html>`, `<head>`, and `<body>`
+ * are invalid at a component root (React/Vue/VanJS) and render differently when
+ * mounted than as a standalone page. Strip the document wrapper and return the
+ * `<body>`'s direct children so a component target emits a fragment that matches
+ * the reference page's rendered content. Document metadata in `<head>` is
+ * intentionally dropped — visual tests do not need it. Inputs that are already
+ * fragments (no document wrapper) are returned unchanged.
+ *
+ * Component targets should call this; standalone-page targets (e.g. the HTML
+ * target, whose output is loaded as a full page) should not.
+ */
+export function unwrapDocument(nodes: DesignNode[]): DesignNode[] {
+	const body = findBodyNode(nodes);
+	return body ? (body.children ?? []) : nodes;
+}
+
+function findBodyNode(nodes: DesignNode[]): DesignNode | undefined {
+	for (const node of nodes) {
+		if (node.kind !== "element") {
+			continue;
+		}
+		if (node.tagName === "body") {
+			return node;
+		}
+		if (node.tagName === "html") {
+			const body = findBodyNode(node.children ?? []);
+			if (body) {
+				return body;
+			}
+		}
+	}
+	return undefined;
+}
+
 export function parseInlineStyle(
 	style: string | undefined,
 ): Record<string, string> {

@@ -50,27 +50,43 @@ async function runCompiler() {
 If you want to support a framework other than React or HTML, you can implement the `TargetEmitter` interface.
 
 ```typescript
-import { TargetEmitter, TargetEmitInput, TargetEmitResult } from "design-embed";
+import {
+  TargetEmitter,
+  TargetEmitInput,
+  TargetEmitResult,
+  unwrapDocument,
+} from "design-embed";
 
-export class VueTarget implements TargetEmitter {
+export class MyFrameworkTarget implements TargetEmitter {
   emit(input: TargetEmitInput): TargetEmitResult {
-    const { nodes, config } = input;
-    
-    // 1. Transform the AST (nodes) into your target format
-    const vueCode = transformToVue(nodes);
-    
-    // 2. Return the file structure
+    const { config } = input;
+
+    // 1. Strip the document wrapper (see note below)
+    const nodes = unwrapDocument(input.nodes);
+
+    // 2. Transform the AST (nodes) into your target format
+    const code = transformToMyFramework(nodes);
+
+    // 3. Return the file structure
     return {
       files: [
         {
-          path: `${config.output?.viewName ?? 'View'}.vue`,
-          contents: vueCode
+          path: `${config.output?.viewName ?? 'View'}.view`,
+          contents: code
         }
       ]
     };
   }
 }
 ```
+
+### Unwrapping the document
+
+Source HTML (e.g. a Figma export) is often a **full document** — `<html><head>…</head><body>…</body></html>`. Document-level tags are invalid at a component root and render differently when the component is mounted than when the page is loaded standalone, which breaks visual comparison.
+
+`unwrapDocument(nodes)` returns the `<body>`'s direct children (dropping `<head>` metadata) so your component emits a clean fragment. Inputs that are already fragments pass through unchanged, so it is always safe to call.
+
+Call it from **component targets** (React, Vue, VanJS, and your own). Do **not** call it from a target whose output is loaded as a full standalone page (like the built-in HTML target) — there the document tags are valid and re-rooted by the browser.
 
 ## Architecture Summary
 
