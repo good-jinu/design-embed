@@ -42,7 +42,12 @@ export type {
 } from "./core/index.ts";
 // Embed
 // AST utilities and types — for custom target authors
-export { applyComponentMappings, embed, parseHtml } from "./core/index.ts";
+export {
+	applyComponentMappings,
+	embed,
+	parseHtml,
+	unwrapDocument,
+} from "./core/index.ts";
 export type { HtmlTargetOptions } from "./targets/html.ts";
 // Built-in HTML target
 export { HtmlTarget, htmlTarget } from "./targets/html.ts";

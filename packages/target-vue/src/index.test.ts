@@ -27,6 +27,21 @@ describe("Vue target", () => {
 		);
 	});
 
+	test("strips the document wrapper and emits only the body's children", () => {
+		const result = new VueTarget().emit({
+			nodes: documentFixture(),
+			config: { output: { viewName: "WelcomeHero" } },
+			diagnostics: [],
+		});
+
+		const view = result.files.find((file) =>
+			file.path.endsWith("WelcomeHero.vue"),
+		);
+		assert.ok(view, "expected a WelcomeHero.vue file");
+		assert.match(view.contents, /data-layer="hero"/);
+		assert.doesNotMatch(view.contents, /<html|<head|<body/);
+	});
+
 	test("emits a Vue view from design nodes (Options API)", () => {
 		const nodes: DesignNode[] = [
 			{
@@ -142,3 +157,47 @@ import Button from "./Button.vue";
 		);
 	});
 });
+
+/** A full HTML document (as Figma exports), wrapping a single body element. */
+function documentFixture(): DesignNode[] {
+	return [
+		{
+			kind: "element",
+			tagName: "html",
+			attributes: { lang: "en" },
+			styles: {},
+			children: [
+				{
+					kind: "element",
+					tagName: "head",
+					attributes: {},
+					styles: {},
+					children: [
+						{
+							kind: "element",
+							tagName: "title",
+							attributes: {},
+							styles: {},
+							children: [{ kind: "text", text: "Figma" }],
+						},
+					],
+				},
+				{
+					kind: "element",
+					tagName: "body",
+					attributes: {},
+					styles: {},
+					children: [
+						{
+							kind: "element",
+							tagName: "div",
+							attributes: { "data-layer": "hero" },
+							styles: {},
+							children: [{ kind: "text", text: "Hello" }],
+						},
+					],
+				},
+			],
+		},
+	];
+}

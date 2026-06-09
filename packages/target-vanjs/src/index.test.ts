@@ -32,6 +32,21 @@ export function HeroView() {
 		);
 	});
 
+	test("strips the document wrapper and emits only the body's children", () => {
+		const result = new VanJsTarget().emit({
+			nodes: documentFixture(),
+			config: { output: { viewName: "WelcomeHero" } },
+			diagnostics: [],
+		});
+
+		const view = result.files.find((file) =>
+			file.path.endsWith("WelcomeHero.view.ts"),
+		);
+		assert.ok(view, "expected a WelcomeHero.view.ts file");
+		assert.match(view.contents, /"data-layer": "hero"/);
+		assert.doesNotMatch(view.contents, /\bhtml\b|\bhead\b|\bbody\b/);
+	});
+
 	test("emits deterministic VanJS visual regression tests", () => {
 		const result = vanJsTestGenerator.generateTests({
 			html: '<section style="width: 120px">Hello</section>',
@@ -103,3 +118,47 @@ export function HeroView() {
 		]);
 	});
 });
+
+/** A full HTML document (as Figma exports), wrapping a single body element. */
+function documentFixture(): DesignNode[] {
+	return [
+		{
+			kind: "element",
+			tagName: "html",
+			attributes: { lang: "en" },
+			styles: {},
+			children: [
+				{
+					kind: "element",
+					tagName: "head",
+					attributes: {},
+					styles: {},
+					children: [
+						{
+							kind: "element",
+							tagName: "title",
+							attributes: {},
+							styles: {},
+							children: [{ kind: "text", text: "Figma" }],
+						},
+					],
+				},
+				{
+					kind: "element",
+					tagName: "body",
+					attributes: {},
+					styles: {},
+					children: [
+						{
+							kind: "element",
+							tagName: "div",
+							attributes: { "data-layer": "hero" },
+							styles: {},
+							children: [{ kind: "text", text: "Hello" }],
+						},
+					],
+				},
+			],
+		},
+	];
+}
