@@ -1,5 +1,13 @@
 # @design-embed/target-vanjs
 
+## 1.0.2
+
+### Patch Changes
+
+- ac1793b: Update core logic and target implementations
+- Updated dependencies [ac1793b]
+  - design-embed@0.2.2
+
 ## 1.0.1
 
 ### Patch Changes

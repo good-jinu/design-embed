@@ -1,6 +1,6 @@
 {
 	"name": "@design-embed/target-vanjs",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"type": "module",
 	"private": false,
 	"publishConfig": {

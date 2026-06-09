@@ -1,5 +1,11 @@
 # design-embed
 
+## 0.2.2
+
+### Patch Changes
+
+- ac1793b: Update core logic and target implementations
+
 ## 0.2.1
 
 ### Patch Changes
