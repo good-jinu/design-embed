@@ -10,9 +10,15 @@ import type {
 	SourceLocation,
 } from "./nodes.ts";
 import type { GeneratedFile } from "./plugins/pluginApi.ts";
+import { autoExtractTokens, mergeTokenConfigs } from "./tokens/autoExtract.ts";
+import {
+	TAILWIND_CLASS_MAPPINGS,
+	TAILWIND_TOKEN_SCALE,
+} from "./tokens/tailwindScale.ts";
 import type {
 	ComponentMapping,
 	DesignEmbedConfig,
+	StyleMappings,
 	TargetEmitter,
 	TargetTestGenerator,
 } from "./types.ts";
@@ -166,10 +172,12 @@ export async function embed(
 		diagnostics,
 	);
 
+	const mergedConfig = buildMergedConfig(config, mappedNodes, css);
+
 	const { files } = targetObj.emit({
 		nodes: mappedNodes,
 		css,
-		config,
+		config: mergedConfig,
 		diagnostics,
 	});
 
@@ -212,6 +220,36 @@ function resolveDir(
 	if (!dir) return undefined;
 	if (dir instanceof URL) return relative(cwd, fileURLToPath(dir));
 	return dir;
+}
+
+function buildMergedConfig(
+	config: DesignEmbedConfig,
+	nodes: DesignNode[],
+	css: string | undefined,
+): DesignEmbedConfig {
+	const isTailwind = (config.output?.styleMode ?? "inline") === "tailwind";
+	const extracted = autoExtractTokens(nodes, css);
+	const baseTokens = isTailwind ? TAILWIND_TOKEN_SCALE : extracted;
+	const mergedTokens = mergeTokenConfigs(baseTokens, config.tokens ?? {});
+
+	let mergedStyleMappings: StyleMappings;
+	if (isTailwind) {
+		mergedStyleMappings = { ...TAILWIND_CLASS_MAPPINGS };
+		for (const [group, entries] of Object.entries(config.styleMappings ?? {})) {
+			mergedStyleMappings[group] = {
+				...(mergedStyleMappings[group] ?? {}),
+				...entries,
+			};
+		}
+	} else {
+		mergedStyleMappings = config.styleMappings ?? {};
+	}
+
+	return {
+		...config,
+		tokens: mergedTokens,
+		styleMappings: mergedStyleMappings,
+	};
 }
 
 export function applyComponentMappings(

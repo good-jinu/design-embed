@@ -1348,6 +1348,9 @@ function matchToken(
 		});
 		return undefined;
 	}
+	if (group === "layout") {
+		return undefined;
+	}
 	if (group === "colors") {
 		return matchColorToken(property, value, config, diagnostics, node);
 	}
@@ -1392,7 +1395,47 @@ function matchToken(
 	);
 }
 
+const LAYOUT_PROPS = new Set([
+	"display",
+	"position",
+	"top",
+	"right",
+	"bottom",
+	"left",
+	"flex-direction",
+	"flex-wrap",
+	"flex",
+	"flex-grow",
+	"flex-shrink",
+	"flex-basis",
+	"justify-content",
+	"align-items",
+	"align-self",
+	"align-content",
+	"box-sizing",
+	"overflow",
+	"overflow-x",
+	"overflow-y",
+	"opacity",
+	"z-index",
+	"font-family",
+	"cursor",
+	"pointer-events",
+	"background-image",
+	"background-repeat",
+	"background-position",
+	"background-size",
+	"grid-template-columns",
+	"grid-template-rows",
+	"grid-column",
+	"grid-row",
+	"border",
+]);
+
 function tokenGroupForProperty(property: string): string | undefined {
+	if (LAYOUT_PROPS.has(property)) {
+		return "layout";
+	}
 	if (/^(margin|padding)(-|$)|^gap$|^row-gap$|^column-gap$/.test(property)) {
 		return "spacing";
 	}
