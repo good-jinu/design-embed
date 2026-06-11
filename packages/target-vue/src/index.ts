@@ -1,17 +1,14 @@
-import {
-	applyComponentMappings,
-	type DesignEmbedConfig,
-	type DesignNode,
-	type Diagnostic,
-	type PropValue,
-	parseHtml,
-	type TargetEmitInput,
-	type TargetEmitResult,
-	type TargetEmitter,
-	type TargetTestGenerateInput,
-	type TargetTestGenerateResult,
-	type TargetTestGenerator,
-	unwrapDocument,
+import type {
+	DesignEmbedConfig,
+	DesignNode,
+	Diagnostic,
+	PropValue,
+	TargetEmitInput,
+	TargetEmitResult,
+	TargetEmitter,
+	TargetTestGenerateInput,
+	TargetTestGenerateResult,
+	TargetTestGenerator,
 } from "design-embed";
 
 export interface VueTargetOptions {
@@ -29,13 +26,7 @@ export class VueTarget implements TargetEmitter, TargetTestGenerator {
 		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "DesignView";
 
-		const documentNodes = unwrapDocument(nodes);
-		const styleResult = transformStyles(
-			documentNodes,
-			css,
-			config,
-			diagnostics,
-		);
+		const styleResult = transformStyles(nodes, css, config, diagnostics);
 		const contents = emitVueView(styleResult.nodes, viewName, {
 			cssModule: styleResult.cssModule,
 			api: this.options.api,
@@ -63,6 +54,8 @@ export class VueTarget implements TargetEmitter, TargetTestGenerator {
 
 export const vueTestGenerator: TargetTestGenerator = {
 	generateTests({
+		nodes,
+		sourceNodes,
 		html,
 		css,
 		config,
@@ -124,20 +117,14 @@ export const vueTestGenerator: TargetTestGenerator = {
 			},
 		];
 
-		const parsedHtmlNodes = parseHtml(html);
-		const componentNodes = collectComponentNodes(
-			applyComponentMappings(parsedHtmlNodes, config.components ?? []),
-		);
+		const componentNodes = collectComponentNodes(nodes);
 
 		for (const mapping of config.components ?? []) {
 			const componentName = mapping.component;
 			const componentSpecPath = `${outputDir}/${componentName}.visual.spec.ts`;
 			const componentReferenceHtmlFileName = `${componentName}.reference.html`;
 			const componentFixturePath = `${outputDir}/${componentReferenceHtmlFileName}`;
-			const matchingNode = findNodeBySelector(
-				parsedHtmlNodes,
-				mapping.selector,
-			);
+			const matchingNode = findNodeBySelector(sourceNodes, mapping.selector);
 			const elementHtml = matchingNode ? serializeNodeToHtml(matchingNode) : "";
 			const componentReferenceHtml =
 				(css?.trim() ? `<style>\n${css}\n</style>\n` : "") + elementHtml;

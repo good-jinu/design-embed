@@ -171,11 +171,12 @@ export async function embed(
 		config?.components ?? [],
 		diagnostics,
 	);
+	const contentNodes = unwrapDocument(mappedNodes);
 
-	const mergedConfig = buildMergedConfig(config, mappedNodes, css);
+	const mergedConfig = buildMergedConfig(config, contentNodes, css);
 
 	const { files } = targetObj.emit({
-		nodes: mappedNodes,
+		nodes: contentNodes,
 		css,
 		config: mergedConfig,
 		diagnostics,
@@ -183,7 +184,13 @@ export async function embed(
 
 	if (input.generateTests && "generateTests" in targetObj) {
 		const testGen = targetObj as unknown as TargetTestGenerator;
-		const testResult = testGen.generateTests({ html, css, config });
+		const testResult = testGen.generateTests({
+			nodes: contentNodes,
+			sourceNodes: ast,
+			html,
+			css,
+			config,
+		});
 		diagnostics.push(...testResult.diagnostics);
 		if (!diagnostics.some((d) => d.severity === "error")) {
 			files.push(...testResult.files);

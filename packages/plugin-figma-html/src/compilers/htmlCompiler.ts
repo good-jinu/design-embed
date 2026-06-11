@@ -1,7 +1,7 @@
-import type { FigmaCompiler, FigmaNode } from "../types.ts";
+import type { FigmaNode, GeneratedFile } from "../types.ts";
 import { escapeHtml, getNodeStyles, toCssText } from "./compilerUtils.ts";
 
-export const compileHtml: FigmaCompiler = (node) => [
+export const compileHtml: (node: FigmaNode) => GeneratedFile[] = (node) => [
 	{
 		path: "index.html",
 		contents: `<!doctype html>

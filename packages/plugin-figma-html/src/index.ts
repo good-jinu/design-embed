@@ -1,11 +1,4 @@
-export {
-	compileHtml,
-	compileHtmlFragment,
-	compileReact,
-	compileVanjs,
-	getCompiler,
-	isCompilerMode,
-} from "./compilers/index.ts";
+export { compileHtml, compileHtmlFragment } from "./compilers/index.ts";
 export type {
 	FigmaApiResponse,
 	FigmaClientOptions,
@@ -19,9 +12,7 @@ export {
 export type { FigmaHtmlPluginOptions } from "./plugin.ts";
 export { FigmaHtmlPlugin } from "./plugin.ts";
 export type {
-	CompilerMode,
 	ExtractedParams,
-	FigmaCompiler,
 	FigmaNode,
 	GeneratedFile,
 } from "./types.ts";

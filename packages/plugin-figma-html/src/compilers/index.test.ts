@@ -1,13 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import type { FigmaNode } from "../types.ts";
-import {
-	compileHtml,
-	compileHtmlFragment,
-	compileReact,
-	compileVanjs,
-	getCompiler,
-} from "./index.ts";
+import { compileHtml, compileHtmlFragment } from "./index.ts";
 
 const sampleNode: FigmaNode = {
 	name: "Sample Frame",
@@ -34,22 +28,9 @@ const sampleNode: FigmaNode = {
 	],
 };
 
-describe("compiler registry", () => {
-	test("returns compiler functions without external dependencies", () => {
-		assert.equal(getCompiler("html"), compileHtml);
-		assert.equal(getCompiler("react"), compileReact);
-		assert.equal(getCompiler("vanjs"), compileVanjs);
-	});
-});
-
 describe("compilers", () => {
 	test("compile a Figma node into generated files", () => {
 		assert.match(compileHtml(sampleNode)[0]?.contents ?? "", /Hello/);
-		assert.match(compileReact(sampleNode)[0]?.contents ?? "", /SampleFrame/);
-		assert.deepEqual(
-			compileVanjs(sampleNode).map((file) => file.path),
-			["index.html", "main.js"],
-		);
 	});
 });
 
@@ -76,7 +57,6 @@ describe("compileHtmlFragment", () => {
 
 		assert.match(fragment, /^<img src="assets\/icon\.svg"/);
 		assert.doesNotMatch(fragment, /Vector/);
-		// Fills are baked into the exported image; repeating them would tint it.
 		assert.doesNotMatch(fragment, /background-color/);
 	});
 });
