@@ -4,23 +4,37 @@ import type {
 	SourcePluginInput,
 	SourcePluginResult,
 } from "design-embed";
-import { compileHtml } from "./compilers/index.ts";
+import { compileHtmlFragment } from "./compilers/index.ts";
+import type { FigmaFetcher } from "./external/figmaApi.ts";
 import { extractParamsFromURL, fetchFigmaNode } from "./external/figmaApi.ts";
-import { downloadFigmaImageFills } from "./external/imageDownloader.ts";
+import {
+	downloadFigmaImageFills,
+	downloadFigmaNodeExports,
+} from "./external/imageDownloader.ts";
 
 export interface FigmaHtmlPluginOptions {
 	url: string;
 	token?: string;
 	assetsDir?: string;
+	/** Custom fetch implementation, mainly for testing without the Figma API. */
+	fetcher?: FigmaFetcher;
 }
 
 export class FigmaHtmlPlugin implements SourcePlugin {
 	readonly name = "figma-html";
+	private readonly options: FigmaHtmlPluginOptions;
 
-	constructor(private readonly options: FigmaHtmlPluginOptions) {}
+	constructor(options: FigmaHtmlPluginOptions) {
+		this.options = options;
+	}
 
 	async run(input: SourcePluginInput): Promise<SourcePluginResult> {
-		const { url, token: optionsToken, assetsDir = "assets" } = this.options;
+		const {
+			url,
+			token: optionsToken,
+			assetsDir = "assets",
+			fetcher,
+		} = this.options;
 		const token = optionsToken ?? process.env.FIGMA_TOKEN;
 
 		if (!token) {
@@ -38,16 +52,24 @@ export class FigmaHtmlPlugin implements SourcePlugin {
 
 		try {
 			const { fileKey, nodeId } = extractParamsFromURL(url);
-			const rootNode = await fetchFigmaNode(fileKey, nodeId, { token });
-			const downloadedImages = await downloadFigmaImageFills(
-				rootNode,
-				join(input.cwd, assetsDir),
-				{ publicPath: assetsDir },
-			);
-			const [htmlFile] = compileHtml(rootNode);
+			const rootNode = await fetchFigmaNode(fileKey, nodeId, {
+				token,
+				fetcher,
+			});
+			const outDir = join(input.cwd, assetsDir);
+			const downloadedImages = [
+				...(await downloadFigmaImageFills(rootNode, outDir, {
+					publicPath: assetsDir,
+					fetcher,
+				})),
+				...(await downloadFigmaNodeExports(rootNode, outDir, {
+					publicPath: assetsDir,
+					fetcher,
+				})),
+			];
 
 			return {
-				html: htmlFile?.contents,
+				html: compileHtmlFragment(rootNode),
 				diagnostics:
 					downloadedImages.length > 0
 						? [

@@ -50,7 +50,13 @@ export interface FigmaNode {
 			r: number;
 			g: number;
 			b: number;
+			a?: number;
 		};
+		gradientHandlePositions?: Array<{ x: number; y: number }>;
+		gradientStops?: Array<{
+			position: number;
+			color: { r: number; g: number; b: number; a?: number };
+		}>;
 	}>;
 	cornerRadius?: number;
 	rectangleCornerRadii?: number[];
@@ -63,6 +69,10 @@ export interface FigmaNode {
 			b: number;
 		};
 	}>;
+	/** URL of a rendered image (e.g. SVG export) for this whole subtree. */
+	exportUrl?: string;
+	/** Public path of the downloaded export image. */
+	exportLocalPath?: string;
 	strokeWeight?: number;
 	strokeAlign?: "INSIDE" | "OUTSIDE" | "CENTER" | string;
 	opacity?: number;

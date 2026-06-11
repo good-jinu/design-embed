@@ -21,7 +21,7 @@
 		"README.md"
 	],
 	"scripts": {
-		"test": "node --conditions=development --test src/**/*.test.ts"
+		"test": "node --conditions=development --test 'src/**/*.test.ts'"
 	},
 	"peerDependencies": {
 		"design-embed": "*",

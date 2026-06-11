@@ -79,25 +79,73 @@ async function downloadImageFill(
 	outDir: string,
 	options: DownloadFigmaImagesOptions,
 ): Promise<DownloadedFigmaImage> {
+	return downloadImage(target.imageRef, target.imageUrl, outDir, options);
+}
+
+/**
+ * Downloads SVG exports attached to nodes via `exportUrl` and records their
+ * public paths on the nodes (`exportLocalPath`).
+ */
+export async function downloadFigmaNodeExports(
+	rootNode: FigmaNode,
+	outDir: string,
+	options: DownloadFigmaImagesOptions = {},
+): Promise<DownloadedFigmaImage[]> {
+	const targets = collectNodeExportTargets(rootNode);
+	if (targets.length === 0) return [];
+
+	mkdirSync(outDir, { recursive: true });
+
+	const downloadedImages = await Promise.all(
+		targets.map(async (node) => {
+			const image = await downloadImage(
+				node.id || "export",
+				node.exportUrl as string,
+				outDir,
+				options,
+			);
+			node.exportLocalPath = image.publicPath;
+			return image;
+		}),
+	);
+
+	return downloadedImages;
+}
+
+function collectNodeExportTargets(node: FigmaNode): FigmaNode[] {
+	const targets: FigmaNode[] = [];
+	if (node.exportUrl) targets.push(node);
+	for (const child of node.children || []) {
+		targets.push(...collectNodeExportTargets(child));
+	}
+	return targets;
+}
+
+async function downloadImage(
+	ref: string,
+	url: string,
+	outDir: string,
+	options: DownloadFigmaImagesOptions,
+): Promise<DownloadedFigmaImage> {
 	const fetcher = options.fetcher ?? fetch;
-	const response = await fetcher(target.imageUrl);
+	const response = await fetcher(url);
 
 	if (!response.ok) {
 		throw new Error(
-			`Figma image download failed for ${target.imageRef}: ${response.status} ${response.statusText}`,
+			`Figma image download failed for ${ref}: ${response.status} ${response.statusText}`,
 		);
 	}
 
-	const extension = extensionFromResponse(response, target.imageUrl);
-	const filename = `${sanitizeFilename(target.imageRef)}.${extension}`;
+	const extension = extensionFromResponse(response, url);
+	const filename = `${sanitizeFilename(ref)}.${extension}`;
 	const filePath = join(outDir, filename);
 	const publicPath = posix.join(options.publicPath || outDir, filename);
 
 	writeFileSync(filePath, Buffer.from(await response.arrayBuffer()));
 
 	return {
-		imageRef: target.imageRef,
-		sourceUrl: target.imageUrl,
+		imageRef: ref,
+		sourceUrl: url,
 		filePath,
 		publicPath,
 	};

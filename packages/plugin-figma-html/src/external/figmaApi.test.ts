@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import type { FigmaNode } from "../types.ts";
 import {
 	buildFigmaImageFillsEndpoint,
+	buildFigmaImageRenderEndpoint,
 	buildFigmaNodeEndpoint,
+	collectVectorExportNodes,
 	extractParamsFromURL,
 	fetchFigmaApiResponse,
 	fetchFigmaImageFills,
 	fetchFigmaNode,
+	fetchFigmaNodeRenderUrls,
 } from "./figmaApi.ts";
 
 describe("extractParamsFromURL", () => {
@@ -63,8 +67,10 @@ describe("fetchFigmaNode", () => {
 			if (url.endsWith("/images")) {
 				return new Response(
 					JSON.stringify({
-						images: {
-							image123: "https://example.com/image.png",
+						meta: {
+							images: {
+								image123: "https://example.com/image.png",
+							},
 						},
 					}),
 				);
@@ -127,9 +133,11 @@ describe("fetchFigmaImageFills", () => {
 		const fetcher = async () =>
 			new Response(
 				JSON.stringify({
-					images: {
-						image123: "https://example.com/image.png",
-						image456: null,
+					meta: {
+						images: {
+							image123: "https://example.com/image.png",
+							image456: null,
+						},
 					},
 				}),
 			);
@@ -142,6 +150,102 @@ describe("fetchFigmaImageFills", () => {
 			{
 				image123: "https://example.com/image.png",
 			},
+		);
+	});
+});
+
+describe("collectVectorExportNodes", () => {
+	test("lifts all-vector subtrees to their topmost ancestor", () => {
+		const icon: FigmaNode = {
+			id: "10:1",
+			type: "GROUP",
+			children: [
+				{ id: "10:2", type: "VECTOR" },
+				{ id: "10:3", type: "BOOLEAN_OPERATION" },
+			],
+		};
+		const root: FigmaNode = {
+			id: "1:1",
+			type: "FRAME",
+			children: [
+				icon,
+				{ id: "20:1", type: "TEXT", characters: "Hello" },
+				{
+					id: "30:1",
+					type: "FRAME",
+					children: [{ id: "30:2", type: "VECTOR" }],
+				},
+			],
+		};
+
+		assert.deepEqual(
+			collectVectorExportNodes(root).map((node) => node.id),
+			["10:1", "30:1"],
+		);
+	});
+
+	test("does not export frames containing text or image fills", () => {
+		const root: FigmaNode = {
+			id: "1:1",
+			type: "FRAME",
+			children: [
+				{
+					id: "2:1",
+					type: "FRAME",
+					children: [
+						{ id: "2:2", type: "VECTOR" },
+						{ id: "2:3", type: "TEXT", characters: "Label" },
+					],
+				},
+				{
+					id: "3:1",
+					type: "RECTANGLE",
+					fills: [{ type: "IMAGE", imageRef: "ref" }],
+				},
+			],
+		};
+
+		assert.deepEqual(
+			collectVectorExportNodes(root).map((node) => node.id),
+			["2:2"],
+		);
+	});
+});
+
+describe("fetchFigmaNodeRenderUrls", () => {
+	test("builds the render endpoint and returns only successful urls", async () => {
+		const calls: string[] = [];
+		const fetcher = async (url: string) => {
+			calls.push(url);
+			return new Response(
+				JSON.stringify({
+					err: null,
+					images: {
+						"1:2": "https://example.com/icon.svg",
+						"1:3": null,
+					},
+				}),
+			);
+		};
+
+		assert.deepEqual(
+			await fetchFigmaNodeRenderUrls("file123", ["1:2", "1:3"], {
+				token: "token",
+				fetcher,
+			}),
+			{ "1:2": "https://example.com/icon.svg" },
+		);
+		assert.deepEqual(calls, [
+			buildFigmaImageRenderEndpoint("file123", ["1:2", "1:3"]),
+		]);
+	});
+});
+
+describe("buildFigmaImageRenderEndpoint", () => {
+	test("builds svg render endpoint with encoded ids", () => {
+		assert.equal(
+			buildFigmaImageRenderEndpoint("file123", ["1:2", "3:4"]),
+			"https://api.figma.com/v1/images/file123?ids=1%3A2%2C3%3A4&format=svg",
 		);
 	});
 });

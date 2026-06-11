@@ -24,6 +24,6 @@
 		"design-embed": "./dist/cli.mjs"
 	},
 	"scripts": {
-		"test": "node --conditions=development --test src/**/*.test.ts"
+		"test": "node --conditions=development --test 'src/**/*.test.ts'"
 	}
 }

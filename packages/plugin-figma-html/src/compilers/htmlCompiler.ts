@@ -12,12 +12,20 @@ export const compileHtml: FigmaCompiler = (node) => [
     <title>${escapeHtml(node.name || "Figma Export")}</title>
   </head>
   <body>
-${walkHtml(node, undefined, 2).trimEnd()}
+${compileHtmlFragment(node, 2)}
   </body>
 </html>
 `,
 	},
 ];
+
+/**
+ * Compiles a Figma node tree into an HTML fragment without the surrounding
+ * document scaffolding, for embedding into framework components.
+ */
+export function compileHtmlFragment(node: FigmaNode, depth = 0): string {
+	return walkHtml(node, undefined, depth).trimEnd();
+}
 
 function walkHtml(node: FigmaNode, parent?: FigmaNode, depth = 0): string {
 	if (!node || node.visible === false) return "";
@@ -25,6 +33,17 @@ function walkHtml(node: FigmaNode, parent?: FigmaNode, depth = 0): string {
 	const indent = "  ".repeat(depth);
 	const childIndent = "  ".repeat(depth + 1);
 	const name = escapeHtml(node.name || "LayoutBox");
+
+	const exportSource = node.exportLocalPath || node.exportUrl;
+	if (exportSource) {
+		const styles = getNodeStyles(node, parent);
+		// The exported image already contains the subtree's fills and strokes.
+		delete styles.backgroundColor;
+		delete styles.border;
+		const style = escapeHtml(toCssText(styles));
+		return `${indent}<img src="${escapeHtml(exportSource)}" alt="${name}" style="${style}" data-layer="${name}" />\n`;
+	}
+
 	const style = escapeHtml(toCssText(getNodeStyles(node, parent)));
 
 	if (node.type === "TEXT") {
