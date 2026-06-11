@@ -1,5 +1,31 @@
 # @design-embed/target-vanjs
 
+## 2.0.0
+
+### Minor Changes
+
+- e7fb662: Add token auto-extraction, Tailwind scale, and layout group skip
+
+### Patch Changes
+
+- 87ba5c8: Enforce plugin architecture boundaries: targets now use design-embed types only, never runtime functions.
+
+  - `embed()` now calls `unwrapDocument()` before passing nodes to any target adapter; targets receive body-ready content directly
+  - `TargetTestGenerateInput` adds required `nodes` (post-mapping) and `sourceNodes` (pre-mapping) fields so targets no longer need to call `parseHtml`, `applyComponentMappings`, or `unwrapDocument` themselves
+  - Remove `compileReact`, `compileVanjs`, `getCompiler`, `isCompilerMode`, `CompilerMode`, and `FigmaCompiler` from `@design-embed/plugin-figma-html`; framework code generation belongs in target packages, not source plugins
+
+- e4d2977: feat(figma): support SVG exports for vector subtrees and CSS gradients
+
+  - Add CSS gradient support (linear and radial) in Figma compiler
+  - Add support for automatic SVG exports of vector-only subtrees in Figma plugin
+  - Add decodeHtmlEntities to core HTML parser to handle escaped characters
+  - Update test scripts in all packages to use quoted glob patterns
+
+- Updated dependencies [87ba5c8]
+- Updated dependencies [e7fb662]
+- Updated dependencies [e4d2977]
+  - design-embed@0.3.0
+
 ## 1.0.2
 
 ### Patch Changes
