@@ -404,7 +404,7 @@ export function parseHtml(html: string): DesignNode[] {
 		if (value.trim()) {
 			currentParent(stack).children?.push({
 				kind: "text",
-				text: collapseWhitespace(value),
+				text: decodeHtmlEntities(collapseWhitespace(value)),
 				source,
 			});
 		}
@@ -496,10 +496,31 @@ function parseAttributes(source: string): Record<string, string> {
 			continue;
 		}
 
-		attributes[name] = match[3] ?? match[4] ?? match[5] ?? "";
+		attributes[name] = decodeHtmlEntities(
+			match[3] ?? match[4] ?? match[5] ?? "",
+		);
 	}
 
 	return attributes;
+}
+
+/**
+ * Parsed values must hold the actual characters, not their HTML escapes —
+ * targets re-escape on emission. Without this, an escaped quote inside a
+ * style attribute (e.g. font-family: &quot;Pretendard&quot;) leaks its
+ * trailing semicolon into the declaration splitter and corrupts the value.
+ */
+function decodeHtmlEntities(value: string): string {
+	return value
+		.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+		.replace(/&#x([0-9a-fA-F]+);/g, (_, code) =>
+			String.fromCodePoint(Number.parseInt(code, 16)),
+		)
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;|&apos;/g, "'")
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&amp;/g, "&");
 }
 
 function validateComponentMappings(mappings: ComponentMapping[]): Diagnostic[] {

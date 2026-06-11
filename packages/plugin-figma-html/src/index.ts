@@ -1,5 +1,6 @@
 export {
 	compileHtml,
+	compileHtmlFragment,
 	compileReact,
 	compileVanjs,
 	getCompiler,

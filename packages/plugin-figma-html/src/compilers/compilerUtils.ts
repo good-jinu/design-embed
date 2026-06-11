@@ -121,6 +121,14 @@ export function getNodeStyles(
 		styles.backgroundRepeat = "no-repeat";
 		styles.backgroundPosition = "center";
 		styles.backgroundSize = mapImageScaleMode(imageFill.scaleMode);
+	} else if (node.type !== "TEXT") {
+		const gradientFill = node.fills?.find(
+			(item) =>
+				item.type?.startsWith("GRADIENT_") && item.gradientStops?.length,
+		);
+		if (gradientFill?.gradientStops?.length) {
+			styles.backgroundImage = toCssGradient(gradientFill);
+		}
 	}
 
 	const stroke = node.strokes?.find(
@@ -204,8 +212,36 @@ function mapImageScaleMode(value: string | undefined): string {
 }
 
 function toRgba(
-	color: { r: number; g: number; b: number },
+	color: { r: number; g: number; b: number; a?: number },
 	opacity: number,
 ): string {
-	return `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${opacity})`;
+	return `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${(color.a ?? 1) * opacity})`;
+}
+
+type GradientFill = NonNullable<FigmaNode["fills"]>[number];
+
+function toCssGradient(fill: GradientFill): string {
+	const opacity = fill.opacity ?? 1;
+	const stops = (fill.gradientStops || [])
+		.map(
+			(stop) =>
+				`${toRgba(stop.color, opacity)} ${Math.round(stop.position * 100)}%`,
+		)
+		.join(", ");
+
+	if (fill.type === "GRADIENT_RADIAL" || fill.type === "GRADIENT_DIAMOND") {
+		return `radial-gradient(${stops})`;
+	}
+
+	// Figma gradient handles are normalized: [0] start, [1] end, y pointing
+	// down. CSS angles are clockwise from "to top".
+	const [start, end] = fill.gradientHandlePositions || [];
+	let angle = 180;
+	if (start && end) {
+		angle = Math.round(
+			(Math.atan2(end.x - start.x, -(end.y - start.y)) * 180) / Math.PI,
+		);
+		if (angle < 0) angle += 360;
+	}
+	return `linear-gradient(${angle}deg, ${stops})`;
 }

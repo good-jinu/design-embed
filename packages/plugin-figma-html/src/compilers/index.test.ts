@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 import type { FigmaNode } from "../types.ts";
 import {
 	compileHtml,
+	compileHtmlFragment,
 	compileReact,
 	compileVanjs,
 	getCompiler,
@@ -49,5 +50,33 @@ describe("compilers", () => {
 			compileVanjs(sampleNode).map((file) => file.path),
 			["index.html", "main.js"],
 		);
+	});
+});
+
+describe("compileHtmlFragment", () => {
+	test("emits markup without a document wrapper", () => {
+		const fragment = compileHtmlFragment(sampleNode);
+
+		assert.match(fragment, /^<div /);
+		assert.match(fragment, /Hello/);
+		assert.doesNotMatch(fragment, /<html|<head|<body/);
+	});
+
+	test("renders exported subtrees as images instead of descending", () => {
+		const node: FigmaNode = {
+			name: "Icon",
+			type: "GROUP",
+			exportLocalPath: "assets/icon.svg",
+			absoluteBoundingBox: { x: 0, y: 0, width: 24, height: 24 },
+			fills: [{ type: "SOLID", color: { r: 1, g: 0, b: 0 } }],
+			children: [{ name: "Vector", type: "VECTOR" }],
+		};
+
+		const fragment = compileHtmlFragment(node);
+
+		assert.match(fragment, /^<img src="assets\/icon\.svg"/);
+		assert.doesNotMatch(fragment, /Vector/);
+		// Fills are baked into the exported image; repeating them would tint it.
+		assert.doesNotMatch(fragment, /background-color/);
 	});
 });
