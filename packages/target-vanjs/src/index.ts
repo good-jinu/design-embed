@@ -1,17 +1,14 @@
-import {
-	applyComponentMappings,
-	type DesignEmbedConfig,
-	type DesignNode,
-	type Diagnostic,
-	type PropValue,
-	parseHtml,
-	type TargetEmitInput,
-	type TargetEmitResult,
-	type TargetEmitter,
-	type TargetTestGenerateInput,
-	type TargetTestGenerateResult,
-	type TargetTestGenerator,
-	unwrapDocument,
+import type {
+	DesignEmbedConfig,
+	DesignNode,
+	Diagnostic,
+	PropValue,
+	TargetEmitInput,
+	TargetEmitResult,
+	TargetEmitter,
+	TargetTestGenerateInput,
+	TargetTestGenerateResult,
+	TargetTestGenerator,
 } from "design-embed";
 
 export class VanJsTarget implements TargetEmitter, TargetTestGenerator {
@@ -19,13 +16,7 @@ export class VanJsTarget implements TargetEmitter, TargetTestGenerator {
 		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "DesignView";
 
-		const documentNodes = unwrapDocument(nodes);
-		const styleResult = transformStyles(
-			documentNodes,
-			css,
-			config,
-			diagnostics,
-		);
+		const styleResult = transformStyles(nodes, css, config, diagnostics);
 		const contents = emitVanJsView(styleResult.nodes, viewName, {
 			cssModulePath: styleResult.cssModulePath,
 		});
@@ -57,6 +48,7 @@ export class VanJsTarget implements TargetEmitter, TargetTestGenerator {
 
 export const vanJsTestGenerator: TargetTestGenerator = {
 	generateTests({
+		nodes,
 		html,
 		css,
 		config,
@@ -117,9 +109,7 @@ export const vanJsTestGenerator: TargetTestGenerator = {
 			},
 		];
 
-		const componentNodes = collectComponentNodes(
-			applyComponentMappings(parseHtml(html), config.components ?? []),
-		);
+		const componentNodes = collectComponentNodes(nodes);
 
 		for (const mapping of config.components ?? []) {
 			const componentName = mapping.component;

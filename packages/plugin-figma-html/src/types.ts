@@ -89,7 +89,3 @@ export interface GeneratedFile {
 	path: string;
 	contents: string;
 }
-
-export type CompilerMode = "react" | "html" | "vanjs";
-
-export type FigmaCompiler = (node: FigmaNode) => GeneratedFile[];

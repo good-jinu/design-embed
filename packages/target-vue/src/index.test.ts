@@ -27,7 +27,7 @@ describe("Vue target", () => {
 		);
 	});
 
-	test("strips the document wrapper and emits only the body's children", () => {
+	test("emits body children as-is (core unwraps the document before calling emit)", () => {
 		const result = new VueTarget().emit({
 			nodes: documentFixture(),
 			config: { output: { viewName: "WelcomeHero" } },
@@ -39,7 +39,6 @@ describe("Vue target", () => {
 		);
 		assert.ok(view, "expected a WelcomeHero.vue file");
 		assert.match(view.contents, /data-layer="hero"/);
-		assert.doesNotMatch(view.contents, /<html|<head|<body/);
 	});
 
 	test("emits a Vue view from design nodes (Options API)", () => {
@@ -113,6 +112,8 @@ import Button from "./Button.vue";
 
 	test("emits deterministic Vue visual regression tests", () => {
 		const result = vueTestGenerator.generateTests({
+			nodes: [],
+			sourceNodes: [],
 			html: '<section style="width: 120px">Hello</section>',
 			config: {
 				output: {
@@ -158,46 +159,15 @@ import Button from "./Button.vue";
 	});
 });
 
-/** A full HTML document (as Figma exports), wrapping a single body element. */
+/** Body children as delivered by the core after unwrapping the document. */
 function documentFixture(): DesignNode[] {
 	return [
 		{
 			kind: "element",
-			tagName: "html",
-			attributes: { lang: "en" },
+			tagName: "div",
+			attributes: { "data-layer": "hero" },
 			styles: {},
-			children: [
-				{
-					kind: "element",
-					tagName: "head",
-					attributes: {},
-					styles: {},
-					children: [
-						{
-							kind: "element",
-							tagName: "title",
-							attributes: {},
-							styles: {},
-							children: [{ kind: "text", text: "Figma" }],
-						},
-					],
-				},
-				{
-					kind: "element",
-					tagName: "body",
-					attributes: {},
-					styles: {},
-					children: [
-						{
-							kind: "element",
-							tagName: "div",
-							attributes: { "data-layer": "hero" },
-							styles: {},
-							children: [{ kind: "text", text: "Hello" }],
-						},
-					],
-				},
-			],
+			children: [{ kind: "text", text: "Hello" }],
 		},
 	];
 }

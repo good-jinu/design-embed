@@ -28,46 +28,15 @@ describe("React target", () => {
 		);
 	});
 
-	test("strips the document wrapper and emits only the body's children", () => {
+	test("emits body children as-is (core unwraps the document before calling emit)", () => {
 		const result = new ReactTarget().emit({
 			nodes: [
 				{
 					kind: "element",
-					tagName: "html",
-					attributes: { lang: "en" },
+					tagName: "div",
+					attributes: { "data-layer": "hero" },
 					styles: {},
-					children: [
-						{
-							kind: "element",
-							tagName: "head",
-							attributes: {},
-							styles: {},
-							children: [
-								{
-									kind: "element",
-									tagName: "title",
-									attributes: {},
-									styles: {},
-									children: [{ kind: "text", text: "Figma" }],
-								},
-							],
-						},
-						{
-							kind: "element",
-							tagName: "body",
-							attributes: {},
-							styles: {},
-							children: [
-								{
-									kind: "element",
-									tagName: "div",
-									attributes: { "data-layer": "hero" },
-									styles: {},
-									children: [{ kind: "text", text: "Hello" }],
-								},
-							],
-						},
-					],
+					children: [{ kind: "text", text: "Hello" }],
 				},
 			],
 			config: { output: { viewName: "WelcomeHero" } },
@@ -92,6 +61,8 @@ describe("React target", () => {
 
 	test("emits deterministic React visual regression tests", () => {
 		const result = reactTestGenerator.generateTests({
+			nodes: [],
+			sourceNodes: [],
 			html: '<section style="width: 120px">Hello</section>',
 			config: {
 				output: {
@@ -138,6 +109,8 @@ describe("React target", () => {
 
 	test("reports unsupported React test runners", () => {
 		const result = reactTestGenerator.generateTests({
+			nodes: [],
+			sourceNodes: [],
 			html: "<main></main>",
 			config: {
 				tests: {

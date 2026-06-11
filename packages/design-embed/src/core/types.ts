@@ -22,6 +22,8 @@ export interface TargetEmitter {
 }
 
 export interface TargetTestGenerateInput {
+	nodes: DesignNode[];
+	sourceNodes: DesignNode[];
 	html: string;
 	css?: string;
 	config: DesignEmbedConfig;
