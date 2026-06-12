@@ -1,4 +1,4 @@
-# @design-embed/target-react
+# @design-embed/react
 
 React target support for design-embed.
 
@@ -8,7 +8,7 @@ It provides React-oriented emission behavior for generated views. The target foc
 
 ```typescript
 import { defineConfig } from "design-embed";
-import { ReactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
   output: {

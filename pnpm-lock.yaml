@@ -44,15 +44,15 @@ importers:
 
   e2e:
     dependencies:
-      '@design-embed/plugin-figma-html':
+      '@design-embed/figma':
         specifier: workspace:*
-        version: link:../packages/plugin-figma-html
-      '@design-embed/target-react':
+        version: link:../packages/figma
+      '@design-embed/react':
         specifier: workspace:*
-        version: link:../packages/target-react
-      '@design-embed/target-vue':
+        version: link:../packages/react
+      '@design-embed/vue':
         specifier: workspace:*
-        version: link:../packages/target-vue
+        version: link:../packages/vue
       design-embed:
         specifier: workspace:*
         version: link:../packages/design-embed
@@ -106,9 +106,9 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
     devDependencies:
-      '@design-embed/target-react':
+      '@design-embed/react':
         specifier: workspace:*
-        version: link:../../packages/target-react
+        version: link:../../packages/react
       '@playwright/experimental-ct-react':
         specifier: ^1.52.0
         version: 1.60.0(@types/node@24.12.4)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(vite@6.4.2(@types/node@24.12.4)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(yaml@2.9.0)
@@ -140,9 +140,9 @@ importers:
         specifier: ^1.6.0
         version: 1.6.0
     devDependencies:
-      '@design-embed/target-vanjs':
+      '@design-embed/vanjs':
         specifier: workspace:*
-        version: link:../../packages/target-vanjs
+        version: link:../../packages/vanjs
       '@playwright/test':
         specifier: ^1.52.0
         version: 1.60.0
@@ -168,9 +168,9 @@ importers:
         specifier: ^3.5.13
         version: 3.5.35(typescript@5.9.3)
     devDependencies:
-      '@design-embed/target-vue':
+      '@design-embed/vue':
         specifier: workspace:*
-        version: link:../../packages/target-vue
+        version: link:../../packages/vue
       '@playwright/experimental-ct-vue':
         specifier: ^1.52.0
         version: 1.60.0(@types/node@24.12.4)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(vite@6.4.2(@types/node@24.12.4)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))(vue@3.5.35(typescript@5.9.3))(yaml@2.9.0)
@@ -195,25 +195,25 @@ importers:
 
   packages/design-embed: {}
 
-  packages/plugin-figma-html:
+  packages/figma:
     devDependencies:
       design-embed:
         specifier: workspace:*
         version: link:../design-embed
 
-  packages/target-react:
+  packages/react:
     devDependencies:
       design-embed:
         specifier: workspace:*
         version: link:../design-embed
 
-  packages/target-vanjs:
+  packages/vanjs:
     devDependencies:
       design-embed:
         specifier: workspace:*
         version: link:../design-embed
 
-  packages/target-vue:
+  packages/vue:
     dependencies:
       vue:
         specifier: ^3.0.0

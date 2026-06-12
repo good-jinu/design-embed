@@ -1,4 +1,4 @@
-# @design-embed/plugin-figma-html
+# @design-embed/figma
 
 The official Figma source plugin for design-embed.
 

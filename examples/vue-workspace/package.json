@@ -10,7 +10,7 @@
 		"vue": "^3.5.13"
 	},
 	"devDependencies": {
-		"@design-embed/target-vue": "workspace:*",
+		"@design-embed/vue": "workspace:*",
 		"@playwright/experimental-ct-vue": "^1.52.0",
 		"@playwright/test": "^1.52.0",
 		"@vue/compiler-dom": "^3.5.13",

@@ -8,7 +8,7 @@
 
   - `embed()` now calls `unwrapDocument()` before passing nodes to any target adapter; targets receive body-ready content directly
   - `TargetTestGenerateInput` adds required `nodes` (post-mapping) and `sourceNodes` (pre-mapping) fields so targets no longer need to call `parseHtml`, `applyComponentMappings`, or `unwrapDocument` themselves
-  - Remove `compileReact`, `compileVanjs`, `getCompiler`, `isCompilerMode`, `CompilerMode`, and `FigmaCompiler` from `@design-embed/plugin-figma-html`; framework code generation belongs in target packages, not source plugins
+  - Remove `compileReact`, `compileVanjs`, `getCompiler`, `isCompilerMode`, `CompilerMode`, and `FigmaCompiler` from `@design-embed/figma`; framework code generation belongs in target packages, not source plugins
 
 - e7fb662: Add token auto-extraction, Tailwind scale, and layout group skip
 

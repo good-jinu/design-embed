@@ -1,5 +1,5 @@
 import { defineConfig, fromFile } from "design-embed";
-import { VueTarget } from "@design-embed/target-vue";
+import { VueTarget } from "@design-embed/vue";
 
 export default defineConfig({
 	source: fromFile(new URL("./simple-card.html", import.meta.url)),

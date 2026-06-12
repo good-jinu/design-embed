@@ -73,7 +73,7 @@ Add a target adapter such as React when you want framework output:
 
 ```typescript
 import { defineConfig } from "design-embed";
-import { ReactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
   output: {
@@ -95,13 +95,13 @@ If you are using Figma, install the Figma source plugin and add it to
 `design-embed.config.ts`:
 
 ```bash npm2yarn
-npm install --save-dev @design-embed/plugin-figma-html @design-embed/target-react
+npm install --save-dev @design-embed/figma @design-embed/react
 ```
 
 ```typescript
 import { defineConfig } from "design-embed";
-import { FigmaHtmlPlugin } from "@design-embed/plugin-figma-html";
-import { ReactTarget } from "@design-embed/target-react";
+import { FigmaHtmlPlugin } from "@design-embed/figma";
+import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
   source: new FigmaHtmlPlugin({
@@ -139,7 +139,7 @@ Update `design-embed.config.ts`:
 
 ```typescript
 import { defineConfig } from "design-embed";
-import { ReactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
   output: {

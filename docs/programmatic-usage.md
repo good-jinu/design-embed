@@ -9,7 +9,7 @@ While the `design-embed` CLI is the most common way to use the tool, you can als
 ## Installation
 
 ```bash npm2yarn
-npm install design-embed @design-embed/target-react
+npm install design-embed @design-embed/react
 ```
 
 ## Basic Example
@@ -18,7 +18,7 @@ The most common programmatic use case is calling the `embed` function. You provi
 
 ```typescript
 import { embed } from "design-embed";
-import { ReactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/react";
 
 async function runCompiler() {
   const reactTarget = new ReactTarget();

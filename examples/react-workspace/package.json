@@ -11,7 +11,7 @@
 		"react-dom": "^18.3.1"
 	},
 	"devDependencies": {
-		"@design-embed/target-react": "workspace:*",
+		"@design-embed/react": "workspace:*",
 		"@playwright/experimental-ct-react": "^1.52.0",
 		"@playwright/test": "^1.52.0",
 		"@types/react": "^18.3.0",

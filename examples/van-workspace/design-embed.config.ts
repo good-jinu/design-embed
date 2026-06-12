@@ -1,5 +1,5 @@
 import { defineConfig, fromFile } from "design-embed";
-import { VanJsTarget } from "@design-embed/target-vanjs";
+import { VanJsTarget } from "@design-embed/vanjs";
 
 export default defineConfig({
 	source: fromFile(new URL("./design/simple-card.html", import.meta.url)),
