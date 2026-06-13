@@ -1,18 +1,18 @@
-# @design-embed/target-vue
+# @design-embed/vue
 
 Vue target for design-embed. Generates Vue SFC components from design HTML.
 
 ## Installation
 
 ```bash
-npm install @design-embed/target-vue
+npm install @design-embed/vue
 ```
 
 ## Usage
 
 ```typescript
 import { defineConfig } from "design-embed";
-import { VueTarget } from "@design-embed/target-vue";
+import { VueTarget } from "@design-embed/vue";
 
 export default defineConfig({
   source: fromFile("./design.html"),

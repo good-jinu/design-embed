@@ -23,8 +23,8 @@ Workspace packages:
 - `packages/design-embed`: the public `design-embed` package and the heart of the monorepo. It exposes the programmatic API and owns command-line orchestration: loading config, reading input, invoking explicit source plugins, selecting target adapters, writing generated files, formatting diagnostics, handling check-mode exit codes, and providing the built-in HTML output. It contains two internal modules that are part of its published surface:
   - `src/core`: compiler engine. Owns HTML parsing, normalized design AST types, diagnostics, component mapping, transformer execution, check-mode comparison, and plugin interfaces. The `core` module must stay target-agnostic and source-tool agnostic.
   - `src/config`: config loading and validation for `.ts`, `.js`, and `.mjs` config files. Keep schema and diagnostic behavior here rather than spreading config checks through emitters.
-- `packages/plugin-figma-html`: explicit Figma source plugin. Network access belongs here and should remain opt-in through plugin commands or injected fetchers in tests.
-- `packages/target-react`: React target adapter. It owns JSX emission, component substitution output, prop extraction output, style conversion, Tailwind class mapping, CSS Modules output, and React-specific test generation.
+- `packages/figma`: explicit Figma source plugin. Network access belongs here and should remain opt-in through plugin commands or injected fetchers in tests.
+- `packages/react`: React target adapter. It owns JSX emission, component substitution output, prop extraction output, style conversion, Tailwind class mapping, CSS Modules output, and React-specific test generation.
 - `website`: Docusaurus documentation site.
 
 Architectural conventions:
@@ -67,7 +67,7 @@ Test conventions:
 This repository uses [Changesets](https://github.com/changesets/changesets) to manage package versions and changelogs.
 
 **When to add a changeset:**
-Add a changeset for every PR that changes the public behavior of a published package (`design-embed`, `@design-embed/plugin-figma-html`, `@design-embed/target-react`). This includes new features, bug fixes, and breaking changes. Note that the `core` and `config` modules now live inside `design-embed`, so behavior changes there require a `design-embed` changeset. Skip changesets for changes that only affect tests, docs, CI, tooling, or the non-published `e2e`/`website` workspaces.
+Add a changeset for every PR that changes the public behavior of a published package (`design-embed`, `@design-embed/figma`, `@design-embed/react`). This includes new features, bug fixes, and breaking changes. Note that the `core` and `config` modules now live inside `design-embed`, so behavior changes there require a `design-embed` changeset. Skip changesets for changes that only affect tests, docs, CI, tooling, or the non-published `e2e`/`website` workspaces.
 
 **How to add a changeset:**
 Create a file directly in `.changeset/` with a unique kebab-case name (e.g. `.changeset/add-my-feature.md`):
@@ -85,7 +85,7 @@ Replace `"package-name"` with the affected package name(s) and `patch` with the 
 ```md
 ---
 "design-embed": minor
-"@design-embed/target-react": patch
+"@design-embed/react": patch
 ---
 
 Short description.

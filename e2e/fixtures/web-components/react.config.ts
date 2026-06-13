@@ -1,5 +1,5 @@
 import { defineConfig, fromFile } from "design-embed";
-import { ReactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
 	source: fromFile(new URL("./product-list.html", import.meta.url)),

@@ -1,5 +1,5 @@
 import { defineConfig, fromFile } from "design-embed";
-import { ReactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
 	source: fromFile(new URL("./tailwind-card.html", import.meta.url)),

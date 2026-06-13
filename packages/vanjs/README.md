@@ -1,18 +1,18 @@
-# @design-embed/target-vanjs
+# @design-embed/vanjs
 
 VanJS target for design-embed. Generates VanJS components from design HTML.
 
 ## Installation
 
 ```bash
-npm install @design-embed/target-vanjs
+npm install @design-embed/vanjs
 ```
 
 ## Usage
 
 ```typescript
 import { defineConfig, fromFile } from "design-embed";
-import { VanJsTarget } from "@design-embed/target-vanjs";
+import { VanJsTarget } from "@design-embed/vanjs";
 
 export default defineConfig({
   source: fromFile("./design.html"),

@@ -71,10 +71,10 @@ const config: Config = {
       {
         entryPoints: [
           '../packages/design-embed',
-          '../packages/plugin-figma-html',
-          '../packages/target-react',
-          '../packages/target-vue',
-          '../packages/target-vanjs',
+          '../packages/figma',
+          '../packages/react',
+          '../packages/vue',
+          '../packages/vanjs',
         ],
         sortEntryPoints: false,
         entryPointStrategy: 'packages',

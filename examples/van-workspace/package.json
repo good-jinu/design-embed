@@ -10,7 +10,7 @@
 		"vanjs-core": "^1.6.0"
 	},
 	"devDependencies": {
-		"@design-embed/target-vanjs": "workspace:*",
+		"@design-embed/vanjs": "workspace:*",
 		"@playwright/test": "^1.52.0",
 		"design-embed": "workspace:*",
 		"esbuild": "^0.25.0",

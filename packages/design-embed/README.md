@@ -11,7 +11,7 @@ The package provides:
 - target-adapter orchestration for framework output such as React
 
 Without a target adapter, `design-embed` only emits HTML. Framework packages
-such as `@design-embed/target-react` are separate adapters that must be wired
+such as `@design-embed/react` are separate adapters that must be wired
 into your config.
 
 ## Quick Start
@@ -48,7 +48,7 @@ When `components` are configured with the HTML target, two additional files are 
 Install the React target adapter alongside `design-embed`:
 
 ```bash
-pnpm add design-embed @design-embed/target-react
+pnpm add design-embed @design-embed/react
 ```
 
 Create a config file:
@@ -56,7 +56,7 @@ Create a config file:
 ```ts
 // design-embed.config.ts
 import { defineConfig } from "design-embed";
-import { ReactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
 	output: {

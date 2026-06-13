@@ -25,7 +25,7 @@ export default defineConfig({
 The `output` section controls how and where files are generated.
 
 ```typescript
-import { ReactTarget } from "@design-embed/target-react";
+import { ReactTarget } from "@design-embed/react";
 
 output: {
   target: new ReactTarget(),   // Omit for built-in HTML output

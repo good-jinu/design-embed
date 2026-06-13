@@ -181,7 +181,7 @@ export default defineConfig({
 ```typescript
 // design-embed.config.ts
 import { defineConfig } from "design-embed";
-import { reactTarget } from "@design-embed/target-react";
+import { reactTarget } from "@design-embed/react";
 
 export default defineConfig({
   output: {
@@ -308,7 +308,7 @@ Or use it programmatically:
 npm install design-embed
 
 # React target
-npm install design-embed @design-embed/target-react
+npm install design-embed @design-embed/react
 ```
 
 ```typescript
@@ -331,7 +331,7 @@ const tests = htmlTarget.generateTests({
 
 ```typescript
 import { embed } from "design-embed";
-import { reactTarget } from "@design-embed/target-react";
+import { reactTarget } from "@design-embed/react";
 
 // React target
 const reactResult = await embed({

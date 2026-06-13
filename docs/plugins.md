@@ -96,7 +96,7 @@ to HTML.
 **Config**
 ```typescript
 import { defineConfig } from "design-embed";
-import { FigmaHtmlPlugin } from "@design-embed/plugin-figma-html";
+import { FigmaHtmlPlugin } from "@design-embed/figma";
 
 export default defineConfig({
   source: new FigmaHtmlPlugin({
