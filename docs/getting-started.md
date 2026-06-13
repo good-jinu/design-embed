@@ -8,7 +8,7 @@ Welcome to **design-embed**! This guide will help you get up and running with yo
 
 ## Prerequisites
 
-- **Node.js**: v26, matching the repository toolchain.
+- **Node.js**: v24, matching the repository toolchain.
 - **Package manager**: npm, Yarn, or pnpm.
 - **TypeScript**: While not strictly required (you can use `.js` configs), it is highly recommended for the best experience.
 
