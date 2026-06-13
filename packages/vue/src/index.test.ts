@@ -151,7 +151,10 @@ import Button from "./Button.vue";
 			result.files[1]?.contents ?? "",
 			/import GeneratedCard from "..\/..\/src\/generated\/views\/GeneratedCard.vue";/,
 		);
-		assert.match(result.files[1]?.contents ?? "", /const layoutTolerance = 1;/);
+		assert.match(
+			result.files[1]?.contents ?? "",
+			/const screenshotThreshold = 0\.2;/,
+		);
 		assert.match(
 			result.files[1]?.contents ?? "",
 			/await page.hover\(state.hover\);/,

@@ -100,7 +100,10 @@ describe("React target", () => {
 			result.files[1]?.contents ?? "",
 			/import { GeneratedCard } from "..\/..\/src\/generated\/views\/GeneratedCard.view";/,
 		);
-		assert.match(result.files[1]?.contents ?? "", /const layoutTolerance = 1;/);
+		assert.match(
+			result.files[1]?.contents ?? "",
+			/const screenshotThreshold = 0\.2;/,
+		);
 		assert.match(
 			result.files[1]?.contents ?? "",
 			/await page.hover\(state.hover\);/,

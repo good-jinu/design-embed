@@ -205,15 +205,23 @@ Each **component spec** locates the matched element in the source HTML by its CS
 
 The generated React tests import from `@playwright/experimental-ct-react`, so your app needs Playwright component testing configured.
 
+First, run the tests with the snapshot update flag to capture baseline snapshots from the reference HTML:
+
 ```bash npm2yarn
 npm install --save-dev @playwright/test @playwright/experimental-ct-react
 npm exec playwright install
+npm exec playwright -- test -c playwright-ct.config.ts tests/generated/design-embed --update-snapshots
+```
+
+For subsequent runs, run normal assertions to verify if your components match the design:
+
+```bash npm2yarn
 npm exec playwright -- test -c playwright-ct.config.ts tests/generated/design-embed
 ```
 
 ### Design update tracking
 
-Re-run `design-embed` (step 2) in your CI pipeline whenever the source design changes. This regenerates `WelcomeHero.reference.html` with the latest design. The Playwright tests then fail for any component that no longer matches — signalling that the component needs to be updated.
+Whenever the source design changes, re-run `design-embed` (step 2) to regenerate `WelcomeHero.reference.html` with the latest design. Then run `playwright test --update-snapshots` to update the baseline images from the new reference HTML, followed by normal test runs to check if the generated component code matches.
 
 ---
 

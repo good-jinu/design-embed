@@ -88,7 +88,10 @@ export function HeroView() {
 			result.files[1]?.contents ?? "",
 			/await page\.goto\("file:\/\/" \+ mountHtmlPath\);/,
 		);
-		assert.match(result.files[1]?.contents ?? "", /const layoutTolerance = 1;/);
+		assert.match(
+			result.files[1]?.contents ?? "",
+			/const screenshotThreshold = 0\.2;/,
+		);
 		assert.match(
 			result.files[1]?.contents ?? "",
 			/await page\.hover\(state\.hover\);/,
