@@ -44,7 +44,7 @@ export async function runInitCommand(
 	printDiagnostics(diagnostics, format, quiet);
 	if (!quiet && format === "text") {
 		console.log(`Success. Initialized design-embed with ${written} file(s).`);
-		console.log("Next: pnpm exec design-embed --out ./design.html");
+		console.log("Next: npm exec design-embed");
 	}
 	return 0;
 }
