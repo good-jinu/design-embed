@@ -47,8 +47,7 @@ npm exec design-embed [flags]
 **Flags**
 
 - `--config`: Path to your config file when it is not `design-embed.config.ts`.
-- `--dry-run`: Skip writing generated files to disk.
-- `--generate-tests`: Generate visual regression tests alongside output files.
+- `--no-test`: Skip generating visual regression test files alongside output files.
 - `--quiet`: Suppress text diagnostics and success output.
 - `--format`: Diagnostic output format, either `text` or `json`.
 - `--cwd`: Set the working directory.

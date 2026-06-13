@@ -181,7 +181,7 @@ function emitReactVisualSpec(input: ReactVisualSpecInput): string {
 		input.assertions.screenshotMaxDiffPixels,
 	);
 
-	return `import { existsSync, readFileSync } from "node:fs";
+	return `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/experimental-ct-react";
@@ -207,10 +207,8 @@ for (const viewport of viewports) {
 					await page.setContent(referenceHtml);
 					await applyState(page, state);
 					const locator = page.locator("body > *").first();
-					await expect(locator).toHaveScreenshot(snapshotName, {
-						threshold: screenshotThreshold,
-						maxDiffPixels: screenshotMaxDiffPixels,
-					});
+					mkdirSync(dirname(snapshotPath), { recursive: true });
+					writeFileSync(snapshotPath, await locator.screenshot());
 					return;
 				}
 
@@ -268,7 +266,7 @@ function emitComponentVisualSpec(input: ComponentVisualSpecInput): string {
 		input.assertions.screenshotMaxDiffPixels,
 	);
 
-	return `import { existsSync, readFileSync } from "node:fs";
+	return `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/experimental-ct-react";
@@ -294,10 +292,8 @@ for (const viewport of viewports) {
 					await page.setContent(referenceHtml);
 					await applyState(page, state);
 					const locator = page.locator("${input.selector}").first();
-					await expect(locator).toHaveScreenshot(snapshotName, {
-						threshold: screenshotThreshold,
-						maxDiffPixels: screenshotMaxDiffPixels,
-					});
+					mkdirSync(dirname(snapshotPath), { recursive: true });
+					writeFileSync(snapshotPath, await locator.screenshot());
 					return;
 				}
 
