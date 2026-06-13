@@ -107,7 +107,7 @@ Your project has:
 - Naming conventions (PascalCase for React components, kebab-case for Web Components)? We'll follow them.
 
 ### 🧪 Built-in visual regression tests
-Both `htmlTarget` and `reactTarget` can generate Playwright specs that verify your embedded output matches the original design. The spec loads the source HTML as the reference and the generated output as the actual, then compares screenshots and layout at configurable viewports and interaction states.
+Both `HtmlTarget` and `ReactTarget` can generate Playwright specs that verify your embedded output matches the original design. The spec loads the source HTML as the reference and the generated output as the actual, then compares screenshots and layout at configurable viewports and interaction states.
 
 ### 🔗 Local compiler core. Explicit source steps.
 Compilation runs locally and deterministically. Optional source plugins, such as the Figma plugin, run as explicit prestep commands before local compilation.
@@ -138,6 +138,12 @@ Compilation runs locally and deterministically. Optional source plugins, such as
 import { defineConfig } from "design-embed";
 
 export default defineConfig({
+  source: {
+    run: async () => ({
+      html: "<div>...</div>", // Replace with your design source
+      diagnostics: [],
+    }),
+  },
   output: {
     viewName: "ProductList",
     viewsDir: "src/generated/views",
@@ -181,11 +187,11 @@ export default defineConfig({
 ```typescript
 // design-embed.config.ts
 import { defineConfig } from "design-embed";
-import { reactTarget } from "@design-embed/react";
+import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
   output: {
-    target: reactTarget,
+    target: new ReactTarget(),
     viewName: "Hero",
     viewsDir: "src/generated/views",
     styleMode: "tailwind"
@@ -312,32 +318,24 @@ npm install design-embed @design-embed/react
 ```
 
 ```typescript
-import { embed, htmlTarget } from "design-embed";
-
-// HTML target — web components, custom elements, plain HTML
-const htmlResult = await embed({
-  html: "<div>...</div>",
-  config: { output: { viewName: "ProductList" } },
-  targetEmitter: htmlTarget,
-});
-
-// Generate a Playwright visual regression spec
-const tests = htmlTarget.generateTests({
-  html: "<div>...</div>",
-  config: { output: { viewName: "ProductList" } },
-  diagnostics: [],
-});
-```
-
-```typescript
 import { embed } from "design-embed";
-import { reactTarget } from "@design-embed/react";
+import { ReactTarget } from "@design-embed/react";
 
-// React target
-const reactResult = await embed({
-  html: "<div>...</div>",
-  config: { output: { target: reactTarget, viewName: "DesignView" } },
-  targetEmitter: reactTarget,
+// The compiler fetches from source and generates files automatically
+const result = await embed({
+  config: {
+    source: {
+      run: async () => ({
+        html: "<div>...</div>",
+        diagnostics: [],
+      }),
+    },
+    output: {
+      target: new ReactTarget(),
+      viewName: "ProductList",
+      viewsDir: "src/generated/views",
+    },
+  },
 });
 ```
 

@@ -21,16 +21,19 @@ import { embed } from "design-embed";
 import { ReactTarget } from "@design-embed/react";
 
 async function runCompiler() {
-  const reactTarget = new ReactTarget();
   const result = await embed({
-    html: '<div class="card">Hello World</div>',
     config: {
+      source: {
+        run: async () => ({
+          html: '<div class="card">Hello World</div>',
+          diagnostics: [],
+        }),
+      },
       output: {
-        target: reactTarget,
+        target: new ReactTarget(),
         viewName: "MyComponent"
       }
-    },
-    targetEmitter: reactTarget
+    }
   });
 
   if (result.diagnostics.length > 0) {
@@ -92,9 +95,7 @@ Call it from **component targets** (React, Vue, VanJS, and your own). Do **not**
 
 When using the core package, keep these roles in mind:
 
-- **`embed()`**: The main entry point. It handles local HTML parsing, component substitution, and target emission.
+- **`embed()`**: The main entry point. It handles HTML parsing, component substitution, and target emission. It uses the `source` plugin defined in the config to get the HTML/CSS.
 - **`DesignNode`**: The unified AST format used by the compiler.
 - **`TargetEmitter`**: Responsible for taking the final AST and turning it into string-based file output.
 - **`Diagnostics`**: A structured way to report errors or warnings back to your calling system.
-
-Source plugins are intentionally separate from `embed()`. Run them before calling the core compiler, then pass the produced HTML/CSS into `embed()`.
