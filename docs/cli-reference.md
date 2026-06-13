@@ -25,6 +25,8 @@ design-embed.config.ts
 Existing files are skipped by default.
 Run `design-embed` to fetch and compile using the generated config.
 
+> **Note:** The `init` command generates a `design-embed.config.ts` with a `HtmlFetcherPlugin` that demonstrates how to fetch HTML from a URL.
+
 **Flags**
 
 - `--view-name`: Name of the generated view in the starter config. Defaults to `WelcomeHero`.
@@ -45,7 +47,8 @@ npm exec design-embed [flags]
 **Flags**
 
 - `--config`: Path to your config file when it is not `design-embed.config.ts`.
-- `--css`: Optional path to a separate CSS file.
+- `--dry-run`: Skip writing generated files to disk.
+- `--generate-tests`: Generate visual regression tests alongside output files.
 - `--quiet`: Suppress text diagnostics and success output.
 - `--format`: Diagnostic output format, either `text` or `json`.
 - `--cwd`: Set the working directory.

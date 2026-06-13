@@ -19,7 +19,7 @@ A mapping consists of a `selector` and a `component` name.
 }
 ```
 
-`component` is the component name (PascalCase). design-embed generates a `Button.view.tsx` file in the same output directory and imports from it automatically. No import path is needed.
+`component` is the component name (PascalCase). `design-embed` generates a component file (e.g., `Button.view.tsx` for React or `Button.view.ts` for VanJS) in the same output directory and imports from it automatically. No import path is needed.
 
 ## What Gets Generated
 

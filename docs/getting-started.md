@@ -76,6 +76,12 @@ import { defineConfig } from "design-embed";
 import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
+  source: {
+    run: async () => ({
+      html: "<div>...</div>",
+      diagnostics: [],
+    }),
+  },
   output: {
     target: new ReactTarget(),
     viewName: "WelcomeHero",
@@ -87,9 +93,7 @@ export default defineConfig({
 
 ### 3. Get Design HTML
 
-`design-embed` compiles local HTML. You can start by editing the generated
-`design.html`, exporting HTML from your design tool, or running a source plugin
-as an explicit prestep.
+`design-embed` compiles the HTML provided by the source plugin. You can start by exporting HTML from your design tool or using a source plugin like Figma's.
 
 If you are using Figma, install the Figma source plugin and add it to
 `design-embed.config.ts`:

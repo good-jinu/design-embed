@@ -41,7 +41,7 @@ src/generated/views/debug.html
 When `components` are configured with the HTML target, two additional files are generated for each view alongside the HTML:
 
 - `ViewName.ts` — a native web component scaffold (`HTMLElement` subclass with `observedAttributes`, lifecycle hooks, and a `render()` method; no React dependency)
-- `ViewName.html` — includes `<script type="module" src="./ViewName.js"></script>` at the bottom
+- `ViewName.html` — includes `<script defer src="./ViewName.js"></script>` at the bottom
 
 ## React Adapter Example
 

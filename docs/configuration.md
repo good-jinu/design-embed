@@ -55,7 +55,7 @@ target: "html"
 When `components` are configured alongside an HTML target, two additional files are generated for each view:
 
 - `ViewName.ts` — a native web component scaffold (`HTMLElement` subclass with `observedAttributes`, lifecycle hooks, and a `render()` method; no React dependency)
-- `ViewName.html` — includes `<script type="module" src="./ViewName.js"></script>` at the bottom
+- `ViewName.html` — includes `<script defer src="./ViewName.js"></script>` at the bottom
 
 ---
 

@@ -17,7 +17,7 @@ Welcome to the official documentation for **design-embed**, a deterministic loca
 5. **[Styling Conventions](./styling.md)**: choose inline styles, Tailwind mappings, or CSS Modules.
 6. **[Plugins & Transformers](./plugins.md)**: fetch source artifacts and customize AST transformations.
 7. **[Programmatic Usage](./programmatic-usage.md)**: call the compiler from Node.js code.
-8. **[API Reference](/api/packages)**: generated TypeDoc reference for exported package APIs.
+8. **[API Reference](/api/)**: generated TypeDoc reference for exported package APIs.
 
 ---
 
