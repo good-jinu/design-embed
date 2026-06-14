@@ -138,20 +138,23 @@ Compilation runs locally and deterministically. Optional source plugins, such as
 import { defineConfig } from "design-embed";
 
 export default defineConfig({
-  source: {
-    run: async () => ({
-      html: "<div>...</div>", // Replace with your design source
-      diagnostics: [],
-    }),
-  },
+  sources: [{
+    plugin: {
+      name: "my-source",
+      run: async () => ({
+        html: "<div>...</div>", // Replace with your design source
+        diagnostics: [],
+      }),
+    },
+  }],
   output: {
     viewName: "ProductList",
     viewsDir: "src/generated/views",
   },
   components: [
-    { selector: ".filter-section", component: "components/product-filter", importName: "product-filter" },
-    { selector: ".product-grid",   component: "components/product-list",   importName: "product-list"   },
-    { selector: ".product-card",   component: "components/product-card",   importName: "product-card"   },
+    { selector: ".filter-section", component: "ProductFilter" },
+    { selector: ".product-grid",   component: "ProductList"   },
+    { selector: ".product-card",   component: "ProductCard"   },
   ],
 });
 ```
@@ -190,6 +193,15 @@ import { defineConfig } from "design-embed";
 import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
+  sources: [{
+    plugin: {
+      name: "my-source",
+      run: async () => ({
+        html: "<section>...</section>",
+        diagnostics: [],
+      }),
+    },
+  }],
   output: {
     target: new ReactTarget(),
     viewName: "Hero",
@@ -238,7 +250,6 @@ export default defineConfig({
     {
       selector: "button[data-role='primary']",
       component: "@/components/ui/Button",
-      importName: "Button",
       props: {
         variant: "primary",
         children: "$text"
@@ -324,12 +335,15 @@ import { ReactTarget } from "@design-embed/react";
 // The compiler fetches from source and generates files automatically
 const result = await embed({
   config: {
-    source: {
-      run: async () => ({
-        html: "<div>...</div>",
-        diagnostics: [],
-      }),
-    },
+    sources: [{
+      plugin: {
+        name: "my-source",
+        run: async () => ({
+          html: "<div>...</div>",
+          diagnostics: [],
+        }),
+      },
+    }],
     output: {
       target: new ReactTarget(),
       viewName: "ProductList",
