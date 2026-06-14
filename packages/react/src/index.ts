@@ -10,6 +10,7 @@ import type {
 	TargetTestGenerateResult,
 	TargetTestGenerator,
 } from "design-embed";
+import { buildHeadlessBeforeAll, buildScreenshotAssertion } from "design-embed";
 
 export class ReactTarget implements TargetEmitter, TargetTestGenerator {
 	emit({ nodes, css, config, diagnostics }: TargetEmitInput): TargetEmitResult {
@@ -53,6 +54,7 @@ export const reactTestGenerator: TargetTestGenerator = {
 		html,
 		css,
 		config,
+		snapshotPath,
 	}: TargetTestGenerateInput): TargetTestGenerateResult {
 		const diagnostics: Diagnostic[] = [];
 		const tests = config.tests;
@@ -106,6 +108,10 @@ export const reactTestGenerator: TargetTestGenerator = {
 					viewports: viewportDefaults,
 					states: stateDefaults,
 					assertions: assertionDefaults,
+					snapshotPath,
+					snapshotMode: config.snapshot?.mode,
+					sourceHtml: html,
+					snapshotDir: config.snapshot?.dir,
 				}),
 			},
 		];
@@ -169,9 +175,14 @@ interface ReactVisualSpecInput {
 		screenshotThreshold: number;
 		screenshotMaxDiffPixels: number;
 	};
+	snapshotPath: string | null;
+	snapshotMode?: string;
+	sourceHtml: string;
+	snapshotDir?: string;
 }
 
 function emitReactVisualSpec(input: ReactVisualSpecInput): string {
+	const { snapshotPath, snapshotMode, sourceHtml, snapshotDir } = input;
 	const viewports = JSON.stringify(input.viewports, null, 2);
 	const states = JSON.stringify(input.states, null, 2);
 	const screenshotThreshold = JSON.stringify(
@@ -181,8 +192,59 @@ function emitReactVisualSpec(input: ReactVisualSpecInput): string {
 		input.assertions.screenshotMaxDiffPixels,
 	);
 
-	return `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+	const useExternalBaseline = snapshotPath !== null;
+	const useHeadless = snapshotMode === "headless";
+
+	const fsImport =
+		!useExternalBaseline && !useHeadless
+			? `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";\n`
+			: `import { readFileSync } from "node:fs";\n`;
+
+	const screenshotAssertion = buildScreenshotAssertion(
+		snapshotPath,
+		input.assertions.screenshotThreshold,
+		input.assertions.screenshotMaxDiffPixels,
+		"component",
+	);
+
+	const snapshotFilePath = `${snapshotDir ?? "__snapshots__"}/${input.viewName}.png`;
+	const headlessBeforeAllBlock = useHeadless
+		? `\n${buildHeadlessBeforeAll(sourceHtml, snapshotFilePath)}\n`
+		: "";
+
+	const snapshotDirComment = useExternalBaseline
+		? `\n\t\t\t\t// Baseline snapshot directory: ${snapshotDir ?? "__snapshots__"} — configure snapshotDir in playwright.config.ts`
+		: "";
+
+	// Build test body as explicit lines to avoid indentation issues with embedded blocks
+	const T4 = "\t\t\t\t";
+	const T5 = "\t\t\t\t\t";
+	const testBodyLines: string[] = [];
+	if (!useExternalBaseline && !useHeadless) {
+		testBodyLines.push(
+			`${T4}const snapshotName = \`${input.viewName}-\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}-\${state.name}.png\`;`,
+			`${T4}const snapshotPath = testInfo.snapshotPath(snapshotName);`,
+			``,
+			`${T4}if (!existsSync(snapshotPath)) {`,
+			`${T5}testInfo.annotations.push({ type: "init", description: "Snapshot initialized from reference HTML" });`,
+			`${T5}await page.setContent(referenceHtml);`,
+			`${T5}await applyState(page, state);`,
+			`${T5}const locator = page.locator("body > *").first();`,
+			`${T5}mkdirSync(dirname(snapshotPath), { recursive: true });`,
+			`${T5}writeFileSync(snapshotPath, await locator.screenshot());`,
+			`${T5}return;`,
+			`${T4}}`,
+			``,
+		);
+	}
+	testBodyLines.push(
+		`${T4}const component = await mount(<${input.viewName} />);`,
+		`${T4}await applyState(component.page(), state);${snapshotDirComment}`,
+		`${T4}${screenshotAssertion}`,
+	);
+	const testBody = testBodyLines.join("\n");
+
+	return `${fsImport}import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/experimental-ct-react";
 import { ${input.viewName} } from "${input.viewImportPath}";
@@ -193,31 +255,13 @@ const viewports = ${viewports};
 const states = ${states};
 const screenshotThreshold = ${screenshotThreshold};
 const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
-
+${headlessBeforeAllBlock}
 for (const viewport of viewports) {
 	test.describe(\`\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}\`, () => {
 		test.use({ viewport: { width: viewport.width, height: viewport.height } });
 		for (const state of states) {
 			test(\`Visual Regression / \${state.name}\`, async ({ page, mount }, testInfo) => {
-				const snapshotName = \`${input.viewName}-\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}-\${state.name}.png\`;
-				const snapshotPath = testInfo.snapshotPath(snapshotName);
-
-				if (!existsSync(snapshotPath)) {
-					testInfo.annotations.push({ type: "init", description: "Snapshot initialized from reference HTML" });
-					await page.setContent(referenceHtml);
-					await applyState(page, state);
-					const locator = page.locator("body > *").first();
-					mkdirSync(dirname(snapshotPath), { recursive: true });
-					writeFileSync(snapshotPath, await locator.screenshot());
-					return;
-				}
-
-				const component = await mount(<${input.viewName} />);
-				await applyState(component.page(), state);
-				await expect(component).toHaveScreenshot(snapshotName, {
-					threshold: screenshotThreshold,
-					maxDiffPixels: screenshotMaxDiffPixels,
-				});
+${testBody}
 			});
 		}
 	});

@@ -10,6 +10,7 @@ import type {
 	TargetTestGenerateResult,
 	TargetTestGenerator,
 } from "design-embed";
+import { buildHeadlessBeforeAll, buildScreenshotAssertion } from "design-embed";
 
 export class VanJsTarget implements TargetEmitter, TargetTestGenerator {
 	emit({ nodes, css, config, diagnostics }: TargetEmitInput): TargetEmitResult {
@@ -52,6 +53,7 @@ export const vanJsTestGenerator: TargetTestGenerator = {
 		html,
 		css,
 		config,
+		snapshotPath,
 	}: TargetTestGenerateInput): TargetTestGenerateResult {
 		const diagnostics: Diagnostic[] = [];
 		const tests = config.tests;
@@ -101,6 +103,10 @@ export const vanJsTestGenerator: TargetTestGenerator = {
 					viewports: viewportDefaults,
 					states: stateDefaults,
 					assertions: assertionDefaults,
+					snapshotPath,
+					snapshotMode: config.snapshot?.mode,
+					sourceHtml: html,
+					snapshotDir: config.snapshot?.dir,
 				}),
 			},
 			{
@@ -156,9 +162,14 @@ interface VanJsVisualSpecInput {
 		screenshotThreshold: number;
 		screenshotMaxDiffPixels: number;
 	};
+	snapshotPath: string | null;
+	snapshotMode?: string;
+	sourceHtml: string;
+	snapshotDir?: string;
 }
 
 function emitVanJsVisualSpec(input: VanJsVisualSpecInput): string {
+	const { snapshotPath, snapshotMode, sourceHtml, snapshotDir } = input;
 	const viewports = JSON.stringify(input.viewports, null, 2);
 	const states = JSON.stringify(input.states, null, 2);
 	const screenshotThreshold = JSON.stringify(
@@ -168,51 +179,63 @@ function emitVanJsVisualSpec(input: VanJsVisualSpecInput): string {
 		input.assertions.screenshotMaxDiffPixels,
 	);
 
-	return `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/test";
+	const useExternalBaseline = snapshotPath !== null;
+	const useHeadless = snapshotMode === "headless";
 
-const currentDir = dirname(fileURLToPath(import.meta.url));
-const referenceHtml = readFileSync(resolve(currentDir, "./${input.fixtureFileName}"), "utf-8");
-const mountHtmlPath = resolve(currentDir, "../${input.viewName}.mount.html");
-const viewports = ${viewports};
-const states = ${states};
-const screenshotThreshold = ${screenshotThreshold};
-const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
+	const fsImport =
+		!useExternalBaseline && !useHeadless
+			? `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";\n`
+			: `import { readFileSync } from "node:fs";\n`;
 
-for (const viewport of viewports) {
-	test.describe(\`\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}\`, () => {
-		test.use({ viewport: { width: viewport.width, height: viewport.height } });
-		for (const state of states) {
-			test(\`Visual Regression / \${state.name}\`, async ({ page }, testInfo) => {
-				const snapshotName = \`${input.viewName}-\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}-\${state.name}.png\`;
-				const snapshotPath = testInfo.snapshotPath(snapshotName);
+	const screenshotAssertion = buildScreenshotAssertion(
+		snapshotPath,
+		input.assertions.screenshotThreshold,
+		input.assertions.screenshotMaxDiffPixels,
+	);
 
-				if (!existsSync(snapshotPath)) {
-					testInfo.annotations.push({ type: "init", description: "Snapshot initialized from reference HTML" });
-					await page.setContent(referenceHtml);
-					await stripWhitespaceTextNodes(page);
-					await applyState(page, state);
-					const locator = page.locator("body > *").first();
-					mkdirSync(dirname(snapshotPath), { recursive: true });
-					writeFileSync(snapshotPath, await locator.screenshot());
-					return;
-				}
+	const snapshotFilePath = `${snapshotDir ?? "__snapshots__"}/${input.viewName}.png`;
+	const headlessBeforeAllBlock = useHeadless
+		? `\n${buildHeadlessBeforeAll(sourceHtml, snapshotFilePath)}\n`
+		: "";
 
-				await page.goto("file://" + mountHtmlPath);
-				await page.waitForSelector("body > *");
-				await applyState(page, state);
-				const locator = page.locator("body > *").first();
-				await expect(locator).toHaveScreenshot(snapshotName, {
-					threshold: screenshotThreshold,
-					maxDiffPixels: screenshotMaxDiffPixels,
-				});
-			});
-		}
-	});
-}
+	const snapshotDirComment = useExternalBaseline
+		? `\n\t\t\t\t// Baseline snapshot directory: ${snapshotDir ?? "__snapshots__"} — configure snapshotDir in playwright.config.ts`
+		: "";
 
+	// Build test body as explicit lines to avoid indentation issues with embedded blocks
+	const T4 = "\t\t\t\t";
+	const T5 = "\t\t\t\t\t";
+	const testBodyLines: string[] = [];
+	if (!useExternalBaseline && !useHeadless) {
+		testBodyLines.push(
+			`${T4}const snapshotName = \`${input.viewName}-\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}-\${state.name}.png\`;`,
+			`${T4}const snapshotPath = testInfo.snapshotPath(snapshotName);`,
+			``,
+			`${T4}if (!existsSync(snapshotPath)) {`,
+			`${T5}testInfo.annotations.push({ type: "init", description: "Snapshot initialized from reference HTML" });`,
+			`${T5}await page.setContent(referenceHtml);`,
+			`${T5}await stripWhitespaceTextNodes(page);`,
+			`${T5}await applyState(page, state);`,
+			`${T5}const locator = page.locator("body > *").first();`,
+			`${T5}mkdirSync(dirname(snapshotPath), { recursive: true });`,
+			`${T5}writeFileSync(snapshotPath, await locator.screenshot());`,
+			`${T5}return;`,
+			`${T4}}`,
+			``,
+		);
+	}
+	testBodyLines.push(
+		`${T4}await page.goto("file://" + mountHtmlPath);`,
+		`${T4}await page.waitForSelector("body > *");`,
+		`${T4}await applyState(page, state);`,
+		`${T4}const locator = page.locator("body > *").first();${snapshotDirComment}`,
+		`${T4}${screenshotAssertion}`,
+	);
+	const testBody = testBodyLines.join("\n");
+
+	const stripFn =
+		!useExternalBaseline && !useHeadless
+			? `
 async function stripWhitespaceTextNodes(page) {
 	await page.evaluate(() => {
 		function strip(node) {
@@ -227,7 +250,32 @@ async function stripWhitespaceTextNodes(page) {
 		strip(document.body);
 	});
 }
+`
+			: "";
 
+	return `${fsImport}import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { expect, test } from "@playwright/test";
+
+const currentDir = dirname(fileURLToPath(import.meta.url));
+const referenceHtml = readFileSync(resolve(currentDir, "./${input.fixtureFileName}"), "utf-8");
+const mountHtmlPath = resolve(currentDir, "../${input.viewName}.mount.html");
+const viewports = ${viewports};
+const states = ${states};
+const screenshotThreshold = ${screenshotThreshold};
+const screenshotMaxDiffPixels = ${screenshotMaxDiffPixels};
+${headlessBeforeAllBlock}
+for (const viewport of viewports) {
+	test.describe(\`\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}\`, () => {
+		test.use({ viewport: { width: viewport.width, height: viewport.height } });
+		for (const state of states) {
+			test(\`Visual Regression / \${state.name}\`, async ({ page }, testInfo) => {
+${testBody}
+			});
+		}
+	});
+}
+${stripFn}
 async function applyState(page, state) {
 	if (state.waitFor) {
 		await page.waitForSelector(state.waitFor);
