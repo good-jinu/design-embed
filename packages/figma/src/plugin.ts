@@ -70,6 +70,11 @@ export class FigmaHtmlPlugin implements SourcePlugin {
 
 			return {
 				html: compileHtmlFragment(rootNode),
+				meta: {
+					fileId: fileKey,
+					nodeId,
+					viewName: rootNode.name ?? fileKey,
+				},
 				diagnostics:
 					downloadedImages.length > 0
 						? [
