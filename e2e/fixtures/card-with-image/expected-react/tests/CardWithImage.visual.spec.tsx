@@ -41,10 +41,7 @@ for (const viewport of viewports) {
 
 				const component = await mount(<CardWithImage />);
 				await applyState(component.page(), state);
-				await expect(component).toHaveScreenshot(snapshotName, {
-					threshold: screenshotThreshold,
-					maxDiffPixels: screenshotMaxDiffPixels,
-				});
+				await expect(component).toHaveScreenshot();
 			});
 		}
 	});

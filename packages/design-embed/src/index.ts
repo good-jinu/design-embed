@@ -48,6 +48,13 @@ export {
 	parseHtml,
 	unwrapDocument,
 } from "./core/index.ts";
+// Snapshot types
+export type { SnapshotConfig, SnapshotMode } from "./core/types.ts";
 export type { HtmlTargetOptions } from "./targets/html.ts";
 // Built-in HTML target
 export { HtmlTarget, htmlTarget } from "./targets/html.ts";
+// Test generation helpers — for custom target authors
+export {
+	buildHeadlessBeforeAll,
+	buildScreenshotAssertion,
+} from "./targets/screenshotOptions.ts";

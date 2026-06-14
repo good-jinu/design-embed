@@ -184,4 +184,6 @@ export interface DesignEmbedConfig {
 	styleMappings?: StyleMappings;
 	tests?: TestGenerationConfig;
 	sources?: SourceConfig[];
+	/** Snapshot config forwarded from the resolved source config. */
+	snapshot?: SnapshotConfig;
 }
