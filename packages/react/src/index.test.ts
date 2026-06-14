@@ -82,6 +82,7 @@ describe("React target", () => {
 					},
 				},
 			},
+			snapshotPath: null,
 		});
 
 		assert.deepEqual(result.diagnostics, []);
@@ -120,6 +121,7 @@ describe("React target", () => {
 					runner: "vitest" as "playwright",
 				},
 			},
+			snapshotPath: null,
 		});
 
 		assert.deepEqual(result.files, []);
