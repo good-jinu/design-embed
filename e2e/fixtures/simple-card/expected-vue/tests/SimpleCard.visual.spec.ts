@@ -30,7 +30,8 @@ for (const viewport of viewports) {
 
 				if (!existsSync(snapshotPath)) {
 					mkdirSync(dirname(snapshotPath), { recursive: true });
-					writeFileSync(snapshotPath, await component.screenshot());
+					await component.page().evaluate(() => document.fonts.ready);
+					writeFileSync(snapshotPath, await component.screenshot({ animations: "disabled" }));
 					return;
 				}
 

@@ -237,7 +237,8 @@ function emitVueVisualSpec(input: VueVisualSpecInput): string {
 			``,
 			`${T4}if (!existsSync(snapshotPath)) {`,
 			`${T5}mkdirSync(dirname(snapshotPath), { recursive: true });`,
-			`${T5}writeFileSync(snapshotPath, await component.screenshot());`,
+			`${T5}await component.page().evaluate(() => document.fonts.ready);`,
+			`${T5}writeFileSync(snapshotPath, await component.screenshot({ animations: "disabled" }));`,
 			`${T5}return;`,
 			`${T4}}`,
 			``,
@@ -348,8 +349,9 @@ for (const viewport of viewports) {
 				await applyState(component.page(), state);
 
 				if (!existsSync(snapshotPath)) {
+					await component.page().evaluate(() => document.fonts.ready);
 					mkdirSync(dirname(snapshotPath), { recursive: true });
-					writeFileSync(snapshotPath, await component.screenshot());
+					writeFileSync(snapshotPath, await component.screenshot({ animations: "disabled" }));
 					return;
 				}
 
