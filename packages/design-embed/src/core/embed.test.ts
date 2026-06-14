@@ -95,6 +95,44 @@ describe("embed — multi-source loop", () => {
 		);
 	});
 
+	test("snapshot capture failure adds a warning diagnostic but still writes output", async () => {
+		global.fetch = async () => {
+			throw new Error("network error");
+		};
+
+		const result = await embed({
+			config: {
+				sources: [
+					{
+						plugin: {
+							name: "figma",
+							run: async () => ({
+								html: "<div/>",
+								diagnostics: [],
+								meta: { fileId: "x", nodeId: "1:1", viewName: "Hero" },
+							}),
+						},
+						snapshot: {
+							mode: "figma-api" as const,
+							dir: "/tmp/snaps",
+							format: "png" as const,
+							scale: 1,
+						},
+					},
+				],
+			},
+			figmaToken: "tok",
+			dryRun: true,
+		});
+
+		assert.ok(
+			result.diagnostics.some(
+				(d) => d.code === "SNAPSHOT_FAILED" && d.severity === "warning",
+			),
+		);
+		assert.ok(result.files.length > 0);
+	});
+
 	test("generateTests is called with snapshotPath: null when no snapshot configured", async () => {
 		let capturedInput: TargetTestGenerateInput | undefined;
 		const mockTarget: TargetEmitter & TargetTestGenerator = {
