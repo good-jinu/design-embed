@@ -30,9 +30,9 @@ describe("compile command", () => {
 		assert.equal(code, 0);
 		assert.equal(existsSync(join(cwd, "src/components")), false);
 		assert.equal(existsSync(join(cwd, "src/pages")), false);
-		assert.equal(existsSync(join(cwd, "src/generated/views/tests")), true);
+		assert.equal(existsSync(join(cwd, "src/views/tests")), true);
 		assert.equal(
-			readFileSync(join(cwd, "src/generated/views/index.html"), "utf-8"),
+			readFileSync(join(cwd, "src/views/index.html"), "utf-8"),
 			'<section style="width: 120px">\n\tHello\n</section>\n',
 		);
 	});
