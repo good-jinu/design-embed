@@ -28,12 +28,13 @@ export function buildHeadlessBeforeAll(
 	sourceHtml: string,
 	snapshotFilePath: string,
 ): string {
+	const wrappedHtml = `<!DOCTYPE html>${sourceHtml}`;
 	return `// Baseline for headless snapshot: captured on first run or with UPDATE_SNAPSHOTS=1.
 // Run: UPDATE_SNAPSHOTS=1 npx playwright test to refresh.
 test.beforeAll(async ({ browser }) => {
 \tif (process.env.UPDATE_SNAPSHOTS) {
 \t\tconst page = await browser.newPage();
-\t\tawait page.setContent(${JSON.stringify(sourceHtml)});
+\t\tawait page.setContent(${JSON.stringify(wrappedHtml)});
 \t\tawait page.screenshot({ path: ${JSON.stringify(snapshotFilePath)} });
 \t\tawait page.close();
 \t}

@@ -1,11 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { expect, test } from "@playwright/experimental-ct-vue";
 import Button from "../Button.vue";
 
-const currentDir = dirname(fileURLToPath(import.meta.url));
-const referenceHtml = readFileSync(resolve(currentDir, "./Button.reference.html"), "utf-8");
 const viewports = [
   {
     "name": "default",
@@ -25,20 +22,9 @@ for (const viewport of viewports) {
 	test.describe(`${viewport.name ?? `${viewport.width}x${viewport.height}`}`, () => {
 		test.use({ viewport: { width: viewport.width, height: viewport.height } });
 		for (const state of states) {
-			test(`Visual Regression / ${state.name}`, async ({ page, mount }, testInfo) => {
+			test(`Visual Regression / ${state.name}`, async ({ mount }, testInfo) => {
 				const snapshotName = `Button-${viewport.name ?? `${viewport.width}x${viewport.height}`}-${state.name}.png`;
 				const snapshotPath = testInfo.snapshotPath(snapshotName);
-
-				if (!existsSync(snapshotPath)) {
-					testInfo.annotations.push({ type: "init", description: "Snapshot initialized from reference HTML" });
-					await page.setContent(referenceHtml);
-					await applyState(page, state);
-					const locator = page.locator("button[data-role='primary']").first();
-					mkdirSync(dirname(snapshotPath), { recursive: true });
-					writeFileSync(snapshotPath, await locator.screenshot());
-					return;
-				}
-
 				const component = await mount(Button, {
 					props: {
   "variant": "primary"
@@ -48,6 +34,14 @@ for (const viewport of viewports) {
 },
 				});
 				await applyState(component.page(), state);
+
+				if (!existsSync(snapshotPath)) {
+					await component.page().evaluate(() => document.fonts.ready);
+					mkdirSync(dirname(snapshotPath), { recursive: true });
+					writeFileSync(snapshotPath, await component.screenshot({ animations: "disabled" }));
+					return;
+				}
+
 				await expect(component).toHaveScreenshot(snapshotName, {
 					threshold: screenshotThreshold,
 					maxDiffPixels: screenshotMaxDiffPixels,

@@ -34,7 +34,7 @@ describe("Vue generateTests — snapshotPath integration", () => {
 		);
 	});
 
-	test("generated spec does not include a baseline name when snapshotPath is null", () => {
+	test("generated spec uses snapshotName variable when snapshotPath is null", () => {
 		const result = vueTestGenerator.generateTests({
 			...baseInput,
 			snapshotPath: null,
@@ -43,12 +43,12 @@ describe("Vue generateTests — snapshotPath integration", () => {
 		const spec = result.files.find((f) => f.path.endsWith(".visual.spec.ts"));
 		assert.ok(spec, "expected a .visual.spec.ts file");
 		assert.ok(
-			spec.contents.includes("toHaveScreenshot()"),
-			`expected toHaveScreenshot() in:\n${spec.contents}`,
+			spec.contents.includes("toHaveScreenshot(snapshotName,"),
+			`expected toHaveScreenshot(snapshotName, ...) in:\n${spec.contents}`,
 		);
 		assert.ok(
-			!spec.contents.includes("toHaveScreenshot({ name:"),
-			`unexpected toHaveScreenshot({ name: ... }) in:\n${spec.contents}`,
+			!spec.contents.includes("toHaveScreenshot()"),
+			`unexpected toHaveScreenshot() in:\n${spec.contents}`,
 		);
 	});
 
