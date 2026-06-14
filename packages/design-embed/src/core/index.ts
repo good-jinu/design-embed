@@ -56,7 +56,16 @@ export type {
 export type {
 	ComponentMapping,
 	DesignEmbedConfig,
+	DesignSnapshotter,
+	GlobalOutputConfig,
 	NumericTokenGroup,
+	ResolvedSourceConfig,
+	SnapshotConfig,
+	SnapshotInput,
+	SnapshotMode,
+	SnapshotResult,
+	SourceConfig,
+	SourceOutputConfig,
 	StyleMappings,
 	StyleMode,
 	TargetEmitInput,
@@ -190,6 +199,7 @@ export async function embed(
 			html,
 			css,
 			config,
+			snapshotPath: null,
 		});
 		diagnostics.push(...testResult.diagnostics);
 		if (!diagnostics.some((d) => d.severity === "error")) {
