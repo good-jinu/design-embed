@@ -133,6 +133,7 @@ import Button from "./Button.vue";
 					},
 				},
 			},
+			snapshotPath: null,
 		});
 
 		assert.deepEqual(result.diagnostics, []);

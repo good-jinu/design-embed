@@ -69,6 +69,7 @@ export function HeroView() {
 					},
 				},
 			},
+			snapshotPath: null,
 		});
 
 		assert.deepEqual(result.diagnostics, []);
@@ -112,6 +113,7 @@ export function HeroView() {
 					runner: "vitest" as "playwright",
 				},
 			},
+			snapshotPath: null,
 		});
 
 		assert.deepEqual(result.files, []);

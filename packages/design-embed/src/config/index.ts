@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Diagnostic } from "../core/diagnostics/diagnostic.ts";
 import type {
@@ -7,7 +7,16 @@ import type {
 	SourcePluginInput,
 	SourcePluginResult,
 } from "../core/plugins/pluginApi.ts";
-import type { DesignEmbedConfig, TestGenerationConfig } from "../core/types.ts";
+import type {
+	ComponentMapping,
+	DesignEmbedConfig,
+	ResolvedSourceConfig,
+	SnapshotConfig,
+	SourceConfig,
+	StyleMappings,
+	TestGenerationConfig,
+	TokenConfig,
+} from "../core/types.ts";
 
 export type { Diagnostic } from "../core/diagnostics/diagnostic.ts";
 
@@ -15,6 +24,107 @@ export interface LoadConfigResult {
 	config?: DesignEmbedConfig;
 	configPath?: string;
 	diagnostics: Diagnostic[];
+}
+
+export interface ResolvedDesignEmbedConfig {
+	output: {
+		viewsDir: string;
+		target: "html" | import("../core/types.ts").TargetEmitter;
+		styleMode: import("../core/types.ts").StyleMode;
+	};
+	components: ComponentMapping[];
+	tokens: TokenConfig;
+	styleMappings: StyleMappings;
+	tests: TestGenerationConfig;
+	sources: ResolvedSourceConfig[];
+}
+
+export function resolveConfig(
+	raw: DesignEmbedConfig,
+	cwd: string,
+): ResolvedDesignEmbedConfig {
+	const sources = raw.sources ?? [];
+
+	return {
+		output: {
+			viewsDir: resolveDir(raw.output?.viewsDir ?? "./src/views", cwd),
+			target: raw.output?.target ?? "html",
+			styleMode: raw.output?.styleMode ?? "inline",
+		},
+		components: raw.components ?? [],
+		tokens: raw.tokens ?? {},
+		styleMappings: raw.styleMappings ?? {},
+		tests: resolveTestConfig(raw.tests),
+		sources: sources.map((s) => resolveSourceConfig(s, raw, cwd)),
+	};
+}
+
+function resolveSourceConfig(
+	src: SourceConfig,
+	global: DesignEmbedConfig,
+	cwd: string,
+): ResolvedSourceConfig {
+	const viewsDir =
+		src.output?.viewsDir ?? global.output?.viewsDir ?? "./src/views";
+	return {
+		plugin: src.plugin,
+		output: {
+			viewsDir: resolveDir(viewsDir, cwd),
+			viewName: src.output?.viewName,
+			target: src.output?.target ?? global.output?.target ?? "html",
+			styleMode: src.output?.styleMode ?? global.output?.styleMode ?? "inline",
+		},
+		components: [...(global.components ?? []), ...(src.components ?? [])],
+		tokens: mergeTokens(global.tokens, src.tokens),
+		styleMappings: {
+			...(global.styleMappings ?? {}),
+			...(src.styleMappings ?? {}),
+		},
+		tests: resolveTestConfig({ ...global.tests, ...src.tests }),
+		snapshot: resolveSnapshotConfig(src.snapshot, viewsDir, cwd),
+	};
+}
+
+function resolveTestConfig(tests?: TestGenerationConfig): TestGenerationConfig {
+	return {
+		runner: tests?.runner ?? "playwright",
+		viewports: tests?.viewports,
+		states: tests?.states,
+		assertions: {
+			screenshot: tests?.assertions?.screenshot ?? true,
+			layout: tests?.assertions?.layout,
+			layoutTolerance: tests?.assertions?.layoutTolerance,
+			selectors: tests?.assertions?.selectors,
+			screenshotThreshold: tests?.assertions?.screenshotThreshold ?? 0.2,
+			screenshotMaxDiffPixels:
+				tests?.assertions?.screenshotMaxDiffPixels ?? 500,
+		},
+		outputDir: tests?.outputDir,
+	};
+}
+
+function resolveSnapshotConfig(
+	snap: SnapshotConfig | undefined,
+	viewsDir: string | URL,
+	cwd: string,
+): Required<SnapshotConfig> {
+	const resolvedViewsDir =
+		viewsDir instanceof URL ? fileURLToPath(viewsDir) : resolve(cwd, viewsDir);
+	return {
+		mode: snap?.mode ?? "none",
+		dir: snap?.dir ?? join(resolvedViewsDir, "__snapshots__"),
+		format: snap?.format ?? "png",
+		scale: snap?.scale ?? 1,
+	};
+}
+
+function resolveDir(dir: string | URL, cwd: string): string {
+	if (dir instanceof URL) return fileURLToPath(dir);
+	return resolve(cwd, dir);
+}
+
+function mergeTokens(global?: TokenConfig, source?: TokenConfig): TokenConfig {
+	return { ...(global ?? {}), ...(source ?? {}) };
 }
 
 export function defineConfig(config: DesignEmbedConfig): DesignEmbedConfig {
@@ -113,6 +223,35 @@ export async function loadConfig(
 
 export function validateConfig(config: DesignEmbedConfig): Diagnostic[] {
 	const diagnostics: Diagnostic[] = [];
+
+	for (const [index, src] of (config.sources ?? []).entries()) {
+		const srcTarget = src.output?.target;
+		const srcStyleMode = src.output?.styleMode;
+		if (
+			srcTarget &&
+			srcTarget !== "html" &&
+			(typeof srcTarget !== "object" || typeof srcTarget.emit !== "function")
+		) {
+			diagnostics.push({
+				code: "TARGET_ADAPTER_INVALID",
+				message: `sources[${index}].output.target must be a target adapter with emit().`,
+				severity: "error",
+			});
+		}
+		if (
+			srcStyleMode &&
+			srcStyleMode !== "inline" &&
+			srcStyleMode !== "css-modules" &&
+			srcStyleMode !== "tailwind"
+		) {
+			diagnostics.push({
+				code: "STYLE_MODE_UNSUPPORTED",
+				message: `Unsupported style mode in sources[${index}]: ${srcStyleMode}`,
+				severity: "error",
+			});
+		}
+	}
+
 	const target = config.output?.target;
 	const styleMode = config.output?.styleMode;
 
