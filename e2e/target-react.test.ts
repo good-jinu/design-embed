@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { describe, test } from "node:test";
 import { embed } from "design-embed";
@@ -41,6 +41,13 @@ const FIXTURES = [
 describe("React target fixture pipeline", () => {
 	for (const { name, config, expectedDiagnosticCodes = [], generateTests } of FIXTURES) {
 		test(`${name}: output matches expected snapshots`, async () => {
+			// Remove only stale React CT visual specs — leave HTML *.spec.ts files intact.
+			const specDir = join(root, "fixtures", name, "generated", "tests");
+			if (existsSync(specDir)) {
+				for (const file of readdirSync(specDir)) {
+					if (file.endsWith(".visual.spec.tsx")) rmSync(join(specDir, file));
+				}
+			}
 			const result = await embed({ config, generateTests });
 
 			assert.deepEqual(result.diagnostics.map((d) => d.code), expectedDiagnosticCodes);

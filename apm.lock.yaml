@@ -1,0 +1,84 @@
+lockfile_version: '1'
+generated_at: '2026-06-14T08:45:16.460489+00:00'
+apm_version: 0.18.0
+dependencies:
+- repo_url: mizchi/skills
+  host: github.com
+  resolved_commit: 89c1b34018ba0d85a770c065ba22f83a8d004d34
+  virtual_path: devops/gh-fix-ci
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/gh-fix-ci
+  - .claude/skills/gh-fix-ci
+  content_hash: sha256:d47fef8f3302230bd4e4e3ca2a37fd144935a2d3274fcd28ffbe8327a7f89f96
+- repo_url: mizchi/skills
+  host: github.com
+  resolved_commit: 89c1b34018ba0d85a770c065ba22f83a8d004d34
+  virtual_path: frontend/review-deps
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/review-deps
+  - .claude/skills/review-deps
+  content_hash: sha256:f968eb6faed31e4309c645b35c6df6f7f6df230cf031887244eea0b318f55a85
+- repo_url: mizchi/skills
+  host: github.com
+  resolved_commit: 89c1b34018ba0d85a770c065ba22f83a8d004d34
+  virtual_path: frontend/review-hygiene
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/review-hygiene
+  - .claude/skills/review-hygiene
+  content_hash: sha256:062d32b84740a8f7776d82f78f80762b9e9639954e3db1cc1d4f0cc1dd731d18
+- repo_url: mizchi/skills
+  host: github.com
+  resolved_commit: 89c1b34018ba0d85a770c065ba22f83a8d004d34
+  virtual_path: frontend/review-testing
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/review-testing
+  - .claude/skills/review-testing
+  content_hash: sha256:b691dfe37f7e5cb4742769956cb6443b4cb9e2c584d825bde05f0179203877fb
+- repo_url: mizchi/skills
+  host: github.com
+  resolved_commit: 89c1b34018ba0d85a770c065ba22f83a8d004d34
+  virtual_path: testing/playwright-cli
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/playwright-cli
+  - .claude/skills/playwright-cli
+  content_hash: sha256:2c8615de2e6ee639b65e6f28b318e087edf8aeca69eccf4cb6bc4853a0716199
+- repo_url: mizchi/skills
+  host: github.com
+  resolved_commit: 89c1b34018ba0d85a770c065ba22f83a8d004d34
+  virtual_path: testing/playwright-test
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/playwright-test
+  - .claude/skills/playwright-test
+  content_hash: sha256:8dfd6ca18ba07a932de883f36c18b3216cdd12dcfa064069bda00f6fdd826f43
+- repo_url: mizchi/skills
+  host: github.com
+  resolved_commit: 89c1b34018ba0d85a770c065ba22f83a8d004d34
+  virtual_path: tooling/apm-usage
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/apm-usage
+  - .claude/skills/apm-usage
+  content_hash: sha256:5ca113f215eb4433e6420abbdfbcbbb05166ec9325c810e5cc27bc9acbf7a5d9
+- repo_url: mizchi/skills
+  host: github.com
+  resolved_commit: 89c1b34018ba0d85a770c065ba22f83a8d004d34
+  virtual_path: tooling/conventional-changelog
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/conventional-changelog
+  - .claude/skills/conventional-changelog
+  content_hash: sha256:7028ec4ee24f97249090e5012032c3ac5e2aae64dfc573fc495ae2281f3506ca
