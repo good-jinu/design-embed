@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { resolveConfig } from "../config/index.ts";
+import { resolveSnapshotter } from "../snapshot/resolveSnapshotter.ts";
 import { htmlTarget } from "../targets/html.ts";
 import type { Diagnostic } from "./diagnostics/diagnostic.ts";
 import type {
@@ -92,6 +93,8 @@ export interface DesignEmbedInput {
 	dryRun?: boolean;
 	/** When true, generates test files alongside output files. Defaults to false. */
 	generateTests?: boolean;
+	/** Figma personal access token. Falls back to FIGMA_TOKEN env var. */
+	figmaToken?: string;
 }
 
 /**
@@ -120,7 +123,7 @@ export async function embed(
 	input: DesignEmbedInput,
 ): Promise<DesignEmbedResult> {
 	const cwd = input.cwd ?? process.cwd();
-	const resolved = resolveConfig(input.config ?? {}, cwd);
+	const resolved = resolveConfig(input.config ?? { sources: [] }, cwd);
 
 	if (resolved.sources.length === 0) {
 		return {
@@ -222,8 +225,28 @@ async function runSource(
 		diagnostics,
 	});
 
-	// TASK3 will replace this placeholder with actual snapshot capture
-	const snapshotPath: string | null = null;
+	const snapshotter = resolveSnapshotter(
+		src,
+		process.env.FIGMA_TOKEN ?? input.figmaToken,
+	);
+
+	let snapshotPath: string | null = null;
+	if (snapshotter && src.snapshot.mode !== "headless") {
+		try {
+			const snapshotResult = await snapshotter.capture({
+				source: sourceResult,
+				config: src.snapshot,
+				cwd,
+			});
+			snapshotPath = snapshotResult.filePath;
+		} catch (err) {
+			diagnostics.push({
+				code: "SNAPSHOT_FAILED",
+				message: `Snapshot capture failed: ${err instanceof Error ? err.message : String(err)}`,
+				severity: "warning",
+			});
+		}
+	}
 
 	if (input.generateTests && "generateTests" in targetObj) {
 		const testGen = targetObj as unknown as TargetTestGenerator;

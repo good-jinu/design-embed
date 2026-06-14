@@ -11,12 +11,14 @@ describe("compile command", () => {
 		writeFileSync(
 			join(cwd, "design-embed.config.ts"),
 			`export default {
-	source: {
-		name: "test-source",
-		async run() {
-			return { html: '<section style="width: 120px">Hello</section>', diagnostics: [] };
+	sources: [{
+		plugin: {
+			name: "test-source",
+			async run() {
+				return { html: '<section style="width: 120px">Hello</section>', diagnostics: [] };
+			},
 		},
-	},
+	}],
 };
 `,
 			"utf-8",
@@ -42,27 +44,29 @@ describe("compile command", () => {
 		writeFileSync(
 			join(cwd, "design-embed.config.mjs"),
 			`export default {
-	source: {
-		name: "test-source",
-		async run() {
-			return { html: "<main>No tests</main>", diagnostics: [] };
-		},
-	},
-	output: {
-		target: {
-			emit() {
-				return {
-					files: [{ path: "src/components/Adapter.view.tsx", contents: "component\\n" }],
-				};
-			},
-			generateTests() {
-				return {
-					files: [{ path: "tests/Adapter.spec.tsx", contents: "test\\n" }],
-					diagnostics: [],
-				};
+	sources: [{
+		plugin: {
+			name: "test-source",
+			async run() {
+				return { html: "<main>No tests</main>", diagnostics: [] };
 			},
 		},
-	},
+		output: {
+			target: {
+				emit() {
+					return {
+						files: [{ path: "src/components/Adapter.view.tsx", contents: "component\\n" }],
+					};
+				},
+				generateTests() {
+					return {
+						files: [{ path: "tests/Adapter.spec.tsx", contents: "test\\n" }],
+						diagnostics: [],
+					};
+				},
+			},
+		},
+	}],
 };
 `,
 			"utf-8",
@@ -88,15 +92,17 @@ describe("compile command", () => {
 		writeFileSync(
 			join(cwd, "design-embed.config.ts"),
 			`export default {
-	source: {
-		name: "test-source",
-		async run() {
-			return { html: "<main>Default config</main>", diagnostics: [] };
+	sources: [{
+		plugin: {
+			name: "test-source",
+			async run() {
+				return { html: "<main>Default config</main>", diagnostics: [] };
+			},
 		},
-	},
-	output: {
-		viewsDir: "custom/generated",
-	},
+		output: {
+			viewsDir: "custom/generated",
+		},
+	}],
 };
 `,
 			"utf-8",

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { embed } from "./index.ts";
 import type {
-	DesignEmbedConfig,
 	TargetEmitInput,
 	TargetEmitter,
 	TargetTestGenerateInput,
@@ -73,26 +72,42 @@ describe("embed — multi-source loop", () => {
 		assert.equal(result.files.length, 0);
 	});
 
-	test("old source field produces the same output as sources array", async () => {
-		const plugin = makePlugin("<div>legacy</div>");
+	test("snapshot capture failure adds a warning diagnostic but still writes output", async () => {
+		global.fetch = async () => {
+			throw new Error("network error");
+		};
 
-		const oldResult = await embed({
+		const result = await embed({
 			config: {
-				source: plugin,
-				output: { viewsDir: "./out" },
-			} as DesignEmbedConfig,
-			dryRun: true,
-		});
-		const newResult = await embed({
-			config: { sources: [{ plugin, output: { viewsDir: "./out" } }] },
+				sources: [
+					{
+						plugin: {
+							name: "figma",
+							run: async () => ({
+								html: "<div/>",
+								diagnostics: [],
+								meta: { fileId: "x", nodeId: "1:1", viewName: "Hero" },
+							}),
+						},
+						snapshot: {
+							mode: "figma-api" as const,
+							dir: "/tmp/snaps",
+							format: "png" as const,
+							scale: 1,
+						},
+					},
+				],
+			},
+			figmaToken: "tok",
 			dryRun: true,
 		});
 
-		assert.equal(oldResult.files.length, newResult.files.length);
-		assert.equal(
-			oldResult.diagnostics.filter((d) => d.severity === "error").length,
-			0,
+		assert.ok(
+			result.diagnostics.some(
+				(d) => d.code === "SNAPSHOT_FAILED" && d.severity === "warning",
+			),
 		);
+		assert.ok(result.files.length > 0);
 	});
 
 	test("generateTests is called with snapshotPath: null when no snapshot configured", async () => {

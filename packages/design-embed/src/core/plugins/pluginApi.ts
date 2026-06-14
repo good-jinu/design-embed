@@ -32,6 +32,8 @@ export interface SourcePluginResult {
 	assets?: GeneratedAsset[];
 	files?: GeneratedFile[];
 	diagnostics: Diagnostic[];
+	/** Optional metadata for snapshot capture. Shape is source-plugin-specific. */
+	meta?: Record<string, unknown>;
 }
 
 export interface TargetEmitResult {

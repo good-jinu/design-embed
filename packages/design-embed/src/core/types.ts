@@ -184,5 +184,4 @@ export interface DesignEmbedConfig {
 	styleMappings?: StyleMappings;
 	tests?: TestGenerationConfig;
 	sources?: SourceConfig[];
-	source?: SourcePlugin;
 }
