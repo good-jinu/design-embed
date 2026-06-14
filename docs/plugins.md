@@ -8,8 +8,30 @@ sidebar_position: 7
 
 ## Source Plugins
 
-Source plugins fetch or generate the raw HTML/CSS that the compiler uses as input.
+Source plugins fetch or generate the raw HTML/CSS that the compiler uses as input. Each entry in `sources` has a `plugin` field that holds a source plugin.
 
+### Built-in: `fromFile()`
+
+The simplest way to use a local HTML file as a source is the built-in `fromFile()` helper:
+
+```typescript
+import { defineConfig, fromFile } from "design-embed";
+
+export default defineConfig({
+  sources: [{
+    plugin: fromFile(new URL("./design/button.html", import.meta.url)),
+    output: { viewName: "Button" },
+  }],
+});
+```
+
+Pass an optional second argument for a companion CSS file:
+
+```typescript
+plugin: fromFile("./design/button.html", "./design/button.css")
+```
+
+---
 
 ### Custom HTML Source Plugin
 
@@ -72,9 +94,7 @@ import { defineConfig } from "design-embed";
 import { ExternalHtmlPlugin } from "./external-html-plugin";
 
 export default defineConfig({
-  source: new ExternalHtmlPlugin({
-    url: "https://www.example.com/"
-  }),
+  sources: [{ plugin: new ExternalHtmlPlugin({ url: "https://www.example.com/" }) }],
   output: {
     viewName: "ExamplePages",
     viewsDir: "src/generated/views"
@@ -99,9 +119,11 @@ import { defineConfig } from "design-embed";
 import { FigmaHtmlPlugin } from "@design-embed/figma";
 
 export default defineConfig({
-  source: new FigmaHtmlPlugin({
-    url: "https://www.figma.com/file/KEY/NAME?node-id=ID"
-  })
+  sources: [{
+    plugin: new FigmaHtmlPlugin({
+      url: "https://www.figma.com/file/KEY/NAME?node-id=ID"
+    }),
+  }]
 });
 ```
 

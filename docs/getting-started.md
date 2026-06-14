@@ -76,12 +76,15 @@ import { defineConfig } from "design-embed";
 import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
-  source: {
-    run: async () => ({
-      html: "<div>...</div>",
-      diagnostics: [],
-    }),
-  },
+  sources: [{
+    plugin: {
+      name: "my-source",
+      run: async () => ({
+        html: "<div>...</div>",
+        diagnostics: [],
+      }),
+    },
+  }],
   output: {
     target: new ReactTarget(),
     viewName: "WelcomeHero",
@@ -108,9 +111,11 @@ import { FigmaHtmlPlugin } from "@design-embed/figma";
 import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
-  source: new FigmaHtmlPlugin({
-    url: "https://www.figma.com/file/KEY/NAME?node-id=ID"
-  }),
+  sources: [{
+    plugin: new FigmaHtmlPlugin({
+      url: "https://www.figma.com/file/KEY/NAME?node-id=ID"
+    }),
+  }],
   output: {
     target: new ReactTarget(),
     viewName: "WelcomeHero",
@@ -146,6 +151,15 @@ import { defineConfig } from "design-embed";
 import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
+  sources: [{
+    plugin: {
+      name: "my-source",
+      run: async () => ({
+        html: "<div>...</div>",
+        diagnostics: [],
+      }),
+    },
+  }],
   output: {
     target: new ReactTarget(),
     viewName: "WelcomeHero",

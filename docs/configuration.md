@@ -20,19 +20,83 @@ export default defineConfig({
 
 ---
 
+## Sources
+
+The `sources` array is the only required field. Each entry defines one design input along with optional per-source overrides for output, components, tokens, and tests.
+
+```typescript
+import { defineConfig, fromFile } from "design-embed";
+import { FigmaHtmlPlugin } from "@design-embed/figma";
+import { ReactTarget } from "@design-embed/react";
+
+export default defineConfig({
+  // Global defaults — inherited by every source
+  output: {
+    target: new ReactTarget(),
+    viewsDir: "src/generated/views",
+    styleMode: "inline",
+  },
+
+  // One or more design sources
+  sources: [
+    {
+      // Built-in helper: load HTML (and optional CSS) from a local file
+      plugin: fromFile(new URL("./design/hero.html", import.meta.url)),
+      output: { viewName: "Hero" },
+    },
+    {
+      // Figma source: fetches a frame at compile time
+      plugin: new FigmaHtmlPlugin({
+        url: "https://www.figma.com/file/KEY/NAME?node-id=ID",
+      }),
+      output: { viewName: "Navbar" },
+    },
+  ],
+});
+```
+
+Each source inherits global `output`, `components`, `tokens`, `styleMappings`, and `tests` settings. Per-source values override the global ones.
+
+### `fromFile()`
+
+A built-in convenience helper that creates a source plugin from a local HTML file (with an optional companion CSS file):
+
+```typescript
+import { fromFile } from "design-embed";
+
+// HTML only
+plugin: fromFile("./design/button.html")
+
+// HTML + CSS
+plugin: fromFile("./design/button.html", "./design/button.css")
+
+// Using import.meta.url for reliable resolution
+plugin: fromFile(new URL("./design/button.html", import.meta.url))
+```
+
+---
+
 ## Output Options
 
-The `output` section controls how and where files are generated.
+The `output` section sets global defaults for how and where files are generated. Per-source `output` overrides these per source.
 
 ```typescript
 import { ReactTarget } from "@design-embed/react";
 
 output: {
   target: new ReactTarget(),   // Omit for built-in HTML output
-  viewName: "LandingPage",     // Name of the generated component
   viewsDir: "src/generated",   // Directory for output files
   styleMode: "tailwind"        // "inline", "tailwind", or "css-modules"
 }
+```
+
+Set `viewName` per source via `sources[n].output.viewName` — each source generates its own view file.
+
+```typescript
+sources: [
+  { plugin: ..., output: { viewName: "Hero" } },
+  { plugin: ..., output: { viewName: "Footer" } },
+]
 ```
 
 ### HtmlTarget options
@@ -129,9 +193,26 @@ styleMappings: {
 
 ---
 
-## Source
+## Snapshot
 
-- **`source`**: The source plugin instance that fetches or generates the design HTML passed to the compiler (e.g. `new FigmaHtmlPlugin(...)`).
+Each source can capture a baseline image of the original design alongside the generated files. Snapshots are used by generated visual tests as the reference image.
+
+```typescript
+sources: [{
+  plugin: new FigmaHtmlPlugin({ url: "..." }),
+  output: { viewName: "Hero" },
+  snapshot: {
+    mode: "figma-api",   // "figma-api" | "headless" | "none" (default)
+    dir: "src/generated/views/__snapshots__",  // default: __snapshots__ next to viewsDir
+    format: "png",       // "png" | "jpeg" (default: "png")
+    scale: 2,            // pixel density (default: 1)
+  },
+}],
+```
+
+- **`mode: "figma-api"`** — Downloads the rendered image directly from the Figma API. Requires `FIGMA_TOKEN`. Only works with `FigmaHtmlPlugin`.
+- **`mode: "headless"`** — Renders the source HTML in a headless browser and screenshots it. Works with any source plugin.
+- **`mode: "none"`** — No snapshot is captured (default). Tests fall back to using the reference HTML fixture as the baseline.
 
 ---
 
