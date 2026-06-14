@@ -43,7 +43,7 @@ export function resolveConfig(
 	raw: DesignEmbedConfig,
 	cwd: string,
 ): ResolvedDesignEmbedConfig {
-	const sources = raw.sources ?? [];
+	const sources = raw.sources ?? (raw.source ? [{ plugin: raw.source }] : []);
 
 	return {
 		output: {
@@ -70,7 +70,7 @@ function resolveSourceConfig(
 		plugin: src.plugin,
 		output: {
 			viewsDir: resolveDir(viewsDir, cwd),
-			viewName: src.output?.viewName,
+			viewName: src.output?.viewName ?? global.output?.viewName,
 			target: src.output?.target ?? global.output?.target ?? "html",
 			styleMode: src.output?.styleMode ?? global.output?.styleMode ?? "inline",
 		},

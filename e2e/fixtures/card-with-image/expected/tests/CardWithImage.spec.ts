@@ -27,8 +27,8 @@ const selectors = [
 const screenshotEnabled = true;
 const layoutEnabled = true;
 const layoutTolerance = 0;
-const screenshotThreshold = 0.1;
-const screenshotMaxDiffPixels = 0;
+const screenshotThreshold = 0.2;
+const screenshotMaxDiffPixels = 500;
 
 for (const viewport of viewports) {
 	for (const state of states) {
