@@ -40,3 +40,9 @@ examples/*/src/generated/
 examples/*/test-results/
 examples/*/.playwright/
 examples/*/__snapshots__/
+
+
+# APM dependencies
+apm_modules/
+.claude/
+.agents/

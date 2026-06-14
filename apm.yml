@@ -1,0 +1,27 @@
+name: design-embed
+version: 0.1.0
+description: APM project for design-embed
+author: good-jinu
+# Which agent platforms to deploy to.
+# Resolution order: --target flag > this field > auto-detect from filesystem.
+# Accepted values: copilot, claude, cursor, opencode, codex, gemini, windsurf, all
+targets:
+- claude
+- agent-skills
+dependencies:
+  apm:
+    # Playwright E2E
+    - mizchi/skills/testing/playwright-test
+    - mizchi/skills/testing/playwright-cli
+    # TypeScript / monorepo quality
+    - mizchi/skills/frontend/review-hygiene
+    - mizchi/skills/frontend/review-testing
+    - mizchi/skills/frontend/review-deps
+    # CI & changelog
+    - mizchi/skills/devops/gh-fix-ci
+    - mizchi/skills/tooling/conventional-changelog
+    # APM reference
+    - mizchi/skills/tooling/apm-usage
+  mcp: []
+includes: auto
+scripts: {}
