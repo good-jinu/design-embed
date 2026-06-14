@@ -1,7 +1,7 @@
 import { defineConfig, fromFile } from "design-embed";
 
 export default defineConfig({
-	source: fromFile(new URL("./product-list.html", import.meta.url)),
+	sources: [{ plugin: fromFile(new URL("./product-list.html", import.meta.url)) }],
 	output: {
 		viewsDir: new URL("./generated", import.meta.url),
 		viewName: "ProductList",

@@ -123,7 +123,7 @@ export async function embed(
 	input: DesignEmbedInput,
 ): Promise<DesignEmbedResult> {
 	const cwd = input.cwd ?? process.cwd();
-	const resolved = resolveConfig(input.config ?? {}, cwd);
+	const resolved = resolveConfig(input.config ?? { sources: [] }, cwd);
 
 	if (resolved.sources.length === 0) {
 		return {

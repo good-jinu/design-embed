@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { embed } from "./index.ts";
 import type {
-	DesignEmbedConfig,
 	TargetEmitInput,
 	TargetEmitter,
 	TargetTestGenerateInput,
@@ -71,28 +70,6 @@ describe("embed — multi-source loop", () => {
 			),
 		);
 		assert.equal(result.files.length, 0);
-	});
-
-	test("old source field produces the same output as sources array", async () => {
-		const plugin = makePlugin("<div>legacy</div>");
-
-		const oldResult = await embed({
-			config: {
-				source: plugin,
-				output: { viewsDir: "./out" },
-			} as DesignEmbedConfig,
-			dryRun: true,
-		});
-		const newResult = await embed({
-			config: { sources: [{ plugin, output: { viewsDir: "./out" } }] },
-			dryRun: true,
-		});
-
-		assert.equal(oldResult.files.length, newResult.files.length);
-		assert.equal(
-			oldResult.diagnostics.filter((d) => d.severity === "error").length,
-			0,
-		);
 	});
 
 	test("snapshot capture failure adds a warning diagnostic but still writes output", async () => {

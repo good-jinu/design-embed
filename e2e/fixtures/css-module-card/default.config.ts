@@ -1,10 +1,10 @@
 import { defineConfig, fromFile } from "design-embed";
 
 export default defineConfig({
-	source: fromFile(
+	sources: [{ plugin: fromFile(
 		new URL("./css-module-card.html", import.meta.url),
 		new URL("./css-module-card.css", import.meta.url),
-	),
+	) }],
 	output: {
 		viewsDir: new URL("./generated", import.meta.url),
 		target: "html",

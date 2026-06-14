@@ -43,7 +43,7 @@ export function resolveConfig(
 	raw: DesignEmbedConfig,
 	cwd: string,
 ): ResolvedDesignEmbedConfig {
-	const sources = raw.sources ?? (raw.source ? [{ plugin: raw.source }] : []);
+	const sources = raw.sources ?? [];
 
 	return {
 		output: {

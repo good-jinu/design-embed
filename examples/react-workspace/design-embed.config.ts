@@ -2,7 +2,7 @@ import { defineConfig, fromFile } from "design-embed";
 import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
-	source: fromFile(new URL("./design/button.html", import.meta.url)),
+	sources: [{ plugin: fromFile(new URL("./design/button.html", import.meta.url)) }],
 	output: {
 		target: new ReactTarget(),
 		viewName: "ButtonExample",
