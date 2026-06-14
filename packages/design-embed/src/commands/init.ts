@@ -100,7 +100,7 @@ class HtmlFetcherPlugin implements SourcePlugin {
 
 export default defineConfig({
 \tsource: new HtmlFetcherPlugin({
-\t\turl: "https://www.scrapethissite.com/pages/",
+\t\turl: "https://www.example.com/",
 \t}),
 \toutput: {
 \t\tviewName: "${viewName}",

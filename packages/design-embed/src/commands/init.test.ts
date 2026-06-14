@@ -22,7 +22,7 @@ describe("init command", () => {
 		);
 		assert.match(
 			readFileSync(join(cwd, "design-embed.config.ts"), "utf-8"),
-			/url: "https:\/\/www\.scrapethissite\.com\/pages\/"/,
+			/url: "https:\/\/www\.example\.com\/"/,
 		);
 		assert.equal(existsSync(join(cwd, "design.html")), false);
 		assert.equal(existsSync(join(cwd, "playwright-ct.config.ts")), false);
