@@ -43,13 +43,7 @@ export function resolveConfig(
 	raw: DesignEmbedConfig,
 	cwd: string,
 ): ResolvedDesignEmbedConfig {
-	let sources = raw.sources ?? [];
-	if (raw.source && sources.length === 0) {
-		console.warn(
-			"[design-embed] `config.source` is deprecated. Use `config.sources` array instead.",
-		);
-		sources = [{ plugin: raw.source }];
-	}
+	const sources = raw.sources ?? [];
 
 	return {
 		output: {
@@ -229,22 +223,6 @@ export async function loadConfig(
 
 export function validateConfig(config: DesignEmbedConfig): Diagnostic[] {
 	const diagnostics: Diagnostic[] = [];
-
-	if (config.source && (!config.sources || config.sources.length === 0)) {
-		diagnostics.push({
-			code: "SOURCE_DEPRECATED",
-			message:
-				"[design-embed] `config.source` is deprecated. Use `config.sources` array instead.",
-			severity: "warning",
-		});
-	} else if (config.source && config.sources && config.sources.length > 0) {
-		diagnostics.push({
-			code: "SOURCE_CONFLICT",
-			message:
-				"[design-embed] Both `config.source` and `config.sources` are present. `config.source` will be ignored.",
-			severity: "warning",
-		});
-	}
 
 	for (const [index, src] of (config.sources ?? []).entries()) {
 		const srcTarget = src.output?.target;

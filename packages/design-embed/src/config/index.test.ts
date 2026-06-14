@@ -105,11 +105,7 @@ describe("config", () => {
 			"e2e/fixtures/simple-card/default.config.ts",
 			root,
 		);
-		// Old-style configs emit a deprecation warning (not an error) for the `source` field.
-		assert.deepEqual(
-			result.diagnostics.filter((d) => d.severity === "error"),
-			[],
-		);
+		assert.deepEqual(result.diagnostics, []);
 		assert.equal(result.config?.output?.target, "html");
 	});
 

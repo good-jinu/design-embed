@@ -184,6 +184,5 @@ export interface DesignEmbedConfig {
 	styleMappings?: StyleMappings;
 	tests?: TestGenerationConfig;
 	sources?: SourceConfig[];
-	/** @deprecated Use sources[].plugin instead. Will be removed in next major version. */
 	source?: SourcePlugin;
 }

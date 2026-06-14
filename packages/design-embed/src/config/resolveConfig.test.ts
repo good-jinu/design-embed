@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type {
-	DesignEmbedConfig,
-	TargetTestGenerateInput,
-} from "../core/types.ts";
+import type { TargetTestGenerateInput } from "../core/types.ts";
 import { resolveConfig } from "./index.ts";
 
 const minimalPlugin = {
@@ -105,46 +102,6 @@ describe("resolveConfig — per-source overrides", () => {
 			"/cwd",
 		);
 		assert.deepEqual(r.sources[0]?.components, [globalComp, srcComp]);
-	});
-});
-
-describe("resolveConfig — migration shim", () => {
-	test("old source field is normalized into sources array", () => {
-		const r = resolveConfig(
-			{ source: minimalPlugin } as unknown as DesignEmbedConfig,
-			"/cwd",
-		);
-		assert.equal(r.sources.length, 1);
-		assert.equal(r.sources[0]?.plugin, minimalPlugin);
-	});
-
-	test("old source field emits a console.warn deprecation message", (t) => {
-		const warnMock = t.mock.method(console, "warn", () => {});
-		resolveConfig(
-			{ source: minimalPlugin } as unknown as DesignEmbedConfig,
-			"/cwd",
-		);
-		assert.ok(
-			warnMock.mock.calls.some((call) =>
-				String(call.arguments[0]).includes("deprecated"),
-			),
-			"Expected deprecation warning containing 'deprecated'",
-		);
-	});
-
-	test("sources array takes precedence when both source and sources are present", () => {
-		const otherPlugin = {
-			name: "other",
-			run: async () => ({ html: "", diagnostics: [] }),
-		};
-		const r = resolveConfig(
-			{
-				source: minimalPlugin,
-				sources: [{ plugin: otherPlugin }],
-			} as unknown as DesignEmbedConfig,
-			"/cwd",
-		);
-		assert.equal(r.sources[0]?.plugin, otherPlugin);
 	});
 });
 
