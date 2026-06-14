@@ -55,7 +55,7 @@ npm exec design-embed -- init --force
 ### 2. Basic Configuration
 
 The generated `design-embed.config.ts` includes a local `HtmlFetcherPlugin`
-example. It fetches HTML from `https://www.scrapethissite.com/pages/` and compiles
+example. It fetches HTML from `https://www.example.com/` and compiles
 it when you run:
 
 ```bash npm2yarn

@@ -73,10 +73,10 @@ import { ExternalHtmlPlugin } from "./external-html-plugin";
 
 export default defineConfig({
   source: new ExternalHtmlPlugin({
-    url: "https://www.scrapethissite.com/pages/"
+    url: "https://www.example.com/"
   }),
   output: {
-    viewName: "ScrapeThisSitePages",
+    viewName: "ExamplePages",
     viewsDir: "src/generated/views"
   }
 });
