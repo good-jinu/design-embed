@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolveConfig } from "../config/index.ts";
 import { htmlTarget } from "../targets/html.ts";
 import type { Diagnostic } from "./diagnostics/diagnostic.ts";
 import type {
@@ -18,6 +18,7 @@ import {
 import type {
 	ComponentMapping,
 	DesignEmbedConfig,
+	ResolvedSourceConfig,
 	StyleMappings,
 	TargetEmitter,
 	TargetTestGenerator,
@@ -119,31 +120,70 @@ export async function embed(
 	input: DesignEmbedInput,
 ): Promise<DesignEmbedResult> {
 	const cwd = input.cwd ?? process.cwd();
+	const resolved = resolveConfig(input.config ?? {}, cwd);
 
-	if (!input.config?.source) {
+	if (resolved.sources.length === 0) {
 		return {
 			html: "",
 			files: [],
 			diagnostics: [
 				{
 					code: "PLUGIN_REQUIRED",
-					message: "Config must include a source plugin.",
+					message: "Config must include at least one source.",
 					severity: "error",
 				},
 			],
 		};
 	}
 
-	const sourceResult = await input.config.source.run({ cwd });
+	const allFiles: GeneratedFile[] = [];
+	const allDiagnostics: Diagnostic[] = [];
+	let lastHtml = "";
+	let lastCss: string | undefined;
+
+	for (const src of resolved.sources) {
+		const result = await runSource(src, input, cwd);
+		allFiles.push(...result.files);
+		allDiagnostics.push(...result.diagnostics);
+		lastHtml = result.html || lastHtml;
+		lastCss = result.css ?? lastCss;
+	}
+
+	if (!input.dryRun) {
+		for (const file of allFiles) {
+			const outPath = resolve(cwd, file.path);
+			mkdirSync(dirname(outPath), { recursive: true });
+			writeFileSync(outPath, file.contents, "utf-8");
+		}
+	}
+
+	return {
+		html: lastHtml,
+		css: lastCss,
+		files: allFiles,
+		diagnostics: allDiagnostics,
+	};
+}
+
+async function runSource(
+	src: ResolvedSourceConfig,
+	input: DesignEmbedInput,
+	cwd: string,
+): Promise<{
+	files: GeneratedFile[];
+	diagnostics: Diagnostic[];
+	html: string;
+	css?: string;
+}> {
+	const sourceResult = await src.plugin.run({ cwd });
 	const diagnostics = [...sourceResult.diagnostics];
 
 	if (diagnostics.some((d) => d.severity === "error")) {
-		return { html: "", files: [], diagnostics };
+		return { files: [], diagnostics, html: "" };
 	}
 
 	if (!sourceResult.html) {
 		return {
-			html: "",
 			files: [],
 			diagnostics: [
 				...diagnostics,
@@ -153,36 +193,27 @@ export async function embed(
 					severity: "error",
 				},
 			],
+			html: "",
 		};
 	}
 
-	const html = sourceResult.html;
-	const css = sourceResult.css;
+	const { html, css } = sourceResult;
 
-	const config = patchOutputPaths(input.config as DesignEmbedConfig, cwd);
-
-	const target = config?.output?.target;
-	const targetObj =
-		!target || target === "html" ? htmlTarget : (target as TargetEmitter);
-
-	const mappingDiagnostics = validateComponentMappings(
-		config?.components ?? [],
-	);
+	const mappingDiagnostics = validateComponentMappings(src.components);
 	diagnostics.push(...mappingDiagnostics);
 
 	if (diagnostics.some((d) => d.severity === "error")) {
-		return { html, files: [], diagnostics };
+		return { files: [], diagnostics, html };
 	}
 
 	const ast = parseHtml(html);
-	const mappedNodes = applyComponentMappings(
-		ast,
-		config?.components ?? [],
-		diagnostics,
-	);
+	const mappedNodes = applyComponentMappings(ast, src.components, diagnostics);
 	const contentNodes = unwrapDocument(mappedNodes);
+	const mergedConfig = buildMergedConfig(src, contentNodes, css, cwd);
 
-	const mergedConfig = buildMergedConfig(config, contentNodes, css);
+	const target = src.output.target;
+	const targetObj =
+		!target || target === "html" ? htmlTarget : (target as TargetEmitter);
 
 	const { files } = targetObj.emit({
 		nodes: contentNodes,
@@ -191,6 +222,9 @@ export async function embed(
 		diagnostics,
 	});
 
+	// TASK3 will replace this placeholder with actual snapshot capture
+	const snapshotPath: string | null = null;
+
 	if (input.generateTests && "generateTests" in targetObj) {
 		const testGen = targetObj as unknown as TargetTestGenerator;
 		const testResult = testGen.generateTests({
@@ -198,8 +232,8 @@ export async function embed(
 			sourceNodes: ast,
 			html,
 			css,
-			config,
-			snapshotPath: null,
+			config: mergedConfig,
+			snapshotPath,
 		});
 		diagnostics.push(...testResult.diagnostics);
 		if (!diagnostics.some((d) => d.severity === "error")) {
@@ -207,65 +241,47 @@ export async function embed(
 		}
 	}
 
-	if (!input.dryRun) {
-		for (const file of files) {
-			const outPath = resolve(cwd, file.path);
-			mkdirSync(dirname(outPath), { recursive: true });
-			writeFileSync(outPath, file.contents, "utf-8");
-		}
-	}
-
-	return { html, css, files, diagnostics };
-}
-
-function patchOutputPaths(
-	config: DesignEmbedConfig,
-	cwd: string,
-): DesignEmbedConfig {
-	const viewsDir = config.output?.viewsDir;
-	if (!viewsDir) return config;
-	return {
-		...config,
-		output: { ...config.output, viewsDir: resolveDir(viewsDir, cwd) },
-	};
-}
-
-function resolveDir(
-	dir: string | URL | undefined,
-	cwd: string,
-): string | undefined {
-	if (!dir) return undefined;
-	if (dir instanceof URL) return relative(cwd, fileURLToPath(dir));
-	return dir;
+	return { files, diagnostics, html, css };
 }
 
 function buildMergedConfig(
-	config: DesignEmbedConfig,
+	src: ResolvedSourceConfig,
 	nodes: DesignNode[],
 	css: string | undefined,
+	cwd: string,
 ): DesignEmbedConfig {
-	const isTailwind = (config.output?.styleMode ?? "inline") === "tailwind";
+	const isTailwind = src.output.styleMode === "tailwind";
 	const extracted = autoExtractTokens(nodes, css);
 	const baseTokens = isTailwind ? TAILWIND_TOKEN_SCALE : extracted;
-	const mergedTokens = mergeTokenConfigs(baseTokens, config.tokens ?? {});
+	const mergedTokens = mergeTokenConfigs(baseTokens, src.tokens);
 
 	let mergedStyleMappings: StyleMappings;
 	if (isTailwind) {
 		mergedStyleMappings = { ...TAILWIND_CLASS_MAPPINGS };
-		for (const [group, entries] of Object.entries(config.styleMappings ?? {})) {
+		for (const [group, entries] of Object.entries(src.styleMappings)) {
 			mergedStyleMappings[group] = {
 				...(mergedStyleMappings[group] ?? {}),
 				...entries,
 			};
 		}
 	} else {
-		mergedStyleMappings = config.styleMappings ?? {};
+		mergedStyleMappings = src.styleMappings;
 	}
 
+	// viewsDir in ResolvedSourceConfig is absolute; targets use it as a file-path
+	// prefix, so we convert it back to relative-from-cwd so GeneratedFile.path
+	// remains relative (consistent with how callers snapshot-compare files).
+	const viewsDir =
+		typeof src.output.viewsDir === "string"
+			? relative(cwd, src.output.viewsDir)
+			: src.output.viewsDir;
+
 	return {
-		...config,
+		output: { ...src.output, viewsDir },
+		components: src.components,
 		tokens: mergedTokens,
 		styleMappings: mergedStyleMappings,
+		tests: src.tests,
 	};
 }
 
