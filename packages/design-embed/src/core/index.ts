@@ -305,6 +305,7 @@ function buildMergedConfig(
 		tokens: mergedTokens,
 		styleMappings: mergedStyleMappings,
 		tests: src.tests,
+		snapshot: src.snapshot,
 	};
 }
 
