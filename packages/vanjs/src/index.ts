@@ -213,7 +213,7 @@ function emitVanJsVisualSpec(input: VanJsVisualSpecInput): string {
 			``,
 			`${T4}if (!existsSync(snapshotPath)) {`,
 			`${T5}testInfo.annotations.push({ type: "init", description: "Snapshot initialized from reference HTML" });`,
-			`${T5}await page.setContent(referenceHtml);`,
+			`${T5}await page.setContent(\`<!DOCTYPE html>\${referenceHtml}\`);`,
 			`${T5}await stripWhitespaceTextNodes(page);`,
 			`${T5}await applyState(page, state);`,
 			`${T5}const locator = page.locator("body > *").first();`,
@@ -350,9 +350,9 @@ for (const viewport of viewports) {
 
 				if (!existsSync(snapshotPath)) {
 					testInfo.annotations.push({ type: "init", description: "Snapshot initialized from reference HTML" });
-					await page.setContent(referenceHtml);
+					await page.setContent('<!DOCTYPE html>' + referenceHtml);
 					const isolatedHtml = await page.locator(selector).first().evaluate((node) => node.outerHTML);
-					await page.setContent(isolatedHtml);
+					await page.setContent('<!DOCTYPE html>' + isolatedHtml);
 					await applyState(page, state);
 					const locator = page.locator("body > *").first();
 					mkdirSync(dirname(snapshotPath), { recursive: true });

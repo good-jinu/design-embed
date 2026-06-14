@@ -197,8 +197,8 @@ function emitReactVisualSpec(input: ReactVisualSpecInput): string {
 
 	const fsImport =
 		!useExternalBaseline && !useHeadless
-			? `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";\n`
-			: `import { readFileSync } from "node:fs";\n`;
+			? `import { existsSync, mkdirSync, writeFileSync } from "node:fs";\nimport { dirname } from "node:path";\n`
+			: ``;
 
 	const screenshotAssertion = buildScreenshotAssertion(
 		snapshotPath,
@@ -224,33 +224,29 @@ function emitReactVisualSpec(input: ReactVisualSpecInput): string {
 		testBodyLines.push(
 			`${T4}const snapshotName = \`${input.viewName}-\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}-\${state.name}.png\`;`,
 			`${T4}const snapshotPath = testInfo.snapshotPath(snapshotName);`,
+			`${T4}const component = await mount(<${input.viewName} />);`,
+			`${T4}await applyState(component.page(), state);`,
 			``,
 			`${T4}if (!existsSync(snapshotPath)) {`,
-			`${T5}testInfo.annotations.push({ type: "init", description: "Snapshot initialized from reference HTML" });`,
-			`${T5}await page.setContent(referenceHtml);`,
-			`${T5}await applyState(page, state);`,
-			`${T5}const locator = page.locator("body > *").first();`,
 			`${T5}mkdirSync(dirname(snapshotPath), { recursive: true });`,
-			`${T5}writeFileSync(snapshotPath, await locator.screenshot());`,
+			`${T5}writeFileSync(snapshotPath, await component.screenshot());`,
 			`${T5}return;`,
 			`${T4}}`,
 			``,
+			`${T4}await expect(component).toHaveScreenshot(snapshotName, { threshold: screenshotThreshold, maxDiffPixels: screenshotMaxDiffPixels });`,
+		);
+	} else {
+		testBodyLines.push(
+			`${T4}const component = await mount(<${input.viewName} />);`,
+			`${T4}await applyState(component.page(), state);${snapshotDirComment}`,
+			`${T4}${screenshotAssertion}`,
 		);
 	}
-	testBodyLines.push(
-		`${T4}const component = await mount(<${input.viewName} />);`,
-		`${T4}await applyState(component.page(), state);${snapshotDirComment}`,
-		`${T4}${screenshotAssertion}`,
-	);
 	const testBody = testBodyLines.join("\n");
 
-	return `${fsImport}import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/experimental-ct-react";
+	return `${fsImport}import { expect, test } from "@playwright/experimental-ct-react";
 import { ${input.viewName} } from "${input.viewImportPath}";
 
-const currentDir = dirname(fileURLToPath(import.meta.url));
-const referenceHtml = readFileSync(resolve(currentDir, "./${input.fixtureFileName}"), "utf-8");
 const viewports = ${viewports};
 const states = ${states};
 const screenshotThreshold = ${screenshotThreshold};
@@ -260,7 +256,7 @@ for (const viewport of viewports) {
 	test.describe(\`\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}\`, () => {
 		test.use({ viewport: { width: viewport.width, height: viewport.height } });
 		for (const state of states) {
-			test(\`Visual Regression / \${state.name}\`, async ({ page, mount }, testInfo) => {
+			test(\`Visual Regression / \${state.name}\`, async ({ mount }, testInfo) => {
 ${testBody}
 			});
 		}
@@ -310,14 +306,11 @@ function emitComponentVisualSpec(input: ComponentVisualSpecInput): string {
 		input.assertions.screenshotMaxDiffPixels,
 	);
 
-	return `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+	return `import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { expect, test } from "@playwright/experimental-ct-react";
 import { ${input.componentName} } from "${input.componentImportPath}";
 
-const currentDir = dirname(fileURLToPath(import.meta.url));
-const referenceHtml = readFileSync(resolve(currentDir, "./${input.referenceHtmlFileName}"), "utf-8");
 const viewports = ${viewports};
 const states = ${states};
 const screenshotThreshold = ${screenshotThreshold};
@@ -327,22 +320,18 @@ for (const viewport of viewports) {
 	test.describe(\`\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}\`, () => {
 		test.use({ viewport: { width: viewport.width, height: viewport.height } });
 		for (const state of states) {
-			test(\`Visual Regression / \${state.name}\`, async ({ page, mount }, testInfo) => {
+			test(\`Visual Regression / \${state.name}\`, async ({ mount }, testInfo) => {
 				const snapshotName = \`${input.componentName}-\${viewport.name ?? \`\${viewport.width}x\${viewport.height}\`}-\${state.name}.png\`;
 				const snapshotPath = testInfo.snapshotPath(snapshotName);
+				const component = await mount(${input.mountJsx});
+				await applyState(component.page(), state);
 
 				if (!existsSync(snapshotPath)) {
-					testInfo.annotations.push({ type: "init", description: "Snapshot initialized from reference HTML" });
-					await page.setContent(referenceHtml);
-					await applyState(page, state);
-					const locator = page.locator("${input.selector}").first();
 					mkdirSync(dirname(snapshotPath), { recursive: true });
-					writeFileSync(snapshotPath, await locator.screenshot());
+					writeFileSync(snapshotPath, await component.screenshot());
 					return;
 				}
 
-				const component = await mount(${input.mountJsx});
-				await applyState(component.page(), state);
 				await expect(component).toHaveScreenshot(snapshotName, {
 					threshold: screenshotThreshold,
 					maxDiffPixels: screenshotMaxDiffPixels,

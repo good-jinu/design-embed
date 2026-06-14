@@ -1,11 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { expect, test } from "@playwright/experimental-ct-react";
 import { ButtonExample } from "../ButtonExample.view";
 
-const currentDir = dirname(fileURLToPath(import.meta.url));
-const referenceHtml = readFileSync(resolve(currentDir, "./ButtonExample.reference.html"), "utf-8");
 const viewports = [
   {
     "name": "default",
@@ -25,23 +22,19 @@ for (const viewport of viewports) {
 	test.describe(`${viewport.name ?? `${viewport.width}x${viewport.height}`}`, () => {
 		test.use({ viewport: { width: viewport.width, height: viewport.height } });
 		for (const state of states) {
-			test(`Visual Regression / ${state.name}`, async ({ page, mount }, testInfo) => {
+			test(`Visual Regression / ${state.name}`, async ({ mount }, testInfo) => {
 				const snapshotName = `ButtonExample-${viewport.name ?? `${viewport.width}x${viewport.height}`}-${state.name}.png`;
 				const snapshotPath = testInfo.snapshotPath(snapshotName);
+				const component = await mount(<ButtonExample />);
+				await applyState(component.page(), state);
 
 				if (!existsSync(snapshotPath)) {
-					testInfo.annotations.push({ type: "init", description: "Snapshot initialized from reference HTML" });
-					await page.setContent(referenceHtml);
-					await applyState(page, state);
-					const locator = page.locator("body > *").first();
 					mkdirSync(dirname(snapshotPath), { recursive: true });
-					writeFileSync(snapshotPath, await locator.screenshot());
+					writeFileSync(snapshotPath, await component.screenshot());
 					return;
 				}
 
-				const component = await mount(<ButtonExample />);
-				await applyState(component.page(), state);
-				await expect(component).toHaveScreenshot();
+				await expect(component).toHaveScreenshot(snapshotName, { threshold: screenshotThreshold, maxDiffPixels: screenshotMaxDiffPixels });
 			});
 		}
 	});

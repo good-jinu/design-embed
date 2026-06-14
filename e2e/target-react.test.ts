@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { describe, test } from "node:test";
 import { embed } from "design-embed";
@@ -41,6 +41,8 @@ const FIXTURES = [
 describe("React target fixture pipeline", () => {
 	for (const { name, config, expectedDiagnosticCodes = [], generateTests } of FIXTURES) {
 		test(`${name}: output matches expected snapshots`, async () => {
+			const generatedDir = join(root, "fixtures", name, "generated");
+			if (existsSync(generatedDir)) rmSync(generatedDir, { recursive: true });
 			const result = await embed({ config, generateTests });
 
 			assert.deepEqual(result.diagnostics.map((d) => d.code), expectedDiagnosticCodes);
