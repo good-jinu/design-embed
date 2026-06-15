@@ -394,7 +394,7 @@ function emitComponentSplitViews(
 					? childrenProp.value
 					: (node.children ?? []);
 
-			if (importName && !seen.has(importName)) {
+			if (importName && !node.external && !seen.has(importName)) {
 				seen.add(importName);
 				const funcName = toPascalCase(importName);
 				files.push({
@@ -433,6 +433,31 @@ function emitComponentView(
 	const props = node.props ?? {};
 	const source = node.sourceElement;
 	const propEntries = Object.entries(props);
+
+	// Stage B (synthesized nested slots): the body is reconstructed directly
+	// from the template, which carries `slot` nodes and `attributeSlots`. Every
+	// slot prop is a string passed in by the call site.
+	const slotProps = source ? [...collectSlotProps(source)].sort() : [];
+	if (source && slotProps.length > 0) {
+		const interfaceBlock = `interface ${funcName}Props {\n${slotProps
+			.map((name) => `\t${name}?: string;`)
+			.join("\n")}\n}\n\n`;
+		const params = `{ ${slotProps.join(", ")} }: ${funcName}Props`;
+		const componentImports = collectImports(source.children ?? [])
+			.map(
+				({ importName, importPath }) =>
+					`import { ${importName} } from "${importPath}";`,
+			)
+			.join("\n");
+		const cssModuleImport = options.cssModulePath
+			? `import styles from "./${options.cssModulePath}";`
+			: "";
+		const allImports = [componentImports, cssModuleImport]
+			.filter(Boolean)
+			.join("\n");
+		const body = emitJsxNode(source, 2);
+		return `${allImports ? `${allImports}\n\n` : ""}${interfaceBlock}export function ${funcName}(${params}) {\n\treturn (\n${body}\t);\n}\n`;
+	}
 
 	// Classify props into an attribute binding (attr name -> prop name), the
 	// children prop, and the destructured parameter list (props referenced by
@@ -518,6 +543,7 @@ function emitComponentBody(
 		source.styles ?? {},
 		source.generatedClassNames ?? [],
 		attributeBindings,
+		source.attributeSlots ?? {},
 	);
 	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
 
@@ -526,7 +552,7 @@ function emitComponentBody(
 		return `${indent}${openTag}\n${inner}${indent}</${tagName}>\n`;
 	}
 
-	const children = node.children ?? [];
+	const children = node.children ?? source.children ?? [];
 	if (children.length === 0) {
 		return `${indent}${attributes ? `<${tagName} ${attributes} />` : `<${tagName} />`}\n`;
 	}
@@ -1392,6 +1418,23 @@ function formatNumber(value: number): string {
 		: String(Number(value.toFixed(4)));
 }
 
+function collectSlotProps(node: DesignNode): Set<string> {
+	const names = new Set<string>();
+	function visit(current: DesignNode): void {
+		if (current.kind === "slot" && current.propName) {
+			names.add(current.propName);
+		}
+		for (const propName of Object.values(current.attributeSlots ?? {})) {
+			names.add(propName);
+		}
+		for (const child of current.children ?? []) {
+			visit(child);
+		}
+	}
+	visit(node);
+	return names;
+}
+
 function collectImports(nodes: DesignNode[]): Array<{
 	importName: string;
 	importPath: string;
@@ -1433,6 +1476,9 @@ function emitJsxNode(node: DesignNode | undefined, depth: number): string {
 	if (node.kind === "text") {
 		return `${indent}${escapeJsxText(node.text ?? "")}\n`;
 	}
+	if (node.kind === "slot") {
+		return `${indent}{${node.propName}}\n`;
+	}
 	if (node.kind === "component") {
 		return emitComponentJsx(node, depth);
 	}
@@ -1442,6 +1488,8 @@ function emitJsxNode(node: DesignNode | undefined, depth: number): string {
 		node.attributes ?? {},
 		node.styles ?? {},
 		node.generatedClassNames ?? [],
+		new Map(),
+		node.attributeSlots ?? {},
 	);
 	const children = node.children ?? [];
 	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
@@ -1499,6 +1547,7 @@ function emitJsxAttributes(
 	styles: Record<string, string>,
 	generatedClassNames: string[] = [],
 	attributeBindings: Map<string, string> = new Map(),
+	attributeSlots: Record<string, string> = {},
 ): string {
 	const mergedAttributes = { ...attributes };
 	const classNames = [
@@ -1514,7 +1563,7 @@ function emitJsxAttributes(
 		.sort(([left], [right]) => left.localeCompare(right))
 		.map(([name, value]) => {
 			const jsxName = toJsxAttributeName(name);
-			const binding = attributeBindings.get(name);
+			const binding = attributeBindings.get(name) ?? attributeSlots[name];
 			if (binding) {
 				return `${jsxName}={${binding}}`;
 			}

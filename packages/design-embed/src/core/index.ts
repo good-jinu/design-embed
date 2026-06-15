@@ -3,6 +3,7 @@ import { dirname, relative, resolve } from "node:path";
 import { resolveConfig } from "../config/index.ts";
 import { resolveSnapshotter } from "../snapshot/resolveSnapshotter.ts";
 import { htmlTarget } from "../targets/html.ts";
+import { detectComponents } from "./detect/index.ts";
 import type { Diagnostic } from "./diagnostics/diagnostic.ts";
 import type {
 	DesignNode,
@@ -212,6 +213,14 @@ async function runSource(
 	const ast = parseHtml(html);
 	const mappedNodes = applyComponentMappings(ast, src.components, diagnostics);
 	const contentNodes = unwrapDocument(mappedNodes);
+	const finalNodes = src.detect.enabled
+		? detectComponents(
+				contentNodes,
+				src.detect,
+				String(src.output.viewsDir),
+				diagnostics,
+			)
+		: contentNodes;
 	const mergedConfig = buildMergedConfig(src, contentNodes, css, cwd);
 
 	const target = src.output.target;
@@ -219,7 +228,7 @@ async function runSource(
 		!target || target === "html" ? htmlTarget : (target as TargetEmitter);
 
 	const { files } = targetObj.emit({
-		nodes: contentNodes,
+		nodes: finalNodes,
 		css,
 		config: mergedConfig,
 		diagnostics,
@@ -251,7 +260,7 @@ async function runSource(
 	if (input.generateTests && "generateTests" in targetObj) {
 		const testGen = targetObj as unknown as TargetTestGenerator;
 		const testResult = testGen.generateTests({
-			nodes: contentNodes,
+			nodes: finalNodes,
 			sourceNodes: ast,
 			html,
 			css,

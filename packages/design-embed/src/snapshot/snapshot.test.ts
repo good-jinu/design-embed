@@ -172,6 +172,12 @@ const makeResolvedSource = (pluginName: string, mode?: string) => ({
 		target: "html" as const,
 	},
 	components: [],
+	detect: {
+		enabled: false,
+		componentsDir: "/components",
+		minOccurrences: 3,
+		minSubtreeSize: 2,
+	},
 	tokens: {},
 	styleMappings: {},
 	tests: {},

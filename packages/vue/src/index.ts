@@ -408,7 +408,7 @@ function emitComponentSplitViews(
 					? childrenProp.value
 					: (node.children ?? []);
 
-			if (importName && !seen.has(importName)) {
+			if (importName && !node.external && !seen.has(importName)) {
 				seen.add(importName);
 				const funcName = toPascalCase(importName);
 				files.push({
@@ -454,68 +454,104 @@ export function emitVueView(
 		const source = componentNode.sourceElement;
 		const propEntries = Object.entries(props);
 
-		const attributeBindings = new Map<string, string>();
-		const propsDefinitions: string[] = [];
-		let childrenPropName: string | undefined;
-
-		for (const [propName, prop] of propEntries) {
-			if (prop.kind === "text" || prop.kind === "children") {
-				childrenPropName = propName;
-				propsDefinitions.push(`${propName}: {}`);
-				continue;
+		const slotPropNames = source ? [...collectSlotProps(source)].sort() : [];
+		if (source && slotPropNames.length > 0) {
+			// Stage B: body reconstructed from the template's slots / attributeSlots.
+			const imports = collectImports(source.children ?? []);
+			const importLines = imports
+				.map(
+					({ importName, importPath }) =>
+						"import " +
+						importName +
+						' from "' +
+						importPath.replace(/\.(view|tsx)$/, ".vue") +
+						'";',
+				)
+				.join("\n");
+			if (api === "composition") {
+				script =
+					'<script setup lang="ts">\n' +
+					importLines +
+					(importLines ? "\n" : "") +
+					"defineProps<{\n" +
+					slotPropNames.map((p) => `\t${p}?: string;`).join("\n") +
+					"\n}>();\n</script>\n";
+			} else {
+				script =
+					'<script lang="ts">\nimport { defineComponent } from "vue";\n' +
+					importLines +
+					(importLines ? "\n" : "") +
+					"export default defineComponent({\n\tcomponents: { " +
+					imports.map((i) => i.importName).join(", ") +
+					" },\n\tprops: {\n\t\t" +
+					slotPropNames.map((p) => `${p}: String`).join(",\n\t\t") +
+					"\n\t}\n});\n</script>\n";
 			}
-			propsDefinitions.push(`${propName}: String`);
-			if (prop.kind === "literal" && prop.attribute) {
-				attributeBindings.set(prop.attribute, propName);
-			}
-		}
-
-		const imports = collectImports(
-			childrenPropName ? [] : (componentNode.children ?? []),
-		);
-		const importLines = imports
-			.map(
-				({ importName, importPath }) =>
-					"import " +
-					importName +
-					' from "' +
-					importPath.replace(/\.(view|tsx)$/, ".vue") +
-					'";',
-			)
-			.join("\n");
-
-		if (api === "composition") {
-			script =
-				'<script setup lang="ts">\n' +
-				importLines +
-				(importLines ? "\n" : "") +
-				"defineProps<{\n" +
-				Object.keys(props)
-					.map((p) => `\t${p}?: any;`)
-					.join("\n") +
-				"\n}>();\n</script>\n";
+			template = `<template>\n${emitVueNode(source, 1)}</template>\n`;
 		} else {
-			script =
-				'<script lang="ts">\nimport { defineComponent } from "vue";\n' +
-				importLines +
-				(importLines ? "\n" : "") +
-				"export default defineComponent({\n\tcomponents: { " +
-				imports.map((i) => i.importName).join(", ") +
-				" },\n\tprops: {\n\t\t" +
-				propsDefinitions.join(",\n\t\t") +
-				"\n\t}\n});\n</script>\n";
-		}
+			const attributeBindings = new Map<string, string>();
+			const propsDefinitions: string[] = [];
+			let childrenPropName: string | undefined;
 
-		template =
-			"<template>\n" +
-			emitVueComponentBody(
-				componentNode,
-				source,
-				attributeBindings,
-				childrenPropName,
-				1,
-			) +
-			"</template>\n";
+			for (const [propName, prop] of propEntries) {
+				if (prop.kind === "text" || prop.kind === "children") {
+					childrenPropName = propName;
+					propsDefinitions.push(`${propName}: {}`);
+					continue;
+				}
+				propsDefinitions.push(`${propName}: String`);
+				if (prop.kind === "literal" && prop.attribute) {
+					attributeBindings.set(prop.attribute, propName);
+				}
+			}
+
+			const imports = collectImports(
+				childrenPropName ? [] : (componentNode.children ?? []),
+			);
+			const importLines = imports
+				.map(
+					({ importName, importPath }) =>
+						"import " +
+						importName +
+						' from "' +
+						importPath.replace(/\.(view|tsx)$/, ".vue") +
+						'";',
+				)
+				.join("\n");
+
+			if (api === "composition") {
+				script =
+					'<script setup lang="ts">\n' +
+					importLines +
+					(importLines ? "\n" : "") +
+					"defineProps<{\n" +
+					Object.keys(props)
+						.map((p) => `\t${p}?: any;`)
+						.join("\n") +
+					"\n}>();\n</script>\n";
+			} else {
+				script =
+					'<script lang="ts">\nimport { defineComponent } from "vue";\n' +
+					importLines +
+					(importLines ? "\n" : "") +
+					"export default defineComponent({\n\tcomponents: { " +
+					imports.map((i) => i.importName).join(", ") +
+					" },\n\tprops: {\n\t\t" +
+					propsDefinitions.join(",\n\t\t") +
+					"\n\t}\n});\n</script>\n";
+			}
+
+			template =
+				"<template>\n" +
+				emitVueComponentBody(
+					componentNode,
+					source,
+					attributeBindings,
+					childrenPropName,
+					1,
+				) +
+				"</template>\n";
+		}
 	} else {
 		const imports = collectImports(nodes);
 		const importLines = imports
@@ -586,6 +622,7 @@ function emitVueComponentBody(
 		source.styles ?? {},
 		source.generatedClassNames ?? [],
 		attributeBindings,
+		source.attributeSlots ?? {},
 	);
 	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
 
@@ -600,7 +637,7 @@ function emitVueComponentBody(
 		return `${indent + openTag}\n${inner}${indent}</${tagName}>\n`;
 	}
 
-	const children = node.children ?? [];
+	const children = node.children ?? source.children ?? [];
 	if (children.length === 0) {
 		return `${indent + openTag}</${tagName}>\n`;
 	}
@@ -625,6 +662,9 @@ function emitVueNode(node: DesignNode | undefined, depth: number): string {
 	if (node.kind === "text") {
 		return `${indent + escapeHtml(node.text ?? "")}\n`;
 	}
+	if (node.kind === "slot") {
+		return `${indent}{{ ${node.propName} }}\n`;
+	}
 	if (node.kind === "component") {
 		return emitVueComponentJsx(node, depth);
 	}
@@ -634,6 +674,8 @@ function emitVueNode(node: DesignNode | undefined, depth: number): string {
 		node.attributes ?? {},
 		node.styles ?? {},
 		node.generatedClassNames ?? [],
+		new Map(),
+		node.attributeSlots ?? {},
 	);
 	const children = node.children ?? [];
 	const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
@@ -730,6 +772,7 @@ function emitVueAttributes(
 	styles: Record<string, string>,
 	generatedClassNames: string[] = [],
 	attributeBindings: Map<string, string> = new Map(),
+	attributeSlots: Record<string, string> = {},
 ): string {
 	const mergedAttributes = { ...attributes };
 	const classNames = [
@@ -744,7 +787,7 @@ function emitVueAttributes(
 		.filter(([name]) => name !== "style")
 		.sort(([left], [right]) => left.localeCompare(right))
 		.map(([name, value]) => {
-			const binding = attributeBindings.get(name);
+			const binding = attributeBindings.get(name) ?? attributeSlots[name];
 			if (binding) {
 				return `:${name}="${binding}"`;
 			}
@@ -1650,6 +1693,21 @@ function formatNumber(value: number): string {
 	return Number.isInteger(value)
 		? String(value)
 		: String(Number(value.toFixed(4)));
+}
+
+function collectSlotProps(node: DesignNode): Set<string> {
+	const names = new Set<string>();
+	function visit(current: DesignNode): void {
+		if (current.kind === "slot" && current.propName) {
+			names.add(current.propName);
+		}
+		for (const propName of Object.values(current.attributeSlots ?? {})) {
+			names.add(propName);
+		}
+		for (const child of current.children ?? []) visit(child);
+	}
+	visit(node);
+	return names;
 }
 
 function collectImports(
