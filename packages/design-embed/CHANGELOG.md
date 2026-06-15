@@ -1,5 +1,67 @@
 # design-embed
 
+## 0.4.0
+
+### Minor Changes
+
+- 7f65bd6: Add opt-in heuristic component auto-detection via the new `detect` config option (off by default).
+
+  When enabled with `detect: true` (or `detect: { componentsDir, minOccurrences, minSubtreeSize }`), design-embed rewrites parsed HTML into component nodes without manual `components` mappings. It runs deterministically per source and (1) maps HTML to your existing hand-written components scanned from `componentsDir`, referencing them without re-generating their files, and (2) synthesizes new components from repeated structures, parameterizing the parts that vary across repeats as props (including nested slots). Manual `components` mappings always take precedence, and an existing-component match wins over synthesis. Configs without `detect` are unaffected.
+
+- 0af3701: Refactor `embed()` to iterate over `config.sources` instead of a single `config.source`.
+
+  Each source now runs independently through the full pipeline (plugin → AST → mappings → emit → tests). Files and diagnostics from all sources are collected together. A source that errors does not block remaining sources. The legacy `source` field continues to work via migration shim. `snapshotPath: null` placeholder is in place for the upcoming snapshot integration.
+
+- 677c5b9: Add multi-source config schema and visual snapshot types.
+
+  Introduces `sources` array, per-source `SourceConfig`, `SnapshotConfig`, and `resolveConfig()` with defaults. Adds `snapshotPath` to `TargetTestGenerateInput`. The old `source` field is deprecated with a runtime warning but continues to work.
+
+- 941bf27: Add design snapshot capture and remove deprecated `source` field.
+
+  Introduces `DesignSnapshotter` abstraction with two implementations:
+  `FigmaApiSnapshotter` (fetches a baseline PNG from the Figma REST API during `embed()`) and `HeadlessSnapshotter` (stub for test-time use in a future task). `resolveSnapshotter()` auto-detects the right implementation from `SnapshotConfig.mode` or the plugin name. Snapshot failures emit a `SNAPSHOT_FAILED` warning — output files are always written.
+
+  `FigmaHtmlPlugin.run()` now returns `meta: { fileId, nodeId, viewName }` for use by `FigmaApiSnapshotter`.
+
+  **Breaking:** The deprecated `source` field on `DesignEmbedConfig` is removed. Migrate to `sources: [{ plugin: yourPlugin }]`.
+
+- b91e55d: Rename `plugin` to `source` in `SourceConfig`; move `styleMode` into target constructors
+
+  **Breaking changes:**
+
+  - `SourceConfig.plugin` is renamed to `SourceConfig.source`. Update all config files:
+    ```diff
+    - sources: [{ plugin: fromFile("./design.html"), output: { viewName: "Hero" } }]
+    + sources: [{ source: fromFile("./design.html"), output: { viewName: "Hero" } }]
+    ```
+  - `styleMode` is removed from `GlobalOutputConfig` and `SourceOutputConfig`. Pass it to the target constructor instead:
+    ```diff
+    - output: { target: new ReactTarget(), styleMode: "css-modules" }
+    + output: { target: new ReactTarget({ styleMode: "css-modules" }) }
+    ```
+    `ReactTarget`, `VanJsTarget`, and `VueTarget` each accept `{ styleMode?: "inline" | "css-modules" | "tailwind" }` (default: `"inline"`).
+  - `SourcePlugin.name` is now optional, so inline source objects no longer require a `name` field.
+
+### Patch Changes
+
+- 03d5e18: Update example URL to example.com
+- 018f91a: Fix visual regression snapshot init to use component rendering instead of reference HTML.
+
+  The snapshot baseline is now captured by mounting the component itself (via `mount()` in
+  Playwright CT) rather than by calling `page.setContent(referenceHtml)`. This eliminates
+  a systematic pixel-dimension mismatch that occurred because `page.setContent()` and the CT
+  mount render in different browser contexts, causing consistent height differences that
+  exceeded the `maxDiffPixels` threshold.
+
+  Additional fixes:
+
+  - `e2e/target-react.test.ts` now cleans the `generated/` directory before running `embed()`,
+    preventing stale spec files from old code versions from persisting across runs.
+  - `screenshotOptions.ts` `buildHeadlessBeforeAll` now prefixes source HTML with `<!DOCTYPE html>`
+    so headless snapshot capture renders in Standards Mode (matching the test page context).
+
+- e2c4471: instruction to use `npm exec design-embed`
+
 ## 0.3.0
 
 ### Minor Changes
