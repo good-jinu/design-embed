@@ -1,14 +1,13 @@
 import { defineConfig, fromFile } from "design-embed";
 
 export default defineConfig({
-	sources: [{ plugin: fromFile(
+	sources: [{ source: fromFile(
 		new URL("./css-module-card.html", import.meta.url),
 		new URL("./css-module-card.css", import.meta.url),
-	) }],
+	), output: { viewName: "CssModuleCard" } }],
 	output: {
 		viewsDir: new URL("./generated", import.meta.url),
 		target: "html",
-		viewName: "CssModuleCard",
 	},
 	tokens: {
 		spacing: {

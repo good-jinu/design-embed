@@ -12,8 +12,7 @@ describe("compile command", () => {
 			join(cwd, "design-embed.config.ts"),
 			`export default {
 	sources: [{
-		plugin: {
-			name: "test-source",
+		source: {
 			async run() {
 				return { html: '<section style="width: 120px">Hello</section>', diagnostics: [] };
 			},
@@ -45,8 +44,7 @@ describe("compile command", () => {
 			join(cwd, "design-embed.config.mjs"),
 			`export default {
 	sources: [{
-		plugin: {
-			name: "test-source",
+		source: {
 			async run() {
 				return { html: "<main>No tests</main>", diagnostics: [] };
 			},
@@ -93,8 +91,7 @@ describe("compile command", () => {
 			join(cwd, "design-embed.config.ts"),
 			`export default {
 	sources: [{
-		plugin: {
-			name: "test-source",
+		source: {
 			async run() {
 				return { html: "<main>Default config</main>", diagnostics: [] };
 			},

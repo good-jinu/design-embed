@@ -178,7 +178,7 @@ async function runSource(
 	html: string;
 	css?: string;
 }> {
-	const sourceResult = await src.plugin.run({ cwd });
+	const sourceResult = await src.source.run({ cwd });
 	const diagnostics = [...sourceResult.diagnostics];
 
 	if (diagnostics.some((d) => d.severity === "error")) {
@@ -273,7 +273,12 @@ function buildMergedConfig(
 	css: string | undefined,
 	cwd: string,
 ): DesignEmbedConfig {
-	const isTailwind = src.output.styleMode === "tailwind";
+	const resolvedTarget = src.output.target;
+	const targetStyleMode =
+		typeof resolvedTarget === "object" && resolvedTarget !== null
+			? (resolvedTarget.styleMode ?? "inline")
+			: "inline";
+	const isTailwind = targetStyleMode === "tailwind";
 	const extracted = autoExtractTokens(nodes, css);
 	const baseTokens = isTailwind ? TAILWIND_TOKEN_SCALE : extracted;
 	const mergedTokens = mergeTokenConfigs(baseTokens, src.tokens);

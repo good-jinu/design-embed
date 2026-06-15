@@ -2,7 +2,7 @@ import { defineConfig, fromFile } from "design-embed";
 import { VueTarget } from "@design-embed/vue";
 
 export default defineConfig({
-	sources: [{ plugin: fromFile(new URL("./design/simple-card.html", import.meta.url)) }],
+	sources: [{ source: fromFile(new URL("./design/simple-card.html", import.meta.url)) }],
 	output: {
 		viewsDir: new URL("./src/generated/views", import.meta.url),
 		target: new VueTarget(),

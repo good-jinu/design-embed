@@ -108,6 +108,6 @@ export function printDiagnostics(
 	}
 }
 
-function hasErrors(diagnostics: Diagnostic[]): boolean {
+export function hasErrors(diagnostics: Diagnostic[]): boolean {
 	return diagnostics.some((diagnostic) => diagnostic.severity === "error");
 }

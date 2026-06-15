@@ -37,9 +37,7 @@ describe("config", () => {
 
 	test("validates a valid configuration object", () => {
 		const config = {
-			output: {
-				styleMode: "tailwind" as const,
-			},
+			output: {},
 			tokens: {
 				spacing: {
 					unit: "px" as const,

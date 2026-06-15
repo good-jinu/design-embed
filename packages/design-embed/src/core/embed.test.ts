@@ -8,13 +8,11 @@ import type {
 	TargetTestGenerator,
 } from "./types.ts";
 
-const makePlugin = (html: string, name = "test") => ({
-	name,
+const makePlugin = (html: string) => ({
 	run: async () => ({ html, css: undefined, diagnostics: [] }),
 });
 
 const errorPlugin = {
-	name: "error-plugin",
 	run: async () => ({
 		html: "",
 		diagnostics: [{ code: "X", message: "boom", severity: "error" as const }],
@@ -27,11 +25,11 @@ describe("embed — multi-source loop", () => {
 			config: {
 				sources: [
 					{
-						plugin: makePlugin("<div>A</div>"),
+						source: makePlugin("<div>A</div>"),
 						output: { viewsDir: "./out/a" },
 					},
 					{
-						plugin: makePlugin("<div>B</div>"),
+						source: makePlugin("<div>B</div>"),
 						output: { viewsDir: "./out/b" },
 					},
 				],
@@ -49,9 +47,9 @@ describe("embed — multi-source loop", () => {
 		const result = await embed({
 			config: {
 				sources: [
-					{ plugin: errorPlugin },
+					{ source: errorPlugin },
 					{
-						plugin: makePlugin("<div>OK</div>"),
+						source: makePlugin("<div>OK</div>"),
 						output: { viewsDir: "./out" },
 					},
 				],
@@ -81,7 +79,7 @@ describe("embed — multi-source loop", () => {
 			config: {
 				sources: [
 					{
-						plugin: {
+						source: {
 							name: "figma",
 							run: async () => ({
 								html: "<div/>",
@@ -124,7 +122,7 @@ describe("embed — multi-source loop", () => {
 			config: {
 				sources: [
 					{
-						plugin: makePlugin("<div/>"),
+						source: makePlugin("<div/>"),
 						output: { target: mockTarget },
 					},
 				],

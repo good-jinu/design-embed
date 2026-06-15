@@ -27,6 +27,6 @@ function resolveMode(
 	src: ResolvedSourceConfig,
 ): "figma-api" | "headless" | "none" {
 	if (src.snapshot.mode !== "none") return src.snapshot.mode;
-	if (src.plugin.name === "figma") return "figma-api";
+	if (src.source.name === "figma") return "figma-api";
 	return "none";
 }

@@ -17,7 +17,7 @@ export interface GeneratedAsset {
 }
 
 export interface SourcePlugin {
-	name: string;
+	name?: string;
 	run(input: SourcePluginInput): Promise<SourcePluginResult>;
 }
 
