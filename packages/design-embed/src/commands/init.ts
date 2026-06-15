@@ -99,13 +99,17 @@ class HtmlFetcherPlugin implements SourcePlugin {
 }
 
 export default defineConfig({
-\tsource: new HtmlFetcherPlugin({
-\t\turl: "https://www.example.com/",
-\t}),
-\toutput: {
-\t\tviewName: "${viewName}",
-\t\tviewsDir: "src/generated/views",
-\t},
+\tsources: [
+\t\t{
+\t\t\tsource: new HtmlFetcherPlugin({
+\t\t\t\turl: "https://www.example.com/",
+\t\t\t}),
+\t\t\toutput: {
+\t\t\t\tviewName: "${viewName}",
+\t\t\t\tviewsDir: "src/generated/views",
+\t\t\t},
+\t\t},
+\t],
 });
 `;
 }
