@@ -30,7 +30,6 @@ export interface ResolvedDesignEmbedConfig {
 	output: {
 		viewsDir: string;
 		target: "html" | import("../core/types.ts").TargetEmitter;
-		styleMode: import("../core/types.ts").StyleMode;
 	};
 	components: ComponentMapping[];
 	tokens: TokenConfig;
@@ -49,7 +48,6 @@ export function resolveConfig(
 		output: {
 			viewsDir: resolveDir(raw.output?.viewsDir ?? "./src/views", cwd),
 			target: raw.output?.target ?? "html",
-			styleMode: raw.output?.styleMode ?? "inline",
 		},
 		components: raw.components ?? [],
 		tokens: raw.tokens ?? {},
@@ -67,12 +65,11 @@ function resolveSourceConfig(
 	const viewsDir =
 		src.output?.viewsDir ?? global.output?.viewsDir ?? "./src/views";
 	return {
-		plugin: src.plugin,
+		source: src.source,
 		output: {
 			viewsDir: resolveDir(viewsDir, cwd),
-			viewName: src.output?.viewName ?? global.output?.viewName,
+			viewName: src.output?.viewName,
 			target: src.output?.target ?? global.output?.target ?? "html",
-			styleMode: src.output?.styleMode ?? global.output?.styleMode ?? "inline",
 		},
 		components: [...(global.components ?? []), ...(src.components ?? [])],
 		tokens: mergeTokens(global.tokens, src.tokens),
@@ -226,7 +223,6 @@ export function validateConfig(config: DesignEmbedConfig): Diagnostic[] {
 
 	for (const [index, src] of (config.sources ?? []).entries()) {
 		const srcTarget = src.output?.target;
-		const srcStyleMode = src.output?.styleMode;
 		if (
 			srcTarget &&
 			srcTarget !== "html" &&
@@ -238,22 +234,9 @@ export function validateConfig(config: DesignEmbedConfig): Diagnostic[] {
 				severity: "error",
 			});
 		}
-		if (
-			srcStyleMode &&
-			srcStyleMode !== "inline" &&
-			srcStyleMode !== "css-modules" &&
-			srcStyleMode !== "tailwind"
-		) {
-			diagnostics.push({
-				code: "STYLE_MODE_UNSUPPORTED",
-				message: `Unsupported style mode in sources[${index}]: ${srcStyleMode}`,
-				severity: "error",
-			});
-		}
 	}
 
 	const target = config.output?.target;
-	const styleMode = config.output?.styleMode;
 
 	if (
 		target &&
@@ -263,19 +246,6 @@ export function validateConfig(config: DesignEmbedConfig): Diagnostic[] {
 		diagnostics.push({
 			code: "TARGET_ADAPTER_INVALID",
 			message: "output.target must be a target adapter with emit().",
-			severity: "error",
-		});
-	}
-
-	if (
-		styleMode &&
-		styleMode !== "inline" &&
-		styleMode !== "css-modules" &&
-		styleMode !== "tailwind"
-	) {
-		diagnostics.push({
-			code: "STYLE_MODE_UNSUPPORTED",
-			message: `Unsupported style mode: ${styleMode}`,
 			severity: "error",
 		});
 	}

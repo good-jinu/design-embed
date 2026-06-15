@@ -12,10 +12,9 @@ import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
   output: {
-    target: new ReactTarget(),
+    target: new ReactTarget({ styleMode: "inline" }),
     viewName: "WelcomeHero",
     viewsDir: "src/generated/views",
-    styleMode: "inline",
   },
   components: [
     {

@@ -94,9 +94,8 @@ import { defineConfig } from "design-embed";
 import { ExternalHtmlPlugin } from "./external-html-plugin";
 
 export default defineConfig({
-  sources: [{ plugin: new ExternalHtmlPlugin({ url: "https://www.example.com/" }) }],
+  sources: [{ plugin: new ExternalHtmlPlugin({ url: "https://www.example.com/" }), output: { viewName: "ExamplePages" } }],
   output: {
-    viewName: "ExamplePages",
     viewsDir: "src/generated/views"
   }
 });

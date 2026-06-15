@@ -3,6 +3,7 @@ import type {
 	DesignNode,
 	Diagnostic,
 	PropValue,
+	StyleMode,
 	TargetEmitInput,
 	TargetEmitResult,
 	TargetEmitter,
@@ -12,12 +13,28 @@ import type {
 } from "design-embed";
 import { buildHeadlessBeforeAll, buildScreenshotAssertion } from "design-embed";
 
+export interface VanJsTargetOptions {
+	styleMode?: StyleMode;
+}
+
 export class VanJsTarget implements TargetEmitter, TargetTestGenerator {
+	readonly styleMode: StyleMode;
+
+	constructor(options: VanJsTargetOptions = {}) {
+		this.styleMode = options.styleMode ?? "inline";
+	}
+
 	emit({ nodes, css, config, diagnostics }: TargetEmitInput): TargetEmitResult {
 		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "DesignView";
 
-		const styleResult = transformStyles(nodes, css, config, diagnostics);
+		const styleResult = transformStyles(
+			nodes,
+			css,
+			config,
+			diagnostics,
+			this.styleMode,
+		);
 		const contents = emitVanJsView(styleResult.nodes, viewName, {
 			cssModulePath: styleResult.cssModulePath,
 		});
@@ -716,10 +733,10 @@ interface TokenMatch {
 function transformStyles(
 	nodes: DesignNode[],
 	css: string | undefined,
-	config: DesignEmbedConfig | undefined,
+	config: (DesignEmbedConfig & { output?: { viewName?: string } }) | undefined,
 	diagnostics: Diagnostic[],
+	styleMode: StyleMode = "inline",
 ): StyleTransformResult {
-	const styleMode = config?.output?.styleMode ?? "inline";
 	const cssRules = parseCssRules(css, diagnostics);
 	const resolvedNodes = resolveCssStyles(nodes, cssRules);
 

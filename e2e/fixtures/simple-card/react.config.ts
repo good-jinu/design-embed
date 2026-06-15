@@ -2,11 +2,10 @@ import { defineConfig, fromFile } from "design-embed";
 import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
-	sources: [{ plugin: fromFile(new URL("./simple-card.html", import.meta.url)) }],
+	sources: [{ source: fromFile(new URL("./simple-card.html", import.meta.url)), output: { viewName: "SimpleCard" } }],
 	output: {
 		viewsDir: new URL("./generated", import.meta.url),
 		target: new ReactTarget(),
-		viewName: "SimpleCard",
 	},
 	components: [
 		{

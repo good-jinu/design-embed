@@ -17,10 +17,9 @@ import { VueTarget } from "@design-embed/vue";
 export default defineConfig({
   source: fromFile("./design.html"),
   output: {
-    target: new VueTarget(),
+    target: new VueTarget({ styleMode: "inline" }),
     viewName: "WelcomeHero",
     viewsDir: "src/generated/views",
-    styleMode: "inline",
   },
   components: [
     {
@@ -39,6 +38,7 @@ export default defineConfig({
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `api` | `"composition" \| "options"` | `"composition"` | Vue API style used in generated files |
+| `styleMode` | `"inline" \| "css-modules" \| "tailwind"` | `"inline"` | How styles are applied in generated files |
 
 ```typescript
 new VueTarget({ api: "options" })

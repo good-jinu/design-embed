@@ -1,6 +1,5 @@
 export interface ParsedArgs {
 	command: string;
-	positionals: string[];
 	flags: Record<string, string | boolean>;
 }
 
@@ -27,12 +26,8 @@ export function parseArgs(args: string[]): ParsedArgs {
 		index += 1;
 	}
 
-	const [command = "compile", ...rest] = positionals;
-	return {
-		command,
-		positionals: rest,
-		flags,
-	};
+	const [command = "compile"] = positionals;
+	return { command, flags };
 }
 
 export function getStringFlag(

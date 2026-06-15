@@ -9,7 +9,6 @@ coverage
 *.tsbuildinfo
 docs/api
 website/api
-!website/api/typedoc-sidebar.cjs
 website/build
 website/.docusaurus
 npm-packages

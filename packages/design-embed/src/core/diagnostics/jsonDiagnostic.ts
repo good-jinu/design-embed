@@ -7,16 +7,11 @@ export interface JsonDiagnostic {
 	file?: string;
 	line?: number;
 	column?: number;
-	details?: Record<string, unknown>;
+	selector?: string;
+	property?: string;
 }
 
 export function toJsonDiagnostic(diagnostic: Diagnostic): JsonDiagnostic {
-	const details = {
-		...diagnostic.details,
-		...(diagnostic.selector ? { selector: diagnostic.selector } : {}),
-		...(diagnostic.property ? { property: diagnostic.property } : {}),
-	};
-
 	return {
 		code: diagnostic.code,
 		severity: diagnostic.severity,
@@ -24,7 +19,8 @@ export function toJsonDiagnostic(diagnostic: Diagnostic): JsonDiagnostic {
 		...(diagnostic.file ? { file: diagnostic.file } : {}),
 		...(diagnostic.source ? { line: diagnostic.source.line } : {}),
 		...(diagnostic.source ? { column: diagnostic.source.column } : {}),
-		...(Object.keys(details).length > 0 ? { details } : {}),
+		...(diagnostic.selector ? { selector: diagnostic.selector } : {}),
+		...(diagnostic.property ? { property: diagnostic.property } : {}),
 	};
 }
 

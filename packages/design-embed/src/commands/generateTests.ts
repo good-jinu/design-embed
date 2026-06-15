@@ -3,7 +3,7 @@ import { getBooleanFlag, getFormat, getStringFlag } from "../args.ts";
 import { loadConfig } from "../config/index.ts";
 import { type Diagnostic, embed } from "../core/index.ts";
 import type { DesignEmbedConfig } from "../core/types.ts";
-import { printDiagnostics } from "./compile.ts";
+import { hasErrors, printDiagnostics } from "./compile.ts";
 
 export async function runGenerateTestsCommand(
 	flags: Record<string, string | boolean>,
@@ -51,8 +51,4 @@ export async function runGenerateTestsCommand(
 function getTestGenerator(config: DesignEmbedConfig): boolean {
 	const target = config.output?.target;
 	return !!(target && target !== "html" && "generateTests" in target);
-}
-
-function hasErrors(diagnostics: Diagnostic[]): boolean {
-	return diagnostics.some((diagnostic) => diagnostic.severity === "error");
 }

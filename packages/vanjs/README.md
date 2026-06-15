@@ -17,10 +17,9 @@ import { VanJsTarget } from "@design-embed/vanjs";
 export default defineConfig({
   source: fromFile("./design.html"),
   output: {
-    target: new VanJsTarget(),
+    target: new VanJsTarget({ styleMode: "inline" }),
     viewName: "WelcomeHero",
     viewsDir: "src/generated/views",
-    styleMode: "inline",
   },
   components: [
     {
