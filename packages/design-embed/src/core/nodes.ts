@@ -15,7 +15,7 @@ export interface SourceLocation {
  */
 export interface DesignNode {
 	/** The type of node. */
-	kind: "element" | "text" | "component";
+	kind: "element" | "text" | "component" | "slot";
 	/** HTML tag name (for element kind). */
 	tagName?: string;
 	/** HTML attributes (for element kind). */
@@ -24,10 +24,18 @@ export interface DesignNode {
 	styles?: Record<string, string>;
 	/** Utility classes to apply. */
 	generatedClassNames?: string[];
+	/**
+	 * Attribute name -> prop name bindings for a synthesized component body.
+	 * When set on an element, the named attribute is rendered from a prop
+	 * instead of its literal value, at any depth within the component.
+	 */
+	attributeSlots?: Record<string, string>;
 	/** Child nodes. */
 	children?: DesignNode[];
 	/** Inner text content (for text kind). */
 	text?: string;
+	/** Prop name a slot node renders (for slot kind). */
+	propName?: string;
 	/** Original location in the source HTML. */
 	source?: SourceLocation;
 	/** Component name (for component kind). */
@@ -44,6 +52,12 @@ export interface DesignNode {
 	 * component implementation.
 	 */
 	sourceElement?: DesignNode;
+	/**
+	 * Marks a component node that references a user's existing, hand-written
+	 * component. Targets import it via `importPath` but must NOT emit an
+	 * implementation file for it.
+	 */
+	external?: boolean;
 }
 
 /**

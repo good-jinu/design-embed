@@ -10,6 +10,9 @@ import type {
 import type {
 	ComponentMapping,
 	DesignEmbedConfig,
+	DetectConfig,
+	DetectOption,
+	ResolvedDetectConfig,
 	ResolvedSourceConfig,
 	SnapshotConfig,
 	SourceConfig,
@@ -32,6 +35,7 @@ export interface ResolvedDesignEmbedConfig {
 		target: "html" | import("../core/types.ts").TargetEmitter;
 	};
 	components: ComponentMapping[];
+	detect: ResolvedDetectConfig;
 	tokens: TokenConfig;
 	styleMappings: StyleMappings;
 	tests: TestGenerationConfig;
@@ -50,6 +54,7 @@ export function resolveConfig(
 			target: raw.output?.target ?? "html",
 		},
 		components: raw.components ?? [],
+		detect: resolveDetectConfig(raw.detect, undefined, cwd),
 		tokens: raw.tokens ?? {},
 		styleMappings: raw.styleMappings ?? {},
 		tests: resolveTestConfig(raw.tests),
@@ -72,6 +77,7 @@ function resolveSourceConfig(
 			target: src.output?.target ?? global.output?.target ?? "html",
 		},
 		components: [...(global.components ?? []), ...(src.components ?? [])],
+		detect: resolveDetectConfig(src.detect, global.detect, cwd),
 		tokens: mergeTokens(global.tokens, src.tokens),
 		styleMappings: {
 			...(global.styleMappings ?? {}),
@@ -112,6 +118,32 @@ function resolveSnapshotConfig(
 		dir: snap?.dir ?? join(resolvedViewsDir, "__snapshots__"),
 		format: snap?.format ?? "png",
 		scale: snap?.scale ?? 1,
+	};
+}
+
+function resolveDetectConfig(
+	source: DetectOption | undefined,
+	global: DetectOption | undefined,
+	cwd: string,
+): ResolvedDetectConfig {
+	let enabled = false;
+	const merged: DetectConfig = {};
+	// Layer global beneath source so a source-level option overrides the global
+	// one field-by-field, while `false` at either layer can disable.
+	for (const layer of [global, source]) {
+		if (layer === undefined) continue;
+		if (typeof layer === "boolean") {
+			enabled = layer;
+			continue;
+		}
+		enabled = true;
+		Object.assign(merged, layer);
+	}
+	return {
+		enabled,
+		componentsDir: resolveDir(merged.componentsDir ?? "./src/components", cwd),
+		minOccurrences: merged.minOccurrences ?? 3,
+		minSubtreeSize: merged.minSubtreeSize ?? 2,
 	};
 }
 
@@ -265,6 +297,27 @@ export function validateConfig(config: DesignEmbedConfig): Diagnostic[] {
 				message: `Component mapping ${index} must include a component name.`,
 				severity: "error",
 			});
+		}
+	}
+
+	for (const [label, detect] of [
+		["output.detect", config.detect] as const,
+		...(config.sources ?? []).map(
+			(s, i) => [`sources[${i}].detect`, s.detect] as const,
+		),
+	]) {
+		if (!detect || typeof detect === "boolean") {
+			continue;
+		}
+		for (const field of ["minOccurrences", "minSubtreeSize"] as const) {
+			const value = detect[field];
+			if (value !== undefined && (!Number.isInteger(value) || value < 2)) {
+				diagnostics.push({
+					code: "DETECT_THRESHOLD_INVALID",
+					message: `${label}.${field} must be an integer greater than or equal to 2.`,
+					severity: "error",
+				});
+			}
 		}
 	}
 

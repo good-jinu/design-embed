@@ -110,6 +110,56 @@ import Button from "./Button.vue";
 		);
 	});
 
+	test("emits a synthesized component with nested slot props", () => {
+		const template: DesignNode = {
+			kind: "element",
+			tagName: "article",
+			attributes: { class: "card" },
+			styles: {},
+			children: [
+				{
+					kind: "element",
+					tagName: "img",
+					attributes: { src: "a.jpg" },
+					styles: {},
+					attributeSlots: { src: "src" },
+					children: [],
+				},
+				{
+					kind: "element",
+					tagName: "h3",
+					attributes: {},
+					styles: {},
+					children: [{ kind: "slot", propName: "title" }],
+				},
+			],
+		};
+		const result = new VueTarget().emit({
+			nodes: [
+				{
+					kind: "component",
+					component: "Card",
+					importName: "Card",
+					importPath: "./Card.view",
+					props: {
+						src: { kind: "literal", value: "a.jpg", attribute: "src" },
+						title: { kind: "text", value: "Title A" },
+					},
+					sourceElement: template,
+				},
+			],
+			config: { output: { viewName: "Page" } },
+			diagnostics: [],
+		});
+
+		const card = result.files.find((file) => file.path.endsWith("Card.vue"));
+		assert.match(card?.contents ?? "", /defineProps<\{/);
+		assert.match(card?.contents ?? "", /src\?: string;/);
+		assert.match(card?.contents ?? "", /title\?: string;/);
+		assert.match(card?.contents ?? "", /:src="src"/);
+		assert.match(card?.contents ?? "", /\{\{ title \}\}/);
+	});
+
 	test("emits deterministic Vue visual regression tests", () => {
 		const result = vueTestGenerator.generateTests({
 			nodes: [],

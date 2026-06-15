@@ -59,6 +59,63 @@ describe("React target", () => {
 		);
 	});
 
+	test("emits a synthesized component with nested slot props", () => {
+		const template: DesignNode = {
+			kind: "element",
+			tagName: "article",
+			attributes: { class: "card" },
+			styles: {},
+			children: [
+				{
+					kind: "element",
+					tagName: "img",
+					attributes: { src: "a.jpg" },
+					styles: {},
+					attributeSlots: { src: "src" },
+					children: [],
+				},
+				{
+					kind: "element",
+					tagName: "h3",
+					attributes: {},
+					styles: {},
+					children: [{ kind: "slot", propName: "title" }],
+				},
+			],
+		};
+		const result = new ReactTarget().emit({
+			nodes: [
+				{
+					kind: "component",
+					component: "Card",
+					importName: "Card",
+					importPath: "./Card.view",
+					props: {
+						src: { kind: "literal", value: "a.jpg", attribute: "src" },
+						title: { kind: "text", value: "Title A" },
+					},
+					sourceElement: template,
+				},
+			],
+			config: { output: { viewName: "Page" } },
+			diagnostics: [],
+		});
+
+		const card = result.files.find((file) =>
+			file.path.endsWith("Card.view.tsx"),
+		);
+		assert.match(card?.contents ?? "", /interface CardProps {/);
+		assert.match(card?.contents ?? "", /src\?: string;/);
+		assert.match(card?.contents ?? "", /title\?: string;/);
+		assert.match(card?.contents ?? "", /<img src=\{src\}><\/img>/);
+		assert.match(card?.contents ?? "", /\{title\}/);
+
+		const page = result.files.find((file) =>
+			file.path.endsWith("Page.view.tsx"),
+		);
+		assert.match(page?.contents ?? "", /<Card src="a.jpg" title="Title A">/);
+	});
+
 	test("emits deterministic React visual regression tests", () => {
 		const result = reactTestGenerator.generateTests({
 			nodes: [],
