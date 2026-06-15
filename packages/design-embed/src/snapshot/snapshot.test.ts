@@ -157,7 +157,7 @@ describe("HeadlessSnapshotter", () => {
 // ---------------------------------------------------------------------------
 
 const makeResolvedSource = (pluginName: string, mode?: string) => ({
-	plugin: {
+	source: {
 		name: pluginName,
 		run: async () => ({ html: "", diagnostics: [] }),
 	},
@@ -170,7 +170,6 @@ const makeResolvedSource = (pluginName: string, mode?: string) => ({
 	output: {
 		viewsDir: "/out",
 		target: "html" as const,
-		styleMode: "inline" as const,
 	},
 	components: [],
 	tokens: {},

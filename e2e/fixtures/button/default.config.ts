@@ -1,11 +1,10 @@
 import { defineConfig, fromFile } from "design-embed";
 
 export default defineConfig({
-	sources: [{ plugin: fromFile(new URL("./button.html", import.meta.url)) }],
+	sources: [{ source: fromFile(new URL("./button.html", import.meta.url)), output: { viewName: "ButtonExample" } }],
 	output: {
 		viewsDir: new URL("./generated", import.meta.url),
 		target: "html",
-		viewName: "ButtonExample",
 	},
 	components: [
 		{

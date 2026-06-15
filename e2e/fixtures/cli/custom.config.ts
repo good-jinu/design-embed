@@ -1,6 +1,5 @@
 export default {
-	sources: [{ plugin: {
-		name: "test-source",
+	sources: [{ source: {
 		async run() {
 			return { html: "<section>Custom</section>", diagnostics: [] };
 		},

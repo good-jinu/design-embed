@@ -2,12 +2,10 @@ import { defineConfig, fromFile } from "design-embed";
 import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
-	sources: [{ plugin: fromFile(new URL("./ambiguous-token.html", import.meta.url)) }],
+	sources: [{ source: fromFile(new URL("./ambiguous-token.html", import.meta.url)), output: { viewName: "AmbiguousToken" } }],
 	output: {
 		viewsDir: new URL("./generated", import.meta.url),
 		target: new ReactTarget(),
-		viewName: "AmbiguousToken",
-		styleMode: "inline",
 	},
 	tokens: {
 		spacing: {

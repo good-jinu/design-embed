@@ -14,11 +14,12 @@ import type {
 export interface TargetEmitInput {
 	nodes: DesignNode[];
 	css?: string;
-	config?: DesignEmbedConfig;
+	config?: DesignEmbedConfig & { output?: { viewName?: string } };
 	diagnostics: Diagnostic[];
 }
 
 export interface TargetEmitter {
+	styleMode?: StyleMode;
 	emit(input: TargetEmitInput): TargetEmitResult;
 }
 
@@ -27,7 +28,7 @@ export interface TargetTestGenerateInput {
 	sourceNodes: DesignNode[];
 	html: string;
 	css?: string;
-	config: DesignEmbedConfig;
+	config: DesignEmbedConfig & { output?: { viewName?: string } };
 	/** Absolute path to the baseline snapshot PNG, or null if disabled. */
 	snapshotPath: string | null;
 }
@@ -47,17 +48,12 @@ export interface GlobalOutputConfig {
 	viewsDir?: string | URL;
 	/** Default: 'html' */
 	target?: "html" | TargetEmitter;
-	/** Default: 'inline' */
-	styleMode?: StyleMode;
-	/** @deprecated Move to per-source SourceOutputConfig.viewName. */
-	viewName?: string;
 }
 
 export interface SourceOutputConfig {
 	viewsDir?: string | URL;
 	viewName?: string;
 	target?: "html" | TargetEmitter;
-	styleMode?: StyleMode;
 }
 
 export type SnapshotMode = "figma-api" | "headless" | "none";
@@ -73,7 +69,7 @@ export interface SnapshotConfig {
 }
 
 export interface SourceConfig {
-	plugin: SourcePlugin;
+	source: SourcePlugin;
 	output?: SourceOutputConfig;
 	components?: ComponentMapping[];
 	tokens?: TokenConfig;
@@ -99,9 +95,8 @@ export interface SnapshotResult {
 }
 
 export interface ResolvedSourceConfig {
-	plugin: SourcePlugin;
-	output: Required<Pick<SourceOutputConfig, "target" | "styleMode">> &
-		SourceOutputConfig;
+	source: SourcePlugin;
+	output: Required<Pick<SourceOutputConfig, "target">> & SourceOutputConfig;
 	components: ComponentMapping[];
 	tokens: TokenConfig;
 	styleMappings: StyleMappings;

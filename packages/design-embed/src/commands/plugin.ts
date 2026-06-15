@@ -30,10 +30,10 @@ export async function runPluginCommand(
 		return 2;
 	}
 
-	const plugin = configResult.config?.sources?.[0]?.plugin;
+	const plugin = configResult.config?.sources?.[0]?.source;
 	if (!plugin) {
 		console.error(
-			"Error: config must include at least one source (e.g. sources: [{ plugin: new FigmaHtmlPlugin({ ... }) }]).",
+			"Error: config must include at least one source (e.g. sources: [{ source: new FigmaHtmlPlugin({ ... }) }]).",
 		);
 		return 2;
 	}

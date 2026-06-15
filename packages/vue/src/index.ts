@@ -3,6 +3,7 @@ import type {
 	DesignNode,
 	Diagnostic,
 	PropValue,
+	StyleMode,
 	TargetEmitInput,
 	TargetEmitResult,
 	TargetEmitter,
@@ -14,20 +15,29 @@ import { buildHeadlessBeforeAll, buildScreenshotAssertion } from "design-embed";
 
 export interface VueTargetOptions {
 	api?: "composition" | "options";
+	styleMode?: StyleMode;
 }
 
 export class VueTarget implements TargetEmitter, TargetTestGenerator {
 	private options: VueTargetOptions;
+	readonly styleMode: StyleMode;
 
 	constructor(options: VueTargetOptions = { api: "composition" }) {
 		this.options = options;
+		this.styleMode = options.styleMode ?? "inline";
 	}
 
 	emit({ nodes, css, config, diagnostics }: TargetEmitInput): TargetEmitResult {
 		const viewsDir = String(config?.output?.viewsDir ?? "src/generated/views");
 		const viewName = config?.output?.viewName ?? "DesignView";
 
-		const styleResult = transformStyles(nodes, css, config, diagnostics);
+		const styleResult = transformStyles(
+			nodes,
+			css,
+			config,
+			diagnostics,
+			this.styleMode,
+		);
 		const contents = emitVueView(styleResult.nodes, viewName, {
 			cssModule: styleResult.cssModule,
 			api: this.options.api,
@@ -991,8 +1001,8 @@ function transformStyles(
 	css: string | undefined,
 	config: DesignEmbedConfig | undefined,
 	diagnostics: Diagnostic[],
+	styleMode: StyleMode = "inline",
 ): StyleTransformResult {
-	const styleMode = config?.output?.styleMode ?? "inline";
 	const cssRules = parseCssRules(css, diagnostics);
 	const resolvedNodes = resolveCssStyles(nodes, cssRules);
 

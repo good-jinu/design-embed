@@ -2,12 +2,10 @@ import { defineConfig, fromFile } from "design-embed";
 import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
-	sources: [{ plugin: fromFile(new URL("./tailwind-card.html", import.meta.url)) }],
+	sources: [{ source: fromFile(new URL("./tailwind-card.html", import.meta.url)), output: { viewName: "TailwindCard" } }],
 	output: {
 		viewsDir: new URL("./generated", import.meta.url),
-		target: new ReactTarget(),
-		viewName: "TailwindCard",
-		styleMode: "tailwind",
+		target: new ReactTarget({ styleMode: "tailwind" }),
 	},
 	tests: { assertions: { screenshot: false, layout: false } },
 	tokens: {

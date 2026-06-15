@@ -77,26 +77,24 @@ import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
   sources: [{
-    plugin: {
-      name: "my-source",
+    source: {
       run: async () => ({
         html: "<div>...</div>",
         diagnostics: [],
       }),
     },
+    output: { viewName: "WelcomeHero" },
   }],
   output: {
-    target: new ReactTarget(),
-    viewName: "WelcomeHero",
+    target: new ReactTarget({ styleMode: "inline" }),
     viewsDir: "src/generated/views",
-    styleMode: "inline"
   }
 });
 ```
 
 ### 3. Get Design HTML
 
-`design-embed` compiles the HTML provided by the source plugin. You can start by exporting HTML from your design tool or using a source plugin like Figma's.
+`design-embed` transforms the HTML provided by the source plugin. You can start by exporting HTML from your design tool or using a source plugin like Figma's.
 
 If you are using Figma, install the Figma source plugin and add it to
 `design-embed.config.ts`:
@@ -112,22 +110,21 @@ import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
   sources: [{
-    plugin: new FigmaHtmlPlugin({
+    source: new FigmaHtmlPlugin({
       url: "https://www.figma.com/file/KEY/NAME?node-id=ID"
     }),
+    output: { viewName: "WelcomeHero" },
   }],
   output: {
-    target: new ReactTarget(),
-    viewName: "WelcomeHero",
+    target: new ReactTarget({ styleMode: "inline" }),
     viewsDir: "src/generated/views",
-    styleMode: "inline"
   }
 });
 ```
 
-### 4. Run the Compiler
+### 4. Run design-embed
 
-Set your Figma personal access token and run the compiler. It fetches and compiles in one step:
+Set your Figma personal access token and run design-embed. It fetches and transforms the design in one step:
 
 ```bash npm2yarn
 export FIGMA_TOKEN=your_token_here
@@ -152,19 +149,17 @@ import { ReactTarget } from "@design-embed/react";
 
 export default defineConfig({
   sources: [{
-    plugin: {
-      name: "my-source",
+    source: {
       run: async () => ({
         html: "<div>...</div>",
         diagnostics: [],
       }),
     },
+    output: { viewName: "WelcomeHero" },
   }],
   output: {
-    target: new ReactTarget(),
-    viewName: "WelcomeHero",
+    target: new ReactTarget({ styleMode: "inline" }),
     viewsDir: "src/generated/views",
-    styleMode: "inline"
   },
   components: [
     {
