@@ -31,10 +31,10 @@ async function runCompiler() {
             diagnostics: [],
           }),
         },
+        output: { viewName: "MyComponent" },
       }],
       output: {
         target: new ReactTarget(),
-        viewName: "MyComponent"
       }
     }
   });
