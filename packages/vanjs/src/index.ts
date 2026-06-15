@@ -424,7 +424,7 @@ function emitComponentSplitViews(
 					? childrenProp.value
 					: (node.children ?? []);
 
-			if (importName && !seen.has(importName)) {
+			if (importName && !node.external && !seen.has(importName)) {
 				seen.add(importName);
 				const funcName = toPascalCase(importName);
 				files.push({
@@ -457,6 +457,39 @@ function emitComponentView(
 	const props = node.props ?? {};
 	const source = node.sourceElement;
 	const propEntries = Object.entries(props);
+
+	// Stage B (synthesized nested slots): destructure every slot prop as a string
+	// and reconstruct the body from the template's slots / attributeSlots.
+	const slotProps = source ? [...collectSlotProps(source)].sort() : [];
+	if (source && slotProps.length > 0) {
+		const body = emitComponentBody(node, source, new Map(), undefined, 2);
+		const componentImports = collectImports(source.children ?? [])
+			.map(
+				({ importName, importPath }) =>
+					`import { ${importName} } from "${importPath}";`,
+			)
+			.join("\n");
+		const cssModuleImport = options.cssModulePath
+			? `import styles from "./${options.cssModulePath}";`
+			: "";
+		const tagNames = collectTagNames([source]);
+		const tagsImport =
+			tagNames.size > 0
+				? `const { ${Array.from(tagNames).sort().join(", ")} } = van.tags;`
+				: "";
+		const allImports = [
+			`import van from "vanjs-core";`,
+			componentImports,
+			cssModuleImport,
+		]
+			.filter(Boolean)
+			.join("\n");
+		const interfaceBlock = `interface ${funcName}Props {\n${slotProps
+			.map((name) => `\t${name}?: string;`)
+			.join("\n")}\n}\n\n`;
+		const params = `{ ${slotProps.join(", ")} }: ${funcName}Props`;
+		return `${allImports}\n\n${tagsImport ? `${tagsImport}\n\n` : ""}${interfaceBlock}export function ${funcName}(${params}) {\n\treturn (\n${body}\t);\n}\n`;
+	}
 
 	const attributeBindings = new Map<string, string>();
 	const interfaceLines: string[] = [];
@@ -552,6 +585,7 @@ function emitComponentBody(
 		source.styles ?? {},
 		source.generatedClassNames ?? [],
 		attributeBindings,
+		source.attributeSlots ?? {},
 	);
 
 	if (childrenPropName) {
@@ -559,7 +593,7 @@ function emitComponentBody(
 		return `${indent}${tagName}(${attributes ? `${attributes}, ` : ""}\n${inner}${indent})\n`;
 	}
 
-	const children = node.children ?? [];
+	const children = node.children ?? source.children ?? [];
 	if (children.length === 0) {
 		return `${indent}${tagName}(${attributes})\n`;
 	}
@@ -1386,6 +1420,21 @@ function formatNumber(value: number): string {
 		: String(Number(value.toFixed(4)));
 }
 
+function collectSlotProps(node: DesignNode): Set<string> {
+	const names = new Set<string>();
+	function visit(current: DesignNode): void {
+		if (current.kind === "slot" && current.propName) {
+			names.add(current.propName);
+		}
+		for (const propName of Object.values(current.attributeSlots ?? {})) {
+			names.add(propName);
+		}
+		for (const child of current.children ?? []) visit(child);
+	}
+	visit(node);
+	return names;
+}
+
 function collectImports(nodes: DesignNode[]): Array<{
 	importName: string;
 	importPath: string;
@@ -1427,6 +1476,9 @@ function emitVanJsNode(node: DesignNode | undefined, depth: number): string {
 	if (node.kind === "text") {
 		return `${indent}${JSON.stringify(node.text ?? "")},\n`;
 	}
+	if (node.kind === "slot") {
+		return `${indent}${node.propName},\n`;
+	}
 	if (node.kind === "component") {
 		return emitComponentVanJs(node, depth);
 	}
@@ -1436,6 +1488,8 @@ function emitVanJsNode(node: DesignNode | undefined, depth: number): string {
 		node.attributes ?? {},
 		node.styles ?? {},
 		node.generatedClassNames ?? [],
+		new Map(),
+		node.attributeSlots ?? {},
 	);
 	const children = node.children ?? [];
 
@@ -1491,6 +1545,7 @@ function emitVanJsAttributes(
 	styles: Record<string, string>,
 	generatedClassNames: string[] = [],
 	attributeBindings: Map<string, string> = new Map(),
+	attributeSlots: Record<string, string> = {},
 ): string {
 	const mergedAttributes = { ...attributes };
 	const classNames = [
@@ -1505,7 +1560,7 @@ function emitVanJsAttributes(
 		.filter(([name]) => name !== "style")
 		.sort(([left], [right]) => left.localeCompare(right))
 		.map(([name, value]) => {
-			const binding = attributeBindings.get(name);
+			const binding = attributeBindings.get(name) ?? attributeSlots[name];
 			const key = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name)
 				? name
 				: JSON.stringify(name);

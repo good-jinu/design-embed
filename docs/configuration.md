@@ -149,6 +149,55 @@ components: [
 
 ---
 
+## Auto-Detecting Components
+
+Instead of (or in addition to) writing `components` mappings by hand, you can let
+design-embed detect components for you. Auto-detection is **off by default** —
+enable it with the `detect` option:
+
+```typescript
+export default defineConfig({
+  sources: [/* … */],
+  output: { target: new ReactTarget(), viewsDir: "src/generated/views" },
+
+  detect: true, // enable with defaults
+});
+```
+
+Pass an object to tune it:
+
+```typescript
+detect: {
+  componentsDir: "src/components", // scanned for your existing components (default)
+  minOccurrences: 3,               // repeats needed before a structure is extracted (default)
+  minSubtreeSize: 2,               // smallest subtree (nodes) worth extracting (default)
+}
+```
+
+Detection runs heuristically and deterministically on every build, per source,
+and does two things:
+
+- **Map to existing components** — scans `componentsDir` and rewrites HTML that
+  corresponds to your hand-written components into imports of them (by tag,
+  class, or `data-component` name). These are referenced, never re-generated.
+- **Synthesize new components** — extracts repeated structures into generated
+  components. Values that vary across repeats (text, attributes) become props;
+  identical parts are baked in.
+
+Precedence is predictable:
+
+- Manual `components` mappings always win — auto-detection only touches elements
+  they didn't match. Existing configs that omit `detect` behave exactly as before.
+- An existing-component match wins over synthesizing a new one.
+- `detect` can be set globally and overridden per source; a source-level `false`
+  disables it for that source even when it is enabled globally.
+
+> Synthesis is conservative by design: if repeats differ in a way that can't be
+> expressed deterministically (e.g. their inline styles diverge), that group is
+> left inline rather than emitting incorrect output.
+
+---
+
 ## Design Tokens
 
 Tokens allow you to "snap" raw design values (like `15.98px`) to your project's defined scales (like `16px`).

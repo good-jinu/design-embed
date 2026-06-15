@@ -8,6 +8,8 @@ Component mappings are the core mechanism of `design-embed`. They allow you to d
 
 Selectors currently support a single element selector made from an optional tag, optional id, classes, and attributes. Descendant selectors, combinators, pseudo selectors, and selector lists are rejected so mappings remain deterministic and easy to audit.
 
+> Prefer zero config? The opt-in [`detect`](./configuration.md#auto-detecting-components) option can map elements to your existing components and synthesize new ones automatically, without writing selectors. Manual mappings below always take precedence over auto-detection.
+
 ## Basic Mapping
 
 A mapping consists of a `selector` and a `component` name.

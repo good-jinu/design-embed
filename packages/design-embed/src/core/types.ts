@@ -43,6 +43,24 @@ export interface TargetTestGenerator {
 
 export type StyleMode = "inline" | "css-modules" | "tailwind";
 
+export interface DetectConfig {
+	/** Directory scanned for existing components. Default: './src/components' */
+	componentsDir?: string | URL;
+	/** Minimum repeats before a structure is synthesized. Default: 3 */
+	minOccurrences?: number;
+	/** Minimum element descendants a synthesized subtree must have. Default: 2 */
+	minSubtreeSize?: number;
+}
+
+export type DetectOption = boolean | DetectConfig;
+
+export interface ResolvedDetectConfig {
+	enabled: boolean;
+	componentsDir: string;
+	minOccurrences: number;
+	minSubtreeSize: number;
+}
+
 export interface GlobalOutputConfig {
 	/** Default: './src/views' */
 	viewsDir?: string | URL;
@@ -72,6 +90,7 @@ export interface SourceConfig {
 	source: SourcePlugin;
 	output?: SourceOutputConfig;
 	components?: ComponentMapping[];
+	detect?: DetectOption;
 	tokens?: TokenConfig;
 	styleMappings?: StyleMappings;
 	tests?: TestGenerationConfig;
@@ -98,6 +117,7 @@ export interface ResolvedSourceConfig {
 	source: SourcePlugin;
 	output: Required<Pick<SourceOutputConfig, "target">> & SourceOutputConfig;
 	components: ComponentMapping[];
+	detect: ResolvedDetectConfig;
 	tokens: TokenConfig;
 	styleMappings: StyleMappings;
 	tests: TestGenerationConfig;
@@ -175,6 +195,7 @@ export interface TestAssertions {
 export interface DesignEmbedConfig {
 	output?: GlobalOutputConfig;
 	components?: ComponentMapping[];
+	detect?: DetectOption;
 	tokens?: TokenConfig;
 	styleMappings?: StyleMappings;
 	tests?: TestGenerationConfig;
