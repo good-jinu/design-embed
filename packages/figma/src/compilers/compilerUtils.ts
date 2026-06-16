@@ -35,6 +35,9 @@ export function getNodeStyles(
 	const isAbsoluteChild = Boolean(
 		parent && (!parentUsesLayout || node.layoutPositioning === "ABSOLUTE"),
 	);
+	const parentDir = parentUsesLayout ? parent?.layoutMode : undefined;
+	const fillsHorizontal = node.layoutSizingHorizontal === "FILL";
+	const fillsVertical = node.layoutSizingVertical === "FILL";
 
 	if (isAbsoluteChild && bounds && parentBounds) {
 		styles.position = "absolute";
@@ -44,11 +47,31 @@ export function getNodeStyles(
 		styles.position = "relative";
 	}
 
-	if (bounds && node.layoutSizingHorizontal !== "HUG") {
+	// A hard pixel size is only emitted for a FIXED axis. HUG (size to content)
+	// and FILL (size to parent) are driven by flexbox below; emitting a fixed
+	// size for them fights the layout and distorts the result.
+	if (bounds && node.layoutSizingHorizontal !== "HUG" && !fillsHorizontal) {
 		styles.width = `${Math.round(bounds.width || 0)}px`;
 	}
-	if (bounds && node.layoutSizingVertical !== "HUG") {
+	if (bounds && node.layoutSizingVertical !== "HUG" && !fillsVertical) {
 		styles.height = `${Math.round(bounds.height || 0)}px`;
+	}
+
+	// A frame that does not clip its content can render larger than its own
+	// bounding box (Figma shows the overflow). Absolute children do not expand
+	// their parent in CSS, so grow the box to the real content extent — without
+	// this a background fill stops short and the overflow renders on bare page.
+	if (
+		bounds &&
+		node.clipsContent !== true &&
+		node.children?.length &&
+		(node.layoutMode === undefined || node.layoutMode === "NONE")
+	) {
+		const contentBottom = measureContentBottom(node);
+		const overflow = Math.round(contentBottom - (bounds.y || 0));
+		if (overflow > Math.round(bounds.height || 0)) {
+			styles.height = `${overflow}px`;
+		}
 	}
 
 	if (node.layoutMode === "HORIZONTAL" || node.layoutMode === "VERTICAL") {
@@ -75,15 +98,23 @@ export function getNodeStyles(
 			styles.rowGap = `${Math.round(node.gridRowGap)}px`;
 	}
 
-	if (node.layoutSizingHorizontal === "FILL" || node.layoutGrow === 1) {
-		styles.flex = 1;
-		styles.width = "100%";
-	}
-	if (node.layoutSizingVertical === "FILL") {
-		styles.height = "100%";
-	}
-	if (node.layoutAlign === "STRETCH") {
-		styles.alignSelf = "stretch";
+	// Map Figma fill/stretch to flexbox relative to the PARENT's main axis.
+	// Filling along the parent's main axis is flex-grow; filling along the cross
+	// axis is align-self: stretch. Treating every "fill" as `flex: 1` makes
+	// elements (especially text) grow on the wrong axis inside column layouts.
+	const growsMainAxis = node.layoutGrow === 1;
+	if (parentDir === "HORIZONTAL") {
+		if (fillsHorizontal || growsMainAxis) styles.flexGrow = 1;
+		if (fillsVertical || node.layoutAlign === "STRETCH")
+			styles.alignSelf = "stretch";
+	} else if (parentDir === "VERTICAL") {
+		if (fillsVertical || growsMainAxis) styles.flexGrow = 1;
+		if (fillsHorizontal || node.layoutAlign === "STRETCH")
+			styles.alignSelf = "stretch";
+	} else {
+		// Non-flex / absolutely positioned parent: fill the offset parent box.
+		if (fillsHorizontal) styles.width = "100%";
+		if (fillsVertical) styles.height = "100%";
 	}
 	if (node.gridColumnSpan && node.gridColumnSpan > 1) {
 		styles.gridColumn = `span ${node.gridColumnSpan}`;
@@ -155,9 +186,45 @@ export function getNodeStyles(
 			styles.fontFamily = `"${textStyle.fontFamily}", sans-serif`;
 		if (textStyle.lineHeightPx)
 			styles.lineHeight = `${Math.round(textStyle.lineHeightPx)}px`;
+		const textAlign = mapTextAlign(textStyle.textAlignHorizontal);
+		if (textAlign) styles.textAlign = textAlign;
 	}
 
 	return styles;
+}
+
+/**
+ * Deepest bottom edge (in absolute canvas coordinates) reachable from this
+ * node, descending through children that are not clipped away by a
+ * `clipsContent` ancestor. Used to grow non-clipping frames to cover overflow.
+ */
+function measureContentBottom(node: FigmaNode): number {
+	const bounds = node.absoluteBoundingBox;
+	let bottom =
+		bounds && node.visible !== false
+			? (bounds.y || 0) + (bounds.height || 0)
+			: -Infinity;
+	if (node.clipsContent === true) return bottom;
+	for (const child of node.children ?? []) {
+		if (child.visible === false) continue;
+		bottom = Math.max(bottom, measureContentBottom(child));
+	}
+	return bottom;
+}
+
+function mapTextAlign(value: string | undefined): string | undefined {
+	switch (value) {
+		case "CENTER":
+			return "center";
+		case "RIGHT":
+			return "right";
+		case "JUSTIFIED":
+			return "justify";
+		case "LEFT":
+			return "left";
+		default:
+			return undefined;
+	}
 }
 
 export function toReactStyle(styles: Record<string, string | number>): string {

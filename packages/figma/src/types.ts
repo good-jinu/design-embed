@@ -82,6 +82,8 @@ export interface FigmaNode {
 		fontWeight?: number | string;
 		fontFamily?: string;
 		lineHeightPx?: number;
+		textAlignHorizontal?: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED" | string;
+		textAlignVertical?: "TOP" | "CENTER" | "BOTTOM" | string;
 	};
 }
 

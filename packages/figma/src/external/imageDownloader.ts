@@ -2,10 +2,22 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, posix } from "node:path";
 import type { FigmaNode } from "../types.ts";
 import type { FigmaFetcher } from "./figmaApi.ts";
+import {
+	fetchWithRetry,
+	mapWithConcurrency,
+	type RetryOptions,
+} from "./httpClient.ts";
+
+/** Default cap on simultaneous asset downloads to avoid CDN throttling. */
+const DEFAULT_DOWNLOAD_CONCURRENCY = 6;
 
 export interface DownloadFigmaImagesOptions {
 	fetcher?: FigmaFetcher;
 	publicPath?: string;
+	/** Max simultaneous downloads (default 6). */
+	concurrency?: number;
+	/** Retry/backoff behavior for rate limits and transient server errors. */
+	retry?: Omit<RetryOptions, "fetcher">;
 }
 
 export interface DownloadedFigmaImage {
@@ -36,8 +48,10 @@ export async function downloadFigmaImageFills(
 
 	mkdirSync(outDir, { recursive: true });
 
-	const downloadedImages = await Promise.all(
-		uniqueTargets.map((target) => downloadImageFill(target, outDir, options)),
+	const downloadedImages = await mapWithConcurrency(
+		uniqueTargets,
+		options.concurrency ?? DEFAULT_DOWNLOAD_CONCURRENCY,
+		(target) => downloadImageFill(target, outDir, options),
 	);
 	const publicPathByRef = new Map(
 		downloadedImages.map((image) => [image.imageRef, image.publicPath]),
@@ -96,8 +110,10 @@ export async function downloadFigmaNodeExports(
 
 	mkdirSync(outDir, { recursive: true });
 
-	const downloadedImages = await Promise.all(
-		targets.map(async (node) => {
+	const downloadedImages = await mapWithConcurrency(
+		targets,
+		options.concurrency ?? DEFAULT_DOWNLOAD_CONCURRENCY,
+		async (node) => {
 			const image = await downloadImage(
 				node.id || "export",
 				node.exportUrl as string,
@@ -106,7 +122,7 @@ export async function downloadFigmaNodeExports(
 			);
 			node.exportLocalPath = image.publicPath;
 			return image;
-		}),
+		},
 	);
 
 	return downloadedImages;
@@ -127,8 +143,10 @@ async function downloadImage(
 	outDir: string,
 	options: DownloadFigmaImagesOptions,
 ): Promise<DownloadedFigmaImage> {
-	const fetcher = options.fetcher ?? fetch;
-	const response = await fetcher(url);
+	const response = await fetchWithRetry(url, undefined, {
+		fetcher: options.fetcher,
+		...options.retry,
+	});
 
 	if (!response.ok) {
 		throw new Error(

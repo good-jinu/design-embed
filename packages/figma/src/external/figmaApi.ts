@@ -1,4 +1,5 @@
 import type { ExtractedParams, FigmaNode } from "../types.ts";
+import { fetchWithRetry, type RetryOptions } from "./httpClient.ts";
 
 interface FigmaFileResponse {
 	document?: FigmaNode;
@@ -24,6 +25,8 @@ export type FigmaFetcher = (
 export interface FigmaClientOptions {
 	token: string;
 	fetcher?: FigmaFetcher;
+	/** Retry/backoff behavior for rate limits and transient server errors. */
+	retry?: Omit<RetryOptions, "fetcher">;
 }
 
 export function extractParamsFromURL(input: string): ExtractedParams {
@@ -130,17 +133,17 @@ export async function fetchFigmaNodeRenderUrls(
 	nodeIds: string[],
 	options: FigmaClientOptions,
 ): Promise<Record<string, string>> {
-	const fetcher = options.fetcher ?? fetch;
 	const renderUrls: Record<string, string> = {};
 
 	const chunkSize = 100;
 	for (let index = 0; index < nodeIds.length; index += chunkSize) {
 		const chunk = nodeIds.slice(index, index + chunkSize);
 		const endpoint = buildFigmaImageRenderEndpoint(fileKey, chunk);
-		const response = await fetcher(endpoint, {
-			method: "GET",
-			headers: { "X-Figma-Token": options.token },
-		});
+		const response = await fetchWithRetry(
+			endpoint,
+			{ method: "GET", headers: { "X-Figma-Token": options.token } },
+			{ fetcher: options.fetcher, ...options.retry },
+		);
 
 		if (!response.ok) {
 			throw new Error(
@@ -170,11 +173,11 @@ export async function fetchFigmaApiResponse(
 	options: FigmaClientOptions,
 ): Promise<FigmaApiResponse> {
 	const endpoint = buildFigmaNodeEndpoint(fileKey, nodeId);
-	const fetcher = options.fetcher ?? fetch;
-	const response = await fetcher(endpoint, {
-		method: "GET",
-		headers: { "X-Figma-Token": options.token },
-	});
+	const response = await fetchWithRetry(
+		endpoint,
+		{ method: "GET", headers: { "X-Figma-Token": options.token } },
+		{ fetcher: options.fetcher, ...options.retry },
+	);
 
 	if (!response.ok) {
 		throw new Error(
@@ -201,11 +204,11 @@ export async function fetchFigmaImageFills(
 	options: FigmaClientOptions,
 ): Promise<Record<string, string>> {
 	const endpoint = buildFigmaImageFillsEndpoint(fileKey);
-	const fetcher = options.fetcher ?? fetch;
-	const response = await fetcher(endpoint, {
-		method: "GET",
-		headers: { "X-Figma-Token": options.token },
-	});
+	const response = await fetchWithRetry(
+		endpoint,
+		{ method: "GET", headers: { "X-Figma-Token": options.token } },
+		{ fetcher: options.fetcher, ...options.retry },
+	);
 
 	if (!response.ok) {
 		throw new Error(

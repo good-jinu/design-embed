@@ -25,6 +25,7 @@ export async function runCompileCommand(
 		explicitConfigPath ??
 		(existsSync(defaultConfigPath) ? "design-embed.config.ts" : undefined);
 	const quiet = getBooleanFlag(flags, "--quiet");
+	const verbose = getBooleanFlag(flags, "--verbose");
 	const format = getFormat(flags);
 	const diagnostics: Diagnostic[] = [];
 
@@ -35,7 +36,7 @@ export async function runCompileCommand(
 				"No config file found. Create design-embed.config.ts or use --config.",
 			severity: "error",
 		});
-		printDiagnostics(diagnostics, format, quiet);
+		printDiagnostics(diagnostics, format, quiet, verbose);
 		return 2;
 	}
 
@@ -44,7 +45,7 @@ export async function runCompileCommand(
 	const config = configResult.config;
 
 	if (hasErrors(diagnostics)) {
-		printDiagnostics(diagnostics, format, quiet);
+		printDiagnostics(diagnostics, format, quiet, verbose);
 		return 2;
 	}
 
@@ -60,7 +61,7 @@ export async function runCompileCommand(
 	diagnostics.push(...result.diagnostics);
 
 	if (hasErrors(diagnostics)) {
-		printDiagnostics(diagnostics, format, quiet);
+		printDiagnostics(diagnostics, format, quiet, verbose);
 		return 2;
 	}
 
@@ -73,11 +74,11 @@ export async function runCompileCommand(
 			},
 		});
 		diagnostics.push(...checkResult.diagnostics);
-		printDiagnostics(diagnostics, format, quiet);
+		printDiagnostics(diagnostics, format, quiet, verbose);
 		return checkResult.ok ? 0 : 3;
 	}
 
-	printDiagnostics(diagnostics, format, quiet);
+	printDiagnostics(diagnostics, format, quiet, verbose);
 	if (!quiet && format === "text") {
 		console.log(`Success. Generated ${result.files.length} file(s).`);
 	}
@@ -88,6 +89,7 @@ export function printDiagnostics(
 	diagnostics: Diagnostic[],
 	format: "json" | "text",
 	quiet: boolean,
+	verbose = false,
 ): void {
 	if (format === "json") {
 		console.log(
@@ -98,13 +100,29 @@ export function printDiagnostics(
 	if (quiet) {
 		return;
 	}
+	// `info` diagnostics are high-volume, low-signal (e.g. one TOKEN_NO_MATCH per
+	// unmapped style). They drown out warnings and errors, so collapse them into
+	// a per-code summary unless the user opts into the full list with --verbose.
+	const suppressed = new Map<string, number>();
 	for (const diagnostic of diagnostics) {
+		if (!verbose && diagnostic.severity === "info") {
+			suppressed.set(
+				diagnostic.code,
+				(suppressed.get(diagnostic.code) ?? 0) + 1,
+			);
+			continue;
+		}
 		const output = formatDiagnosticText(diagnostic);
 		if (diagnostic.severity === "error") {
 			console.error(output);
 		} else {
 			console.warn(output);
 		}
+	}
+	for (const [code, count] of suppressed) {
+		console.warn(
+			`info: ${code}: ${count} occurrence(s) suppressed. Re-run with --verbose to list them.`,
+		);
 	}
 }
 
