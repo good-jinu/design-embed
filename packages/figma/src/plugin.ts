@@ -18,6 +18,10 @@ export interface FigmaHtmlPluginOptions {
 	assetsDir?: string;
 	/** Custom fetch implementation, mainly for testing without the Figma API. */
 	fetcher?: FigmaFetcher;
+	/** Max simultaneous asset downloads. Lower this if you hit rate limits. */
+	concurrency?: number;
+	/** Max retry attempts on 429/5xx responses (default 3). */
+	maxRetries?: number;
 }
 
 export class FigmaHtmlPlugin implements SourcePlugin {
@@ -34,8 +38,11 @@ export class FigmaHtmlPlugin implements SourcePlugin {
 			token: optionsToken,
 			assetsDir = "assets",
 			fetcher,
+			concurrency,
+			maxRetries,
 		} = this.options;
 		const token = optionsToken ?? process.env.FIGMA_TOKEN;
+		const retry = maxRetries === undefined ? undefined : { maxRetries };
 
 		if (!token) {
 			return {
@@ -55,16 +62,21 @@ export class FigmaHtmlPlugin implements SourcePlugin {
 			const rootNode = await fetchFigmaNode(fileKey, nodeId, {
 				token,
 				fetcher,
+				retry,
 			});
 			const outDir = join(input.cwd, assetsDir);
 			const downloadedImages = [
 				...(await downloadFigmaImageFills(rootNode, outDir, {
 					publicPath: assetsDir,
 					fetcher,
+					concurrency,
+					retry,
 				})),
 				...(await downloadFigmaNodeExports(rootNode, outDir, {
 					publicPath: assetsDir,
 					fetcher,
+					concurrency,
+					retry,
 				})),
 			];
 
