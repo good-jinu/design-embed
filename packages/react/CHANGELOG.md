@@ -1,5 +1,14 @@
 # @design-embed/react
 
+## 2.0.0
+
+### Patch Changes
+
+- fc26153: Refactor: split monolithic `index.ts` into focused modules (`utils`, `styles`, `nodes`, `emit`, `generateTests`, `target`) in the react, vue, and vanjs packages. No behaviour change.
+- Updated dependencies [53f9b59]
+- Updated dependencies [538397e]
+  - design-embed@0.5.0
+
 ## 1.0.0
 
 ### Minor Changes

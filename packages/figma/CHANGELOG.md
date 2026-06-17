@@ -1,5 +1,28 @@
 # @design-embed/figma
 
+## 2.0.0
+
+### Minor Changes
+
+- 53f9b59: Harden Figma network access against rate limits.
+
+  - Asset downloads (image fills and SVG node exports) now run through a bounded concurrency pool instead of an unbounded `Promise.all`, so a design with many assets no longer fires a burst of simultaneous requests that triggers throttling or dropped connections. Defaults to 6 in flight; configurable via the new `concurrency` plugin option.
+  - All Figma requests (API calls and asset downloads) now retry on `429` and transient `5xx` responses with exponential backoff, honoring the `Retry-After` header. Previously a single rate-limit response aborted the entire run. Configurable via the new `maxRetries` plugin option (default 3).
+
+- 53f9b59: Improve Figma → HTML layout fidelity and reduce diagnostic noise.
+
+  - Map Figma "fill" sizing relative to the parent's main axis: filling the main axis becomes `flex-grow`, filling the cross axis becomes `align-self: stretch`. Previously every fill became `flex: 1`, which grew elements (especially text) on the wrong axis inside column layouts.
+  - Stop emitting a fixed pixel size for axes that hug or fill, so flexbox can size them.
+  - Grow non-clipping frames to their real content extent so background fills cover overflowing content instead of stopping at the frame's bounding box.
+  - Emit `text-align` from Figma's `textAlignHorizontal` so centered/right-aligned text is no longer rendered left-aligned.
+  - Collapse high-volume `info` diagnostics (e.g. `TOKEN_NO_MATCH`) into a per-code summary by default; pass `--verbose` to list them individually.
+
+### Patch Changes
+
+- Updated dependencies [53f9b59]
+- Updated dependencies [538397e]
+  - design-embed@0.5.0
+
 ## 1.0.0
 
 ### Patch Changes
