@@ -4,6 +4,7 @@ const unbundledPackages = [
 	"packages/react",
 	"packages/vanjs",
 	"packages/figma",
+	"packages/openpencil",
 ];
 
 export default defineConfig([
@@ -19,6 +20,13 @@ export default defineConfig([
 		unbundle: true,
 		platform: "node" as const,
 		exclude: [/\.test\.ts$/],
+		// These packages are published as-is and resolve their dependencies at
+		// runtime via node_modules. The root config can't see each package's own
+		// dependencies, so externalize workspace and npm deps explicitly to keep
+		// them as bare imports instead of bundling them into dist.
+		deps: {
+			neverBundle: [/^@design-embed\//, /^@open-pencil\//],
+		},
 	})),
 
 	// design-embed is published as a self-contained bundle. Its former private
