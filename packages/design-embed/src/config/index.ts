@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Diagnostic } from "../core/diagnostics/diagnostic.ts";
@@ -173,13 +174,15 @@ export function fromFile(
 	return {
 		name: "html-file",
 		async run({ cwd }: SourcePluginInput): Promise<SourcePluginResult> {
-			const html = readFileSync(
+			const htmlPromise = readFile(
 				resolvedHtml ?? resolve(cwd, htmlPath as string),
 				"utf-8",
 			);
-			const css = cssPath
-				? readFileSync(resolvedCss ?? resolve(cwd, cssPath as string), "utf-8")
-				: undefined;
+			const cssPromise = cssPath
+				? readFile(resolvedCss ?? resolve(cwd, cssPath as string), "utf-8")
+				: Promise.resolve(undefined);
+
+			const [html, css] = await Promise.all([htmlPromise, cssPromise]);
 			return { html, css, diagnostics: [] };
 		},
 	};
