@@ -214,17 +214,25 @@ function diffNode(
 
 	const attributeSlots: Record<string, string> = {};
 	for (const attr of attributeKeys(instances)) {
-		const values = instances.map((n) => n.attributes?.[attr]);
-		if (allEqual(values)) continue;
+		const firstVal = first.attributes?.[attr];
+		let differ = false;
+		for (let i = 1; i < instances.length; i++) {
+			if (instances[i].attributes?.[attr] !== firstVal) {
+				differ = true;
+				break;
+			}
+		}
+		if (!differ) continue;
+
 		const propName = namer.next(toPropName(attr));
 		attributeSlots[attr] = propName;
-		values.forEach((value, i) => {
+		for (let i = 0; i < instances.length; i++) {
 			(perInstance[i] as Record<string, PropValue>)[propName] = {
 				kind: "literal",
-				value: value ?? "",
+				value: instances[i].attributes?.[attr] ?? "",
 				attribute: attr,
 			};
-		});
+		}
 	}
 	if (Object.keys(attributeSlots).length > 0) {
 		template.attributeSlots = attributeSlots;
@@ -254,18 +262,25 @@ function diffNode(
 				continue;
 			}
 			if (child.kind === "text") {
-				const values = instances.map((n) => n.children?.[idx]?.text ?? "");
-				if (allEqual(values)) {
+				const firstText = child.text ?? "";
+				let differ = false;
+				for (let i = 1; i < instances.length; i++) {
+					if ((instances[i].children?.[idx]?.text ?? "") !== firstText) {
+						differ = true;
+						break;
+					}
+				}
+				if (!differ) {
 					children.push(child);
 					continue;
 				}
 				const propName = namer.next(nameHint);
-				values.forEach((value, i) => {
+				for (let i = 0; i < instances.length; i++) {
 					(perInstance[i] as Record<string, PropValue>)[propName] = {
 						kind: "text",
-						value,
+						value: instances[i].children?.[idx]?.text ?? "",
 					};
-				});
+				}
 				children.push({ kind: "slot", propName });
 				continue;
 			}
@@ -332,10 +347,6 @@ function sameChildShape(children: DesignNode[], ref: DesignNode[]): boolean {
 		}
 		return true;
 	});
-}
-
-function allEqual<T>(values: T[]): boolean {
-	return values.every((value) => value === values[0]);
 }
 
 // ---------------------------------------------------------------------------
